@@ -1,8 +1,10 @@
 import { describe, it, expect, afterEach, vi } from "vitest";
-import { render, screen, cleanup } from "@testing-library/react";
+import { render, screen, cleanup, fireEvent } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import type { Skill } from "@devdigest/shared";
 import messages from "../../../../../../messages/en/skills.json";
+
+const deleteMutate = vi.fn();
 
 vi.mock("next/navigation", () => ({
   useParams: () => ({}),
@@ -20,6 +22,7 @@ const SKILLS: Skill[] = [
     body: "# Rule\nBe clear.",
     enabled: true,
     version: 1,
+    agent_count: 0,
     evidence_files: null,
     created_at: "2026-01-01T00:00:00.000Z",
   },
@@ -31,11 +34,15 @@ vi.mock("@/lib/api/skills", () => ({
   useSkill: () => ({ data: undefined, isLoading: false, isError: false, error: undefined, refetch: vi.fn() }),
   useUpdateSkill: () => ({ mutate: vi.fn() }),
   useCreateSkill: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useDeleteSkill: () => ({ mutate: deleteMutate, isPending: false }),
 }));
 
 import { SkillsView } from "./SkillsView";
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  deleteMutate.mockClear();
+});
 
 function renderWithIntl(ui: React.ReactElement) {
   return render(
@@ -50,5 +57,18 @@ describe("SkillsView (smoke)", () => {
     renderWithIntl(<SkillsView />);
     expect(screen.getByText("pr-quality-rubric")).toBeInTheDocument();
     expect(screen.getByText("Select a skill")).toBeInTheDocument();
+  });
+
+  it("Delete asks for confirmation first, then deletes; Cancel does not", () => {
+    renderWithIntl(<SkillsView />);
+    fireEvent.click(screen.getByRole("button", { name: "Delete skill" }));
+    expect(screen.getByRole("dialog")).toHaveTextContent('Delete skill "pr-quality-rubric"?');
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(deleteMutate).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Delete skill" }));
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+    expect(deleteMutate).toHaveBeenCalledWith("sk1", expect.any(Object));
   });
 });

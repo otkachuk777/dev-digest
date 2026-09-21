@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { FormField, TextInput, SelectInput, Textarea, Toggle, Button } from "@devdigest/ui";
 import type { Skill, SkillType, UpdateSkillInput } from "@devdigest/shared";
+import { ConfirmModal } from "@/components/confirm-modal";
 import { useDeleteSkill, useUpdateSkill } from "@/lib/api/skills";
 import { useToast } from "@/lib/toast";
 import { skillTypeOptions } from "../../../../helpers";
@@ -33,6 +34,7 @@ export function ConfigTab({ skill }: { skill: Skill }) {
   const update = useUpdateSkill();
   const del = useDeleteSkill();
   const [draft, setDraft] = React.useState<Draft>(() => toDraft(skill));
+  const [confirmingDelete, setConfirmingDelete] = React.useState(false);
   const patch = <K extends keyof Draft>(key: K, value: Draft[K]) =>
     setDraft((d) => ({ ...d, [key]: value }));
 
@@ -47,7 +49,6 @@ export function ConfigTab({ skill }: { skill: Skill }) {
     );
 
   const remove = () => {
-    if (!window.confirm(t("config.deleteConfirm", { name: skill.name }))) return;
     del.mutate(skill.id, {
       onSuccess: () => {
         toast.success(t("config.deletedToast"));
@@ -58,6 +59,18 @@ export function ConfigTab({ skill }: { skill: Skill }) {
 
   return (
     <div style={s.wrap}>
+      {confirmingDelete && (
+        <ConfirmModal
+          danger
+          title={t("config.deleteTitle")}
+          body={t("config.deleteConfirm", { name: skill.name })}
+          confirmLabel={t("config.deleteConfirmLabel")}
+          cancelLabel={t("config.deleteCancel")}
+          busy={del.isPending}
+          onClose={() => setConfirmingDelete(false)}
+          onConfirm={remove}
+        />
+      )}
       <div style={s.header}>
         <h2 style={s.h2}>{t("config.title")}</h2>
         <label style={s.enabledLabel}>
@@ -87,7 +100,7 @@ export function ConfigTab({ skill }: { skill: Skill }) {
           <div style={s.dangerTitle}>{t("config.dangerTitle")}</div>
           <div style={s.dangerBody}>{t("config.dangerBody")}</div>
         </div>
-        <Button kind="danger" icon="Trash" onClick={remove} disabled={del.isPending}>
+        <Button kind="danger" icon="Trash" onClick={() => setConfirmingDelete(true)} disabled={del.isPending}>
           {t("config.delete")}
         </Button>
       </div>

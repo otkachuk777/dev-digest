@@ -51,11 +51,21 @@
     "dangerBody": "Removes it from all agents. This can't be undone.",
     "delete": "Delete skill",
     "deleteConfirm": "Delete skill \"{name}\"? This cannot be undone.",
-    "deletedToast": "Skill deleted"
+    "deletedToast": "Skill deleted",
+    "deleteTitle": "Delete skill",
+    "deleteCancel": "Cancel",
+    "deleteConfirmLabel": "Delete"
   },
   "versions": {
     "current": "Current",
-    "empty": "No versions yet."
+    "empty": "No versions yet.",
+    "diff": "Diff",
+    "hideDiff": "Hide diff",
+    "restore": "Restore",
+    "restoring": "Restoring…",
+    "restoredToast": "Restored v{from} as v{to}",
+    "noChanges": "Identical to the current version.",
+    "diffTitle": "Changes from v{version} to the current version"
   },
   "create": {
     "title": "Create a skill",
@@ -149,7 +159,10 @@
       "community": "Community",
       "imported_url": "Imported",
       "imported_file": "Imported"
-    }
+    },
+    "version": "v{version}",
+    "agentCount": "{count, plural, =0 {No agents} one {# agent} other {# agents}}",
+    "delete": "Delete skill"
   },
   "preview": {
     "untrustedBadge": "untrusted source",

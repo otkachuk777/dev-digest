@@ -9,7 +9,8 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Button, Dropdown, EmptyState, ErrorState, Skeleton, Icon, Badge } from "@devdigest/ui";
 import { ShellCrumb } from "@/components/app-shell";
-import { useSkill, useSkills, useUpdateSkill } from "@/lib/api/skills";
+import { ConfirmModal } from "@/components/confirm-modal";
+import { useDeleteSkill, useSkill, useSkills, useUpdateSkill } from "@/lib/api/skills";
 import { ApiError } from "@/lib/api/client";
 import { SkillCard } from "../SkillCard";
 import { typeColor } from "../SkillCard/helpers";
@@ -31,10 +32,12 @@ export function SkillsView() {
   const { data: skills, isLoading: listLoading, isError: listError, refetch: refetchList } = useSkills();
   const { data: skill, isLoading, isError, error, refetch } = useSkill(id);
   const update = useUpdateSkill();
+  const del = useDeleteSkill();
 
   const [query, setQuery] = React.useState("");
   const [creating, setCreating] = React.useState(false);
   const [importing, setImporting] = React.useState(false);
+  const [toDelete, setToDelete] = React.useState<{ id: string; name: string } | null>(null);
 
   const tab = VALID_TABS.includes(search.get("tab") ?? "") ? search.get("tab")! : "config";
   const setTab = (tb: string) => {
@@ -61,6 +64,25 @@ export function SkillsView() {
       <ShellCrumb items={crumb} />
       {creating && <CreateSkillModal onClose={() => setCreating(false)} />}
       {importing && <ImportSkillDrawer onClose={() => setImporting(false)} />}
+      {toDelete && (
+        <ConfirmModal
+          danger
+          title={t("config.deleteTitle")}
+          body={t("config.deleteConfirm", { name: toDelete.name })}
+          confirmLabel={t("config.deleteConfirmLabel")}
+          cancelLabel={t("config.deleteCancel")}
+          busy={del.isPending}
+          onClose={() => setToDelete(null)}
+          onConfirm={() =>
+            del.mutate(toDelete.id, {
+              onSuccess: () => {
+                if (toDelete.id === id) router.push("/skills");
+                setToDelete(null);
+              },
+            })
+          }
+        />
+      )}
       <div style={s.container}>
         {/* left: skill list */}
         <div style={s.sidebar}>
@@ -116,6 +138,7 @@ export function SkillsView() {
                 active={sk.id === id}
                 onClick={() => router.push(`/skills/${sk.id}`)}
                 onToggle={(enabled) => update.mutate({ id: sk.id, patch: { enabled } })}
+                onDelete={() => setToDelete({ id: sk.id, name: sk.name })}
               />
             ))}
           </div>
