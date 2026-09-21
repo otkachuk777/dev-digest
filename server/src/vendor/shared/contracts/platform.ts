@@ -74,7 +74,7 @@ export const FEATURE_MODELS: FeatureModelDef[] = [
     label: 'Conventions',
     description: 'Extracts coding conventions from the repo.',
     defaultProvider: 'openrouter',
-    defaultModel: 'nvidia/nemotron-3-ultra-550b-a55b:free',
+    defaultModel: 'deepseek/deepseek-v4-flash',
   },
 ];
 

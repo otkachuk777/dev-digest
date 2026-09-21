@@ -15,7 +15,8 @@ export const CONFIG_PATHS = [
 /** How many top-ranked source files repo-intel is asked for. */
 export const TOP_FILES = 12;
 /** Per-file cap on what is sent to the model (chars). */
-export const MAX_FILE_CHARS = 8000;
+export const MAX_FILE_CHARS = 5000;
 export const MAX_CANDIDATES = 15;
 export const MIN_CONFIDENCE = 0.5;
-export const EXTRACT_TIMEOUT_MS = 90_000;
+/** Whole-call cap — the default model is a free reasoning model and can be slow. */
+export const EXTRACT_TIMEOUT_MS = 120_000;

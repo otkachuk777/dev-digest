@@ -1,3 +1,4 @@
+import type { FastifyBaseLogger } from 'fastify';
 import type { ConventionCandidate, ConventionScan, UpdateConventionInput } from '@devdigest/shared';
 import type { Container } from '../../platform/container.js';
 import { NotFoundError, ValidationError } from '../../platform/errors.js';
@@ -15,7 +16,10 @@ import { ConventionsRepository } from './repository.js';
 export class ConventionsService {
   private repo: ConventionsRepository;
 
-  constructor(private container: Container) {
+  constructor(
+    private container: Container,
+    private log?: FastifyBaseLogger,
+  ) {
     this.repo = new ConventionsRepository(container.db);
   }
 
@@ -58,6 +62,19 @@ export class ConventionsService {
         readFile: (path) => this.container.git.readFile(ref, path).catch(() => null),
       },
       samples,
+    );
+
+    this.log?.info(
+      {
+        repoId,
+        model: choice.model,
+        samples: result.sampleCount,
+        kept: result.candidates.length,
+        dropped: result.dropped,
+        rejections: result.rejections,
+        costUsd: result.costUsd,
+      },
+      'conventions extracted',
     );
 
     await this.repo.replaceForRepo(

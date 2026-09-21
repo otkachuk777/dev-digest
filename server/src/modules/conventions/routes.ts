@@ -16,7 +16,7 @@ import { ConventionsService } from './service.js';
  */
 export default async function conventionsRoutes(appBase: FastifyInstance) {
   const app = appBase.withTypeProvider<ZodTypeProvider>();
-  const service = new ConventionsService(app.container);
+  const service = new ConventionsService(app.container, app.log);
 
   app.get('/repos/:id/conventions', { schema: { params: IdParams } }, async (req) => {
     const { workspaceId } = await getContext(app.container, req);

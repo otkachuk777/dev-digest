@@ -58,4 +58,14 @@ describe('extractConventions', () => {
     expect(user).toContain('   2|   const r = await fetchUser(1);');
     expect(user).not.toContain('gone.ts');
   });
+
+  it('fails fast with a clear error when the model never answers', async () => {
+    const hang = { ...new MockLLMProvider('openai'), completeStructured: () => new Promise<never>(() => {}) };
+    await expect(
+      extractConventions(
+        { llm: hang as never, model: 'm', readFile: async (p) => files[p] ?? null, timeoutMs: 20 },
+        ['src/a.ts'],
+      ),
+    ).rejects.toThrow(/did not answer within/);
+  });
 });
