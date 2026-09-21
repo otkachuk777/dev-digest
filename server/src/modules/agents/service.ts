@@ -10,7 +10,7 @@ import type {
   SkillSource,
   SkillType,
 } from '@devdigest/shared';
-import { AgentsRepository } from './repository.js';
+import { AgentsRepository, type AgentRow } from './repository.js';
 import { ValidationError } from '../../platform/errors.js';
 import { toAgentDto, toAgentVersionDto, type SkillLinkInput } from './helpers.js';
 
@@ -60,12 +60,18 @@ export class AgentsService {
 
   async list(workspaceId: string): Promise<Agent[]> {
     const rows = await this.repo.list(workspaceId);
-    return rows.map(toAgentDto);
+    const counts = await this.repo.skillCounts(workspaceId, rows.map((r) => r.id));
+    return rows.map((r) => toAgentDto(r, counts.get(r.id) ?? 0));
   }
 
   async get(workspaceId: string, id: string): Promise<Agent | undefined> {
     const row = await this.repo.getById(workspaceId, id);
-    return row ? toAgentDto(row) : undefined;
+    return row ? this.withCount(workspaceId, row) : undefined;
+  }
+
+  private async withCount(workspaceId: string, row: AgentRow): Promise<Agent> {
+    const counts = await this.repo.skillCounts(workspaceId, [row.id]);
+    return toAgentDto(row, counts.get(row.id) ?? 0);
   }
 
   /** Delete an agent (and its versions/skill-links, via cascade). */
@@ -108,7 +114,7 @@ export class AgentsService {
       ...(patch.repo_intel !== undefined ? { repoIntel: patch.repo_intel } : {}),
       ...(patch.enabled !== undefined ? { enabled: patch.enabled } : {}),
     });
-    return row ? toAgentDto(row) : undefined;
+    return row ? this.withCount(workspaceId, row) : undefined;
   }
 
   /**

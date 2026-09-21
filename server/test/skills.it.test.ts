@@ -152,6 +152,38 @@ d('skills module', () => {
     await app.close();
   });
 
+  it('reports how many skills each agent has attached (skill_count) on list and get', async () => {
+    const app = await makeApp();
+    const mkSkill = async (n: number) =>
+      (
+        await app.inject({
+          method: 'POST',
+          url: '/skills',
+          payload: { ...createBody, name: `Count skill ${n} ${Date.now()}` },
+        })
+      ).json().id as string;
+    const agentId = (
+      await app.inject({
+        method: 'POST',
+        url: '/agents',
+        payload: { name: `Skill count ${Date.now()}`, provider: 'openai', model: 'gpt-4.1', system_prompt: 'p' },
+      })
+    ).json().id as string;
+    expect((await app.inject({ method: 'GET', url: `/agents/${agentId}` })).json().skill_count).toBe(0);
+
+    // one enabled, one disabled for this agent — both are ATTACHED, both count
+    await app.inject({
+      method: 'POST',
+      url: `/agents/${agentId}/skills`,
+      payload: { skill_ids: [{ id: await mkSkill(1), enabled: true }, { id: await mkSkill(2), enabled: false }] },
+    });
+
+    expect((await app.inject({ method: 'GET', url: `/agents/${agentId}` })).json().skill_count).toBe(2);
+    const listed = (await app.inject({ method: 'GET', url: '/agents' })).json() as { id: string; skill_count: number }[];
+    expect(listed.find((a) => a.id === agentId)?.skill_count).toBe(2);
+    await app.close();
+  });
+
   it('restores an old version as a NEW version, leaving history intact', async () => {
     const app = await makeApp();
     const skillId = (await app.inject({ method: 'POST', url: '/skills', payload: createBody })).json()
