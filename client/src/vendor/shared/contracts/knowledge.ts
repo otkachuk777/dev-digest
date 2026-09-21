@@ -133,6 +133,8 @@ export const Skill = z.object({
   body: z.string(),
   enabled: z.boolean(),
   version: z.number().int(),
+  /** How many agents this skill is attached to (any per-link enabled state). */
+  agent_count: z.number().int().default(0),
   evidence_files: z.array(z.string()).nullish(),
   created_at: z.string(),
 });

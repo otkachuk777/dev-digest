@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
+import { z } from 'zod';
 import { CreateSkillInput, UpdateSkillInput } from '@devdigest/shared';
 import { getContext } from '../_shared/context.js';
 import { IdParams } from '../_shared/schemas.js';
@@ -16,6 +17,7 @@ import { SkillsService } from './service.js';
  *   PUT    /skills/:id            → update (body change bumps version)
  *   DELETE /skills/:id            → delete
  *   GET    /skills/:id/versions   → body-snapshot history (newest first)
+ *   POST   /skills/:id/versions/:version/restore → restore that body as a new version
  */
 export default async function skillsRoutes(appBase: FastifyInstance) {
   const app = appBase.withTypeProvider<ZodTypeProvider>();
@@ -64,4 +66,15 @@ export default async function skillsRoutes(appBase: FastifyInstance) {
     if (!versions) throw new NotFoundError('Skill not found');
     return versions;
   });
+
+  app.post(
+    '/skills/:id/versions/:version/restore',
+    { schema: { params: IdParams.extend({ version: z.coerce.number().int().min(1) }) } },
+    async (req) => {
+      const { workspaceId } = await getContext(app.container, req);
+      const skill = await service.restoreVersion(workspaceId, req.params.id, req.params.version);
+      if (!skill) throw new NotFoundError('Skill version not found');
+      return skill;
+    },
+  );
 }

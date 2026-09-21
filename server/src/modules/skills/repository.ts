@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray } from 'drizzle-orm';
+import { and, asc, count, desc, eq, inArray } from 'drizzle-orm';
 import type { Db } from '../../db/client.js';
 import * as t from '../../db/schema.js';
 import type { SkillSource, SkillType } from '@devdigest/shared';
@@ -51,6 +51,22 @@ export class SkillsRepository {
       .from(t.skills)
       .where(and(eq(t.skills.workspaceId, workspaceId), eq(t.skills.id, id)));
     return row;
+  }
+
+  /**
+   * Attached-agent count per skill, for the given skills. The workspace filter is
+   * on the SKILL side of the join, so a stray link row can never inflate a count
+   * or reveal another workspace's usage.
+   */
+  async agentCounts(workspaceId: string, skillIds: string[]): Promise<Map<string, number>> {
+    if (skillIds.length === 0) return new Map();
+    const rows = await this.db
+      .select({ skillId: t.agentSkills.skillId, n: count() })
+      .from(t.agentSkills)
+      .innerJoin(t.skills, eq(t.skills.id, t.agentSkills.skillId))
+      .where(and(eq(t.skills.workspaceId, workspaceId), inArray(t.agentSkills.skillId, skillIds)))
+      .groupBy(t.agentSkills.skillId);
+    return new Map(rows.map((r) => [r.skillId, Number(r.n)]));
   }
 
   /**
