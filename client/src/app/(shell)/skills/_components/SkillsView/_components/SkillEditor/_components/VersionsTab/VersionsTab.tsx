@@ -17,6 +17,14 @@ export function VersionsTab({ skillId, currentVersion }: { skillId: string; curr
   const restore = useRestoreSkillVersion();
   const [diffOf, setDiffOf] = React.useState<number | null>(null);
 
+  // Diff of the open version against the current one. Memoised: it is an O(n·m) table,
+  // and unrelated re-renders (restore pending, toasts) must not recompute it.
+  const diffLines = React.useMemo(() => {
+    const open = versions?.find((v) => v.version === diffOf);
+    const cur = versions?.find((v) => v.version === currentVersion);
+    return open && cur ? lineDiff(open.body, cur.body) : [];
+  }, [versions, diffOf, currentVersion]);
+
   if (isLoading) {
     return (
       <div style={s.wrap}>
@@ -36,7 +44,6 @@ export function VersionsTab({ skillId, currentVersion }: { skillId: string; curr
       {sorted.map((v) => {
         const isCurrent = v.version === currentVersion;
         const showDiff = diffOf === v.version && current;
-        const lines = showDiff ? lineDiff(v.body, current.body) : [];
         return (
           <React.Fragment key={v.version}>
             <div style={s.row}>
@@ -77,11 +84,11 @@ export function VersionsTab({ skillId, currentVersion }: { skillId: string; curr
             {showDiff && (
               <div style={s.diff} data-testid={`diff-v${v.version}`}>
                 <div style={s.diffTitle}>{t("versions.diffTitle", { version: v.version })}</div>
-                {lines.every((l) => l.type === "same") ? (
+                {diffLines.every((l) => l.type === "same") ? (
                   <div style={s.diffTitle}>{t("versions.noChanges")}</div>
                 ) : (
                   <pre className="mono" style={{ margin: 0, padding: "6px 0" }}>
-                    {lines.map((l, i) => (
+                    {diffLines.map((l, i) => (
                       <code key={i} data-type={l.type} style={s.diffLine(l.type)}>
                         {l.type === "add" ? "+ " : l.type === "del" ? "- " : "  "}
                         {l.text}
