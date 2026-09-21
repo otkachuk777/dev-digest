@@ -120,6 +120,19 @@ d('conventions module', () => {
     await app.close();
   });
 
+  it('keeps a stable order across accepts when confidences tie', async () => {
+    const app = await makeApp([
+      candidate,
+      { ...candidate, rule: 'Second rule', evidence: { ...candidate.evidence, snippet: 'const r = await fetchUser(1);' } },
+    ]);
+    const before = (await app.inject({ method: 'POST', url: `/repos/${repoId}/conventions/extract` })).json().items;
+    expect(before).toHaveLength(2);
+    await app.inject({ method: 'PATCH', url: `/conventions/${before[1].id}`, payload: { accepted: true } });
+    const after = (await app.inject({ method: 'GET', url: `/repos/${repoId}/conventions` })).json().items;
+    expect(after.map((i: { id: string }) => i.id)).toEqual(before.map((i: { id: string }) => i.id));
+    await app.close();
+  });
+
   it("a repo or convention from another workspace reads as absent", async () => {
     const db = pg.handle.db;
     const [otherWs] = await db.insert(t.workspaces).values({ name: 'other' }).returning();

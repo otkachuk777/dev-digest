@@ -1,4 +1,4 @@
-import { and, desc, eq } from 'drizzle-orm';
+import { and, asc, desc, eq } from 'drizzle-orm';
 import type { Db } from '../../db/client.js';
 import * as t from '../../db/schema.js';
 import type { RepoBasics } from './helpers.js';
@@ -33,7 +33,8 @@ export class ConventionsRepository {
       .select()
       .from(t.conventions)
       .where(and(eq(t.conventions.workspaceId, workspaceId), eq(t.conventions.repoId, repoId)))
-      .orderBy(desc(t.conventions.confidence));
+      // id breaks confidence ties, so a card does not jump when it is accepted/edited
+      .orderBy(desc(t.conventions.confidence), asc(t.conventions.id));
   }
 
   async byId(workspaceId: string, id: string): Promise<ConventionRow | undefined> {
