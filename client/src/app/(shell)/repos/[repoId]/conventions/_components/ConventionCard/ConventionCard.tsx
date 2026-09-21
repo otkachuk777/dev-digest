@@ -107,7 +107,7 @@ export function ConventionCard({ item, onToggleAccepted, onReject, onSaveRule }:
         <Button kind="ghost" size="sm" icon="X" full onClick={onReject}>
           {t("card.reject")}
         </Button>
-        <Button kind="ghost" size="sm" icon="Pencil" full onClick={startEdit}>
+        <Button kind="ghost" size="sm" icon="Edit" full onClick={startEdit}>
           {t("card.edit")}
         </Button>
       </div>
