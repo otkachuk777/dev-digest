@@ -26,22 +26,22 @@ Adding a new OPTIONAL field is safe. Say so instead of flagging it.
 Bad — wraps the array; `response.map(...)` in every client now throws:
 
 ```ts
-// before: [{ id, amount }]
-return reply.send(payments);
-// after: { items: [{ id, amount }], page_size: 20 }
-return reply.send({ items: payments, page_size });
+// before: [{ id, total }]
+return reply.send(invoices);
+// after: { data: [{ id, total }], cursor: 'abc' }
+return reply.send({ data: invoices, cursor });
 ```
 
 Good — keep the old shape on the old route and put the new envelope on a versioned
 route (or behind an explicit opt-in param):
 
 ```ts
-app.get('/payments', () => payments);                       // unchanged
-app.get('/v2/payments', () => ({ items: payments, page_size }));
+app.get('/invoices', () => invoices);                        // unchanged
+app.get('/v2/invoices', () => ({ data: invoices, cursor }));
 ```
 
-Bad — `amount: z.number()` becomes `amount: z.string()` "for precision". Good —
-add `amount_decimal: z.string()` next to it and deprecate `amount`.
+Bad — `total: z.number()` becomes `total: z.string()` "for precision". Good —
+add `total_decimal: z.string()` next to it and deprecate `total`.
 
 ## Severity
 

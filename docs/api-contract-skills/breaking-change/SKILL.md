@@ -40,20 +40,20 @@ default page size, with no error:
 // before
 const Query = z.object({ limit: z.coerce.number().default(20) });
 // after
-const Query = z.object({ page_size: z.coerce.number().max(50).default(20) });
+const Query = z.object({ per_page: z.coerce.number().max(50).default(20) });
 ```
 
 Good — accept both while clients migrate, prefer the new name, reject nothing:
 
 ```ts
 const Query = z.object({
-  page_size: z.coerce.number().max(100).optional(),
-  limit: z.coerce.number().max(100).optional(), // deprecated alias of page_size
-}).transform((q) => ({ page_size: q.page_size ?? q.limit ?? 20 }));
+  per_page: z.coerce.number().max(100).optional(),
+  limit: z.coerce.number().max(100).optional(), // deprecated alias of per_page
+}).transform((q) => ({ per_page: q.per_page ?? q.limit ?? 20 }));
 ```
 
-Bad — makes a new field mandatory: `customer_id: z.string().uuid()` on an existing
-`GET /payments`. Good — keep it `.optional()`; enforce it in a new route or a new
+Bad — makes a new field mandatory: `tenant: z.string().uuid()` on an existing
+`GET /invoices`. Good — keep it `.optional()`; enforce it in a new route or a new
 API version.
 
 ## Severity

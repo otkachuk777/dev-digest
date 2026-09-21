@@ -34,8 +34,8 @@ Bad — removes a field and ships it as a patch:
 ```
 ```diff
   // CHANGELOG
-+ ## 2.4.2 — fix payments list
-+ - payments no longer return `amount`
++ ## 2.4.2 — fix invoice list
++ - invoices no longer return `total`
 ```
 
 Good — the same change is a major, or is kept compatible:
@@ -46,7 +46,7 @@ Good — the same change is a major, or is kept compatible:
 ```
 ```diff
 + ## 3.0.0
-+ - BREAKING: payments no longer return `amount`; use `amount_decimal`. Migration: …
++ - BREAKING: invoices no longer return `total`; use `total_decimal`. Migration: …
 ```
 
 ## Severity

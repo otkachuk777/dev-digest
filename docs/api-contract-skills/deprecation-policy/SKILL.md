@@ -25,20 +25,20 @@ Bad — the field is renamed on the spot:
 
 ```ts
 // before
-return { id, amount };
+return { id, total };
 // after
-return { id, amount_cents };
+return { id, total_cents };
 ```
 
 Good — both are returned, the old one is flagged, and the header tells clients:
 
 ```ts
 reply.header('Deprecation', 'true').header('Sunset', 'Wed, 31 Dec 2026 23:59:59 GMT');
-return { id, amount_cents, amount: amount_cents /* deprecated: use amount_cents */ };
+return { id, total_cents, total: total_cents /* deprecated: use total_cents */ };
 ```
 
-Bad — deleting `GET /payments/list` in a minor release. Good — keep it answering
-with `301`/`Link: </payments>; rel="successor-version"` until the sunset date.
+Bad — deleting `GET /invoices/list` in a minor release. Good — keep it answering
+with `301`/`Link: </invoices>; rel="successor-version"` until the sunset date.
 
 ## Severity
 
