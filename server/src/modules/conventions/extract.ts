@@ -77,7 +77,8 @@ export async function extractConventions(
   const files = new Map<string, string>();
   for (const path of [...new Set([...CONFIG_PATHS, ...samplePaths])]) {
     const text = await deps.readFile(path);
-    if (text !== null) files.set(path, text);
+    // An empty file has nothing to learn from (and adapters may return '' for a missing one).
+    if (text?.trim()) files.set(path, text);
   }
 
   const system = await renderPrompt('conventions.system.md', { max: String(MAX_CANDIDATES) });
