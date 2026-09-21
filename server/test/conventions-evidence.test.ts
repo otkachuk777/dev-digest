@@ -28,4 +28,11 @@ describe('verifyEvidence', () => {
     const dup = ['const a = compute(1);', 'x', 'y', 'const a = compute(1);'].join('\n');
     expect(verifyEvidence(dup, { snippet: 'const a = compute(1);', startLine: 4 })?.startLine).toBe(4);
   });
+
+  it('handles CRLF files and returns the snippet without carriage returns', () => {
+    const crlf = ['const a = 1', 'const context = useContext(Ctx)', 'if (!context) {', '  throw new Error("x")', '}'].join('\r\n');
+    const r = verifyEvidence(crlf, { snippet: 'const context = useContext(Ctx)\nif (!context) {', startLine: 2 });
+    expect(r).toEqual({ startLine: 2, endLine: 3, snippet: 'const context = useContext(Ctx)\nif (!context) {' });
+    expect(r?.snippet).not.toContain('\r');
+  });
 });

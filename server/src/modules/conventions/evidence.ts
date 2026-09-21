@@ -19,12 +19,13 @@ export function verifyEvidence(
   claim: { snippet: string; startLine: number },
 ): VerifiedEvidence | null {
   const want = claim.snippet
-    .split('\n')
+    .split(/\r?\n/)
     .map((l) => l.trim())
     .filter(Boolean);
   if (want.join('').length < MIN_SNIPPET_CHARS) return null;
 
-  const lines = fileText.split('\n');
+  // CRLF files (Windows checkouts) must not leak a trailing \r into the stored snippet.
+  const lines = fileText.split(/\r?\n/);
   const norm = lines.map((l) => l.trim());
   const hits: number[] = [];
   for (let i = 0; i + want.length <= norm.length; i++) {
