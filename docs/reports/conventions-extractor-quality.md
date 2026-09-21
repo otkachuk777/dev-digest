@@ -14,8 +14,10 @@ Settings → Models). Input: config files that exist + the top 12 files from
 | Shown in the UI | 12 (11 after one Reject) |
 | Judged genuinely useful (below) | 6 |
 
-Latency 34–57 s per scan for the free-of-retry path; OpenRouter cost ≈ $0.0003 per scan
-(~5k input tokens at DeepSeek V4 Flash prices). Every kept candidate links to the exact lines on
+Latency: 34 s (script), 57 s (API call) and roughly 2 minutes once through the UI — DeepSeek's
+response time varies, so the model call is capped at 120 s. Cost per scan was not measured (the
+scan input is ~12 files × up to 5000 chars; a 4.7k-token review on the same model cost $0.0004).
+Every kept candidate links to the exact lines on
 GitHub, pinned to the scanned commit (`.../blob/<sha>/<path>#L<a>-L<b>`) — the link was opened and
 returns 200.
 
