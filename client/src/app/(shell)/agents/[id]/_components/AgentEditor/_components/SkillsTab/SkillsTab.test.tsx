@@ -118,4 +118,46 @@ describe("SkillsTab", () => {
       { skill_id: "s1", order: 1, enabled: true },
     ]);
   });
+
+  describe("drag & drop", () => {
+    const rowOf = (name: string) => screen.getByText(name).closest("[data-skill-row]") as HTMLElement;
+
+    it("only attached AND enabled skills can be dragged", () => {
+      renderWithIntl();
+      expect(rowOf("pr-rubric")).toHaveAttribute("draggable", "true");
+      expect(rowOf("conv-style")).toHaveAttribute("draggable", "false"); // attached, off for this agent
+      expect(rowOf("sec-check")).toHaveAttribute("draggable", "false"); // not attached
+    });
+
+    it("dropping a dragged skill on another attached row reorders the prompt blocks", () => {
+      renderWithIntl();
+      fireEvent.dragStart(rowOf("pr-rubric"));
+      fireEvent.dragOver(rowOf("conv-style"));
+      fireEvent.drop(rowOf("conv-style"));
+      expect(sentLinks()).toEqual([
+        { skill_id: "s3", order: 0, enabled: false },
+        { skill_id: "s1", order: 1, enabled: true },
+      ]);
+    });
+
+    it("dropping on an unattached row does nothing", () => {
+      renderWithIntl();
+      fireEvent.dragStart(rowOf("pr-rubric"));
+      fireEvent.drop(rowOf("sec-check"));
+      expect(mutateMock).not.toHaveBeenCalled();
+    });
+  });
+
+  it("every skill has an enabled toggle; switching on an unattached one attaches it enabled", () => {
+    renderWithIntl();
+    expect(screen.getAllByRole("switch")).toHaveLength(3);
+    const secToggle = screen.getByText("sec-check").closest("[data-skill-row]")!.querySelector('[role="switch"]')!;
+    expect(secToggle).toHaveAttribute("aria-checked", "false");
+    fireEvent.click(secToggle);
+    expect(sentLinks()).toEqual([
+      { skill_id: "s1", order: 0, enabled: true },
+      { skill_id: "s3", order: 1, enabled: false },
+      { skill_id: "s2", order: 2, enabled: true },
+    ]);
+  });
 });

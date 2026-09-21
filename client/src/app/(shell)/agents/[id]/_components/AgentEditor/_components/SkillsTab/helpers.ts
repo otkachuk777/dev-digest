@@ -65,3 +65,20 @@ export function toAttachedLinks(agentId: string, rows: SkillRow[]): AgentAttache
       skill_enabled: r.skill_enabled,
     }));
 }
+
+/**
+ * Drag & drop: move the attached row `fromId` to where the attached row `toId`
+ * is, shifting the ones between. Only attached rows have a position in the
+ * prompt, so anything else (unknown id, unattached row, dropping on itself)
+ * returns `rows` untouched. Unattached rows stay after the attached ones.
+ */
+export function reorderAttached(rows: SkillRow[], fromId: string, toId: string): SkillRow[] {
+  const attached = rows.filter((r) => r.attached);
+  const from = attached.findIndex((r) => r.skill_id === fromId);
+  const to = attached.findIndex((r) => r.skill_id === toId);
+  if (from < 0 || to < 0 || from === to) return rows;
+  const next = [...attached];
+  const [moved] = next.splice(from, 1);
+  next.splice(to, 0, moved!);
+  return [...next, ...rows.filter((r) => !r.attached)];
+}
