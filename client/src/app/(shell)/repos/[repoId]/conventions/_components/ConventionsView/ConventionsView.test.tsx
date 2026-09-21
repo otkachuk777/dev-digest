@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import type { ConventionCandidate } from "@devdigest/shared";
 import messages from "../../../../../../../../messages/en/conventions.json";
@@ -23,10 +23,11 @@ vi.mock("@/lib/api/conventions", () => ({
   useUpdateConvention: () => ({ mutate: update }),
   useRejectConvention: () => ({ mutate: reject }),
 }));
-vi.mock("../CreateSkillFromConventionsModal", () => ({
-  CreateSkillFromConventionsModal: ({ conventions }: { conventions: ConventionCandidate[] }) => (
-    <div data-testid="skill-modal">{conventions.map((c) => c.rule).join("|")}</div>
-  ),
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
+vi.mock("@/lib/api/skills", () => ({ useCreateSkill: () => ({ mutateAsync: vi.fn(), isPending: false }) }));
+vi.mock("@/lib/api/agents", () => ({
+  useAgents: () => ({ data: [] }),
+  useAttachAgentSkill: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }));
 
 import { ConventionsView } from "./ConventionsView";
@@ -84,8 +85,11 @@ describe("ConventionsView", () => {
     scan = { items: [c("1", true), c("2", false)], sample_count: 12, scanned_at: null };
     setup();
     fireEvent.click(screen.getByRole("button", { name: "Create skill" }));
-    expect(screen.getByTestId("skill-modal")).toHaveTextContent("Rule 1");
-    expect(screen.getByTestId("skill-modal")).not.toHaveTextContent("Rule 2");
+    const dialog = screen.getByRole("dialog");
+    expect(dialog).toHaveTextContent("Merged from 1 accepted convention");
+    const body = within(dialog).getByDisplayValue(/# repo-conventions/) as HTMLTextAreaElement;
+    expect(body.value).toContain("Rule 1");
+    expect(body.value).not.toContain("Rule 2");
   });
 
   it("Accept all / Deselect all bulk-update the candidates that need changing", () => {

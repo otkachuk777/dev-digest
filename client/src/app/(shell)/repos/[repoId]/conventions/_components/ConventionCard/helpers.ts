@@ -8,8 +8,3 @@ export function confidenceColor(confidence: number): string {
 export function confidencePercent(confidence: number): number {
   return Math.round(confidence * 100);
 }
-
-/** `src/api/users.ts:23-31`, or `:23` when the evidence is a single line. */
-export function formatEvidenceRange(path: string, start: number, end: number): string {
-  return end > start ? `${path}:${start}-${end}` : `${path}:${start}`;
-}

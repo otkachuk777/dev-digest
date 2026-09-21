@@ -4,7 +4,8 @@ import React from "react";
 import { useTranslations } from "next-intl";
 import type { ConventionCandidate } from "@devdigest/shared";
 import { Button, Icon, MonoLink, ProgressBar, TextInput } from "@devdigest/ui";
-import { confidenceColor, confidencePercent, formatEvidenceRange } from "./helpers";
+import { formatEvidenceRange } from "../../_lib/evidence";
+import { confidenceColor, confidencePercent } from "./helpers";
 import { s } from "./styles";
 
 export interface ConventionCardProps {

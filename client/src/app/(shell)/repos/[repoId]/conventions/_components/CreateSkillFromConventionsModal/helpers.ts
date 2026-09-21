@@ -1,6 +1,6 @@
 import type { ConventionCandidate } from "@devdigest/shared";
 import { SKILL_NAME, SLUG_WORDS, STOPWORDS } from "./constants";
-import { formatEvidenceRange } from "../ConventionCard/helpers";
+import { formatEvidenceRange } from "../../_lib/evidence";
 
 /** `Always use async/await instead of .then()` → `always-use-async-await-instead`. */
 export function slugifyRule(rule: string): string {
