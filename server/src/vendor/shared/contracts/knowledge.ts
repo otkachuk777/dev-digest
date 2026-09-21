@@ -204,10 +204,14 @@ export const ConventionScan = z.object({
 export type ConventionScan = z.infer<typeof ConventionScan>;
 
 /** Body for `PATCH /conventions/:id` (accept/unaccept and/or edit the rule). */
-export const UpdateConventionInput = z.object({
-  accepted: z.boolean().optional(),
-  rule: z.string().min(1).optional(),
-});
+export const UpdateConventionInput = z
+  .object({
+    accepted: z.boolean().optional(),
+    rule: z.string().min(1).max(2000).optional(),
+  })
+  .refine((v) => v.accepted !== undefined || v.rule !== undefined, {
+    message: 'Provide accepted and/or rule',
+  });
 export type UpdateConventionInput = z.infer<typeof UpdateConventionInput>;
 
 // ---- Agents ----

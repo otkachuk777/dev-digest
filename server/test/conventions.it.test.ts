@@ -133,6 +133,14 @@ d('conventions module', () => {
     await app.close();
   });
 
+  it('rejects an empty PATCH instead of pretending it changed something', async () => {
+    const app = await makeApp();
+    const id = (await app.inject({ method: 'POST', url: `/repos/${repoId}/conventions/extract` })).json()
+      .items[0].id as string;
+    expect((await app.inject({ method: 'PATCH', url: `/conventions/${id}`, payload: {} })).statusCode).toBe(422);
+    await app.close();
+  });
+
   it("a repo or convention from another workspace reads as absent", async () => {
     const db = pg.handle.db;
     const [otherWs] = await db.insert(t.workspaces).values({ name: 'other' }).returning();
