@@ -6,7 +6,7 @@ import * as schema from '../../db/schema.js';
 import type { AgentRow } from '../../db/rows.js';
 import type { ReviewRepository, FindingRow, PullRow, ReviewRow } from './repository.js';
 import { REVIEW_STRATEGY } from './constants.js';
-import { taskLine } from './helpers.js';
+import { skillPromptBlocks, taskLine } from './helpers.js';
 import { loadDiff } from './diff-loader.js';
 
 /** Thrown by a run when the user cancels it mid-flight (between map files). */
@@ -153,6 +153,11 @@ export class ReviewRunExecutor {
 
     runLog.info(`Starting review with agent "${agent.name}" (${agent.provider}/${agent.model})`);
 
+    // Held outside the try so a FAILED run's trace still reports the skills it
+    // assembled. A trace is what you read when a run failed; one that says the
+    // prompt had no skills when it did sends you looking in the wrong place.
+    let skills: string[] = [];
+
     try {
       // Resolve the agent's LLM provider. (container.llm throws if the provider
       // key is missing — caught below and persisted as a failed run.)
@@ -184,6 +189,11 @@ export class ReviewRunExecutor {
 
       const task = taskLine(pull) + rankNote;
 
+      // L5 — the agent's enabled skills, in link order. Independent of
+      // repo-intel: skills are the user's own prompt blocks, not derived
+      // context. No enabled skills → the section is absent from the prompt.
+      skills = await this.buildSkillBlocks(workspaceId, agent.id, runLog);
+
       // ---- Engine: assemble → single-pass → grounding -----------------------
       // The pure review pipeline lives in @devdigest/reviewer-core (shared with
       // the CI runner). The service owns only I/O: repo-intel context resolution
@@ -201,6 +211,8 @@ export class ReviewRunExecutor {
         ...(callersDigest ? { callers: callersDigest } : {}),
         // T3 — repo skeleton, same omit-when-empty contract.
         ...(repoMap ? { repoMap } : {}),
+        // L5 — linked skill bodies, same omit-when-empty contract.
+        ...(skills.length ? { skills } : {}),
         // PR author's description/body — untrusted; assemblePrompt wraps +
         // truncates it. Omitted when the PR has no body.
         ...(pull.body ? { prDescription: pull.body } : {}),
@@ -310,7 +322,7 @@ export class ReviewRunExecutor {
         })
         .catch(() => undefined);
       await this.repo
-        .saveRunTrace(runId, this.traceFromBuffer(runId, pull, agent, '0/0 passed', Date.now() - start))
+        .saveRunTrace(runId, this.traceFromBuffer(runId, pull, agent, '0/0 passed', Date.now() - start, skills))
         .catch(() => undefined);
       this.container.runBus.complete(runId);
       throw err;
@@ -358,6 +370,28 @@ export class ReviewRunExecutor {
     }
     runLog.info(`callers digest: ${rows.length} caller signature(s) attached`);
     return out.join('\n');
+  }
+
+  /**
+   * L5 — skill bodies for this agent's prompt, in link order.
+   *
+   * A skill is attached only when BOTH flags are true: its own `enabled`
+   * (vetted) and the per-agent link's. Imported bodies are delimiter-wrapped
+   * by `skillPromptBlocks` — a downloaded skill is someone else's instructions
+   * sitting inside our prompt. The token line mirrors the repo-map one so the
+   * run trace shows what each slot cost.
+   */
+  private async buildSkillBlocks(
+    workspaceId: string,
+    agentId: string,
+    runLog: RunLogger,
+  ): Promise<string[]> {
+    const links = await this.container.agentsRepo.linkedSkills(workspaceId, agentId);
+    const blocks = skillPromptBlocks(links);
+    if (blocks.length === 0) return [];
+    const tokens = this.container.tokenizer.count(blocks.join('\n\n'));
+    runLog.info(`skills: ${blocks.length} skill(s), ~${tokens} token(s) attached`);
+    return blocks;
   }
 
   /**
@@ -415,6 +449,7 @@ export class ReviewRunExecutor {
     agent: AgentRow,
     grounding: string,
     durationMs = 0,
+    skills: string[] = [],
   ): RunTrace {
     return {
       config: {
@@ -426,7 +461,13 @@ export class ReviewRunExecutor {
         source: 'local',
       },
       stats: { duration_ms: durationMs, tokens_in: 0, tokens_out: 0, cost_usd: null, findings: 0, grounding },
-      prompt_assembly: { system: agent.systemPrompt, skills: null, memory: null, specs: null, user: '' },
+      prompt_assembly: {
+        system: agent.systemPrompt,
+        skills: skills.length > 0 ? skills.join('\n\n') : null,
+        memory: null,
+        specs: null,
+        user: '',
+      },
       tool_calls: [],
       raw_output: '',
       memory_pulled: [],

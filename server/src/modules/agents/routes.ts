@@ -1,11 +1,12 @@
 import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
-import { CiFailOn, Provider, ReviewStrategy } from '@devdigest/shared';
+import { CreateAgentInput, Provider, UpdateAgentInput } from '@devdigest/shared';
 import { getContext } from '../_shared/context.js';
 import { IdParams } from '../_shared/schemas.js';
 import { NotFoundError } from '../../platform/errors.js';
 import { AgentsService } from './service.js';
+import { normalizeSkillIds } from './helpers.js';
 
 /** `/providers/:id` addresses a provider by name, not a uuid. */
 const ProviderParams = z.object({ id: Provider });
@@ -30,36 +31,17 @@ const VersionParams = z.object({
  *   GET    /providers/:id/models    → dynamic model list for a provider (editor)
  */
 
-const CreateAgentBody = z.object({
-  name: z.string().min(1),
-  description: z.string().optional(),
-  provider: Provider,
-  model: z.string().min(1),
-  system_prompt: z.string().min(1),
-  output_schema: z.unknown().optional(),
-  strategy: ReviewStrategy.optional(),
-  ci_fail_on: CiFailOn.optional(),
-  repo_intel: z.boolean().optional(),
-  enabled: z.boolean().optional(),
-});
+/** One entry of the object form of `skill_ids` — a link plus its own enabled flag. */
+const SkillIdEntry = z.object({ id: z.string().uuid(), enabled: z.boolean().default(true) });
 
-const UpdateAgentBody = z.object({
-  name: z.string().min(1).optional(),
-  description: z.string().optional(),
-  provider: Provider.optional(),
-  model: z.string().min(1).optional(),
-  system_prompt: z.string().min(1).optional(),
-  output_schema: z.unknown().optional(),
-  strategy: ReviewStrategy.optional(),
-  ci_fail_on: CiFailOn.optional(),
-  repo_intel: z.boolean().optional(),
-  enabled: z.boolean().optional(),
-});
-
-/** Either set the whole ordered set (`skill_ids`) or link one (`skill_id`). */
+/**
+ * Either set the whole ordered set (`skill_ids`) or link one (`skill_id`).
+ * `skill_ids` accepts a bare uuid array (legacy — every link enabled) or an
+ * array of `{ id, enabled }` to set each link's own enabled flag.
+ */
 const SetSkillsBody = z
   .object({
-    skill_ids: z.array(z.string().uuid()).optional(),
+    skill_ids: z.union([z.array(z.string().uuid()), z.array(SkillIdEntry)]).optional(),
     skill_id: z.string().uuid().optional(),
     order: z.number().int().optional(),
   })
@@ -83,7 +65,7 @@ export default async function agentsRoutes(appBase: FastifyInstance) {
     return agent;
   });
 
-  app.post('/agents', { schema: { body: CreateAgentBody } }, async (req, reply) => {
+  app.post('/agents', { schema: { body: CreateAgentInput } }, async (req, reply) => {
     const { workspaceId, userId } = await getContext(app.container, req);
     const body = req.body;
     const agent = await service.create(
@@ -108,7 +90,7 @@ export default async function agentsRoutes(appBase: FastifyInstance) {
 
   app.put(
     '/agents/:id',
-    { schema: { params: IdParams, body: UpdateAgentBody } },
+    { schema: { params: IdParams, body: UpdateAgentInput } },
     async (req) => {
       const { workspaceId } = await getContext(app.container, req);
       const agent = await service.update(workspaceId, req.params.id, req.body);
@@ -146,7 +128,7 @@ export default async function agentsRoutes(appBase: FastifyInstance) {
     const { workspaceId } = await getContext(app.container, req);
     const agent = await service.get(workspaceId, req.params.id);
     if (!agent) throw new NotFoundError('Agent not found');
-    return service.skillLinks(req.params.id);
+    return service.skillLinks(workspaceId, req.params.id);
   });
 
   app.post(
@@ -157,7 +139,7 @@ export default async function agentsRoutes(appBase: FastifyInstance) {
       const body = req.body;
       const links =
         body.skill_ids !== undefined
-          ? await service.setSkills(workspaceId, req.params.id, body.skill_ids)
+          ? await service.setSkills(workspaceId, req.params.id, normalizeSkillIds(body.skill_ids))
           : await service.linkSkill(workspaceId, req.params.id, body.skill_id!, body.order);
       if (!links) throw new NotFoundError('Agent not found');
       return links;

@@ -1,0 +1,162 @@
+import { and, asc, desc, eq, inArray } from 'drizzle-orm';
+import type { Db } from '../../db/client.js';
+import * as t from '../../db/schema.js';
+import type { SkillSource, SkillType } from '@devdigest/shared';
+import { isBodyChange } from './helpers.js';
+
+/**
+ * Skills data-access. Owns `skills` and `skill_versions`. Workspace-scoped
+ * throughout — `skill_versions` carries no workspace_id of its own, so every
+ * caller reaches it only after `byId`/`update` has confirmed the owning skill
+ * is in-workspace (see service.ts).
+ */
+
+import type { SkillRow, SkillVersionRow } from '../../db/rows.js';
+export type { SkillRow, SkillVersionRow };
+
+export interface InsertSkill {
+  workspaceId: string;
+  name: string;
+  description: string;
+  type: SkillType;
+  source: SkillSource;
+  body: string;
+  enabled?: boolean;
+}
+
+export interface UpdateSkill {
+  name?: string;
+  description?: string;
+  type?: SkillType;
+  body?: string;
+  enabled?: boolean;
+}
+
+export class SkillsRepository {
+  constructor(private db: Db) {}
+
+  /** Ordered by name: without it Postgres returns rows in update order, so
+      saving a skill makes it jump to the end of the sidebar list. */
+  async list(workspaceId: string): Promise<SkillRow[]> {
+    return this.db
+      .select()
+      .from(t.skills)
+      .where(eq(t.skills.workspaceId, workspaceId))
+      .orderBy(asc(t.skills.name));
+  }
+
+  async byId(workspaceId: string, id: string): Promise<SkillRow | undefined> {
+    const [row] = await this.db
+      .select()
+      .from(t.skills)
+      .where(and(eq(t.skills.workspaceId, workspaceId), eq(t.skills.id, id)));
+    return row;
+  }
+
+  /**
+   * Insert a skill AND record version 1 in skill_versions (immutable body
+   * snapshot). One transaction: a skill whose v1 snapshot failed to write would
+   * report version 1 with an empty history forever.
+   */
+  async insert(values: InsertSkill): Promise<SkillRow> {
+    return this.db.transaction(async (tx) => {
+      const [row] = await tx
+        .insert(t.skills)
+        .values({
+          workspaceId: values.workspaceId,
+          name: values.name,
+          description: values.description,
+          type: values.type,
+          source: values.source,
+          body: values.body,
+          enabled: values.enabled ?? true,
+          version: 1,
+        })
+        .returning();
+      await tx
+        .insert(t.skillVersions)
+        .values({ skillId: row!.id, version: 1, body: row!.body })
+        .onConflictDoNothing();
+      return row!;
+    });
+  }
+
+  /**
+   * Update a skill. A body change bumps the version and snapshots the new body
+   * into skill_versions; a metadata-only change (name/description/type/enabled)
+   * does not.
+   */
+  async update(
+    workspaceId: string,
+    id: string,
+    patch: UpdateSkill,
+  ): Promise<SkillRow | undefined> {
+    const existing = await this.byId(workspaceId, id);
+    if (!existing) return undefined;
+
+    const bodyChanged = isBodyChange(existing, patch);
+    const nextVersion = bodyChanged ? existing.version + 1 : existing.version;
+
+    // The version bump and its snapshot commit together: a row claiming
+    // version N with no snapshot of N loses that wording for good, and an eval
+    // replaying that version would score text nobody can see.
+    return this.db.transaction(async (tx) => {
+      const [row] = await tx
+        .update(t.skills)
+        .set({
+          ...(patch.name !== undefined ? { name: patch.name } : {}),
+          ...(patch.description !== undefined ? { description: patch.description } : {}),
+          ...(patch.type !== undefined ? { type: patch.type } : {}),
+          ...(patch.body !== undefined ? { body: patch.body } : {}),
+          ...(patch.enabled !== undefined ? { enabled: patch.enabled } : {}),
+          ...(bodyChanged ? { version: nextVersion } : {}),
+        })
+        .where(and(eq(t.skills.workspaceId, workspaceId), eq(t.skills.id, id)))
+        .returning();
+
+      if (bodyChanged && row) {
+        await tx
+          .insert(t.skillVersions)
+          .values({ skillId: row.id, version: nextVersion, body: row.body })
+          .onConflictDoNothing();
+      }
+      return row;
+    });
+  }
+
+  /**
+   * Which of `ids` actually belong to this workspace. Used before linking a
+   * skill to an agent: the agent's ownership is checked, and the skill's has to
+   * be too, or a caller could attach — and then read the body of — another
+   * workspace's skill.
+   */
+  async idsInWorkspace(workspaceId: string, ids: string[]): Promise<Set<string>> {
+    if (ids.length === 0) return new Set();
+    const rows = await this.db
+      .select({ id: t.skills.id })
+      .from(t.skills)
+      .where(and(eq(t.skills.workspaceId, workspaceId), inArray(t.skills.id, ids)));
+    return new Set(rows.map((r) => r.id));
+  }
+
+  /** Delete a skill (scoped to workspace); skill_versions/agent_skills cascade. */
+  async delete(workspaceId: string, id: string): Promise<boolean> {
+    const rows = await this.db
+      .delete(t.skills)
+      .where(and(eq(t.skills.workspaceId, workspaceId), eq(t.skills.id, id)))
+      .returning({ id: t.skills.id });
+    return rows.length > 0;
+  }
+
+  // ---- skill_versions (immutable body snapshots) --------------------------
+
+  /** All body snapshots for a skill, newest version first. */
+  async listVersions(skillId: string): Promise<SkillVersionRow[]> {
+    return this.db
+      .select()
+      .from(t.skillVersions)
+      .where(eq(t.skillVersions.skillId, skillId))
+      .orderBy(desc(t.skillVersions.version));
+  }
+
+}

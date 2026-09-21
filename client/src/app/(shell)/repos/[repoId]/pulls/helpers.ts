@@ -1,0 +1,61 @@
+import type { FindingRecord, PrMeta, ReviewRecord, Severity } from "@devdigest/shared";
+import { FINDINGS_SEVERITIES } from "./constants";
+import { OPEN_STATUSES } from "./_lib/model";
+
+/** Filter by status + search query (title or PR number), then sort by `updated_at`. */
+export function filterPulls(
+  pulls: PrMeta[],
+  { status, query, sort }: { status: string; query: string; sort: string },
+): PrMeta[] {
+  const q = query.trim().toLowerCase();
+  return pulls
+    .filter((p) => status === "all" || p.status === status)
+    .filter((p) => !q || p.title.toLowerCase().includes(q) || String(p.number).includes(q))
+    .sort((a, b) => {
+      const ta = Date.parse(a.updated_at ?? "") || 0;
+      const tb = Date.parse(b.updated_at ?? "") || 0;
+      return sort === "oldest" ? ta - tb : tb - ta;
+    });
+}
+
+/** Header summary counts: all open PRs, and the subset still needing review. */
+export function countPulls(pulls: PrMeta[]): { openCount: number; needsReviewCount: number } {
+  return {
+    openCount: pulls.filter((p) => OPEN_STATUSES.has(p.status)).length,
+    needsReviewCount: pulls.filter((p) => p.status === "needs_review").length,
+  };
+}
+
+/**
+ * The FINDINGS column's chip list: [severity, count] pairs in
+ * CRITICAL → WARNING → SUGGESTION order, skipping severities absent from
+ * `pr.findings_counts` (server already omits zero-count severities — see
+ * `findingsCountsByPr` — this just orders + narrows the type).
+ */
+export function presentFindingsSeverities(pr: PrMeta): [Severity, number][] {
+  const counts = pr.findings_counts;
+  if (!counts) return [];
+  return FINDINGS_SEVERITIES.filter((sev) => counts[sev] != null).map(
+    (sev) => [sev, counts[sev]!] as [Severity, number],
+  );
+}
+
+/**
+ * Findings from each agent's LATEST review only — the same "latest wins"
+ * rule the server's findings_counts uses, applied client-side to the
+ * already-fetched review list so the hover preview's finding cards always
+ * match the FINDINGS column's pill counts. Reviews must arrive newest-first
+ * (as `/pulls/:id/reviews` returns them); summary-kind reviews are ignored.
+ */
+export function latestFindingsPerAgent(reviews: ReviewRecord[]): FindingRecord[] {
+  const seenGroup = new Set<string>();
+  const out: FindingRecord[] = [];
+  for (const r of reviews) {
+    if (r.kind !== "review") continue;
+    const groupKey = r.agent_id ?? r.id;
+    if (seenGroup.has(groupKey)) continue;
+    seenGroup.add(groupKey);
+    out.push(...r.findings);
+  }
+  return out;
+}

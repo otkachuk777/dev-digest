@@ -1,15 +1,18 @@
 import type { Container } from '../../platform/container.js';
 import type {
   Agent,
-  AgentSkillLink,
+  AgentAttachedSkill,
   AgentVersion,
   CiFailOn,
   ModelInfo,
   Provider,
   ReviewStrategy,
+  SkillSource,
+  SkillType,
 } from '@devdigest/shared';
 import { AgentsRepository } from './repository.js';
-import { toAgentDto, toAgentVersionDto } from './helpers.js';
+import { ValidationError } from '../../platform/errors.js';
+import { toAgentDto, toAgentVersionDto, type SkillLinkInput } from './helpers.js';
 
 /**
  * A2 — agents service. Business logic for the Agents tab + Agent Editor.
@@ -135,25 +138,44 @@ export class AgentsService {
     return row ? toAgentVersionDto(row) : undefined;
   }
 
-  /** Linked skills for an agent as AgentSkillLink[] (ordered). */
-  async skillLinks(agentId: string): Promise<AgentSkillLink[]> {
-    const links = await this.repo.linkedSkills(agentId);
-    return links.map((l) => ({ agent_id: agentId, skill_id: l.skill.id, order: l.order }));
+  /**
+   * Linked skills for an agent as AgentAttachedSkill[] (ordered) — the link
+   * fields plus the skill's own name/description/type/source/enabled, so the
+   * agent editor's Skills tab needs one request.
+   */
+  async skillLinks(workspaceId: string, agentId: string): Promise<AgentAttachedSkill[]> {
+    const links = await this.repo.linkedSkills(workspaceId, agentId);
+    return links.map((l) => ({
+      agent_id: agentId,
+      skill_id: l.skill.id,
+      order: l.order,
+      enabled: l.enabled,
+      name: l.skill.name,
+      description: l.skill.description,
+      type: l.skill.type as SkillType,
+      source: l.skill.source as SkillSource,
+      skill_enabled: l.skill.enabled,
+    }));
   }
 
   /**
-   * Set / reorder the agent's linked skills. If `skillIds` is provided, replaces
-   * the whole set in that order. Returns the resulting ordered links.
+   * Set / reorder the agent's linked skills. If `skills` is provided, replaces
+   * the whole set in that order, persisting each link's own `enabled` flag.
+   * Returns the resulting ordered links.
    */
   async setSkills(
     workspaceId: string,
     agentId: string,
-    skillIds: string[],
-  ): Promise<AgentSkillLink[] | undefined> {
+    skills: SkillLinkInput[],
+  ): Promise<AgentAttachedSkill[] | undefined> {
     const agent = await this.repo.getById(workspaceId, agentId);
     if (!agent) return undefined;
-    await this.repo.setSkills(agentId, skillIds);
-    return this.skillLinks(agentId);
+    await this.assertSkillsInWorkspace(
+      workspaceId,
+      skills.map((s) => s.id),
+    );
+    await this.repo.setSkills(agentId, skills);
+    return this.skillLinks(workspaceId, agentId);
   }
 
   /** Link a single skill (append or set order) — additive to existing links. */
@@ -162,13 +184,30 @@ export class AgentsService {
     agentId: string,
     skillId: string,
     order?: number,
-  ): Promise<AgentSkillLink[] | undefined> {
+  ): Promise<AgentAttachedSkill[] | undefined> {
     const agent = await this.repo.getById(workspaceId, agentId);
     if (!agent) return undefined;
-    const existing = await this.repo.linkedSkills(agentId);
+    await this.assertSkillsInWorkspace(workspaceId, [skillId]);
+    const existing = await this.repo.linkedSkills(workspaceId, agentId);
     const resolvedOrder = order ?? existing.length;
     await this.repo.linkSkill(agentId, skillId, resolvedOrder);
-    return this.skillLinks(agentId);
+    return this.skillLinks(workspaceId, agentId);
+  }
+
+  /**
+   * Every skill id must belong to the caller's workspace. The agent's owner is
+   * checked by `getById`; without this the skill's never was, so a caller could
+   * attach another workspace's skill to their own agent and read its body back
+   * — through the editor tab, and through the next review prompt.
+   *
+   * Rejects instead of dropping: a silently ignored id looks like a UI bug.
+   */
+  private async assertSkillsInWorkspace(workspaceId: string, ids: string[]): Promise<void> {
+    const known = await this.container.skillsRepo.idsInWorkspace(workspaceId, ids);
+    const unknown = ids.filter((id) => !known.has(id));
+    if (unknown.length > 0) {
+      throw new ValidationError(`Unknown skill(s): ${unknown.join(', ')}`);
+    }
   }
 
   /**

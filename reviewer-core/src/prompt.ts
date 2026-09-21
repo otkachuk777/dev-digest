@@ -30,7 +30,12 @@ const INJECTION_GUARD =
 export function wrapUntrusted(label: string, content: string): string {
   // strip any attempt to close our own delimiter
   const safe = content.replaceAll('</untrusted>', '<\\/untrusted>');
-  return `<untrusted source="${label}">\n${safe}\n</untrusted>`;
+  // The label lands INSIDE the opening tag, where nothing else escapes it, and
+  // some labels carry user text (a skill's name). A quote or a newline there
+  // would let that text escape the attribute and read as prompt structure
+  // rather than as the quoted data the guard tells the model to distrust.
+  const tag = label.replace(/[^\w.:/-]+/g, '_').slice(0, 80);
+  return `<untrusted source="${tag}">\n${safe}\n</untrusted>`;
 }
 
 /** Cap the PR description so a huge author body can't blow the token budget. */
@@ -39,7 +44,7 @@ const MAX_PR_DESCRIPTION_CHARS = 4000;
 export interface PromptParts {
   /** Agent's system prompt (trusted). */
   system: string;
-  /** Linked skill bodies (trusted-ish; community skills should be sanitized upstream). */
+  /** Linked skill bodies. Imported ones arrive already delimiter-wrapped by the caller. */
   skills?: string[];
   /** Relevant memory items (trusted, curated). */
   memory?: string[];
