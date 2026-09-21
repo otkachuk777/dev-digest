@@ -1,0 +1,48 @@
+import type { CSSProperties } from "react";
+
+export const s = {
+  body: { padding: "18px 22px 8px" } satisfies CSSProperties,
+  banner: {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    padding: "10px 13px",
+    marginBottom: 18,
+    borderRadius: 8,
+    background: "var(--accent-bg)",
+    border: "1px solid var(--border)",
+    fontSize: 12.5,
+    color: "var(--text-secondary)",
+  } satisfies CSSProperties,
+  bannerIcon: { color: "var(--accent)", flexShrink: 0 } satisfies CSSProperties,
+  repo: { color: "var(--accent-text)" } satisfies CSSProperties,
+  row: { display: "flex", gap: 14 } satisfies CSSProperties,
+  col: { flex: 1, minWidth: 0 } satisfies CSSProperties,
+  toggleRow: { display: "flex", alignItems: "center", height: 40 } satisfies CSSProperties,
+  hint: { fontSize: 12, color: "var(--text-muted)", marginTop: 4 } satisfies CSSProperties,
+  editor: {
+    border: "1px solid var(--border-strong)",
+    borderRadius: 8,
+    background: "var(--bg-surface)",
+    overflow: "hidden",
+  } satisfies CSSProperties,
+  editorHead: {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    padding: "9px 14px",
+    borderBottom: "1px solid var(--border)",
+  } satisfies CSSProperties,
+  fileName: { fontSize: 12.5, fontWeight: 600 } satisfies CSSProperties,
+  tokens: { marginLeft: "auto", fontSize: 11, color: "var(--text-muted)" } satisfies CSSProperties,
+  footer: { display: "flex", alignItems: "center", gap: 10, width: "100%" } satisfies CSSProperties,
+  footerNote: {
+    display: "flex",
+    alignItems: "center",
+    gap: 6,
+    marginRight: "auto",
+    fontSize: 11.5,
+    color: "var(--text-muted)",
+  } satisfies CSSProperties,
+  error: { fontSize: 12.5, color: "var(--crit)", marginBottom: 12 } satisfies CSSProperties,
+} as const;

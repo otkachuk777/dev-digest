@@ -37,7 +37,7 @@
   },
   "modal": {
     "title": "Create skill from conventions",
-    "banner": "Merged from {count, plural, one {# accepted convention} other {# accepted conventions}} in {repo}. Everything below is editable before you save.",
+    "banner": "Merged from <b>{count, plural, one {# accepted convention} other {# accepted conventions}}</b> in <code>{repo}</code>. Everything below is editable before you save.",
     "name": "Name",
     "description": "Description",
     "type": "Type",
