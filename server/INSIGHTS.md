@@ -38,6 +38,24 @@ the SOURCE file with per-branch line ranges and verdict `request_changes` — bu
 the skill owns WHICH checks to run. Any check listed in both makes the skill's effect
 unmeasurable (`src/db/seed-prompts.ts:294`, `src/db/seed-skills.ts`)
 
+### `timeoutMs` on `completeStructured` does not bound the call (2026-09)
+
+The conventions scan hung for minutes on a slow free model. `StructuredRequest.timeoutMs` is not read by `OpenRouterProvider`: the OpenAI client is built once with a per-HTTP-attempt timeout of 90 s and `maxRetries: 2`, and `maxRetries` on the request only counts schema-repair attempts. One overloaded call can therefore hold a request for ~4.5 minutes plus repairs. On top of that, `tsx watch` restarts wait for in-flight requests, so the new process died with `EADDRINUSE` while the old one drained.
+
+**Rule:** bound the whole model call yourself (`Promise.race` with a timer → a 502, as `extractConventions` does) instead of trusting `timeoutMs`; and if the dev server suddenly shows `EADDRINUSE`, look for a hung request in the old process (`src/modules/conventions/extract.ts:99`, `reviewer-core/src/llm/openrouter.ts:54`, commit `c227546`)
+
+### Skill examples that mirror the test fixture make the model report the example (2026-09)
+
+The first API-contract skills used `payments` / `page_size` / `{ items }` in their Bad→Good examples — exactly the seeded PR #484. On the next fixture (#485, which changes none of that) two of two with-skills runs reported a bare-array→object change that is not in the diff. Changing the examples to a neutral domain (`invoices`, `per_page`, `{ data, cursor }`) removed it in the next run (one run — not proof).
+
+**Rule:** write skill examples in a domain that no fixture or real PR of yours uses, then check a run's findings against the diff line by line, not just the verdict (`docs/api-contract-skills/response-schema/SKILL.md`, commit `03b2c03`)
+
+### Free OpenRouter models cannot carry a demo (2026-09)
+
+`nemotron-3-ultra/lightning/super/nano-omni`, `gemma-4-*`, `glm-5.2` and `north-mini-code` (all `:free`) each failed the real 12-file conventions call: "Service temporarily overloaded", `429`, `400`, or no answer in 170 s; the one answer that came back (164 s) had every candidate rejected by the evidence check. `deepseek/deepseek-v4-flash` answered in 34–57 s.
+
+**Rule:** don't default a feature to a `:free` model; probe candidates on the real payload with a script before choosing (`docs/reports/conventions-extractor-quality.md`, `server/src/vendor/shared/contracts/platform.ts` `conventions` entry)
+
 ## Codebase Patterns
 
 ### Reuse the existing severity tally instead of duplicating it (2026-09-18)
@@ -64,6 +82,12 @@ attached — misleading exactly when the trace is what you read. A third builder
 **Rule:** adding a prompt slot means updating every trace builder, and anything the
 failure path needs must be hoisted above the `try` (`src/modules/reviews/run-executor.ts:446`,
 commit `96a60d0`)
+
+### Cross-module imports go through the target module's `index.ts` (2026-09)
+
+`pnpm arch` rule `no-cross-module-internals` failed when `conventions/service.ts` imported `settings/feature-models.ts`. Nothing in the repo imported `feature-models` from another module yet, so there was no precedent. The sanctioned way is a small `index.ts` that re-exports the public functions; separately, `domain-pure` rejects a module's `helpers.ts` importing `db/rows.ts`, so a helper that maps rows declares a structural row type instead.
+
+**Rule:** to use another module's function, add/extend its `index.ts` and import from there; keep `helpers.ts` free of `db/*` imports (`src/modules/settings/index.ts`, `src/modules/conventions/helpers.ts:4`, commit `71ddf64`)
 
 ## Tool & Library Notes
 
