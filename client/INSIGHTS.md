@@ -76,6 +76,12 @@ green Node test to prove stream handling in a browser — a test that only decod
 either way, so assert the byte boundary itself (`.../ImportSkillDrawer/helpers.ts:80`,
 commit `d94ceac`)
 
+### `beforeEach(() => mock.mockResolvedValue(x))` runs the mock as teardown (2026-09)
+
+`mockResolvedValue` returns the mock itself. vitest treats a function returned from `beforeEach` as a cleanup and calls it after every test, so the mock recorded an extra no-argument call. It looked like a component firing its handler twice; only the first test in the file passed cleanly, and the failure moved when tests were reordered.
+
+**Rule:** use braces in hooks that configure mocks — `beforeEach(() => { m.mockResolvedValue(x); })` (`src/app/(shell)/repos/[repoId]/conventions/_components/CreateSkillFromConventionsModal/CreateSkillFromConventionsModal.test.tsx:47`, commit `5ac3a44`)
+
 ## Recurring Errors & Fixes
 
 ### React dev warning: `borderColor` + `borderLeftColor` still "conflict" even without the `border` shorthand (2026-09-18)

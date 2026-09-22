@@ -29,6 +29,7 @@ const SKILL: Skill = {
   body: "# Rule\nBe clear.",
   enabled: true,
   version: 1,
+  agent_count: 0,
   evidence_files: null,
   created_at: "2026-01-01T00:00:00.000Z",
 };

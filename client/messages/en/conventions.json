@@ -5,22 +5,54 @@
     "headingPrefix": "Conventions in ",
     "repoFallback": "repo",
     "subtitle": "Scan the cloned repo to surface house-rules — each backed by evidence you can turn into a Skill.",
+    "subtitleScan": "Detected from {count, plural, one {# sample file} other {# sample files}} · last scan {when}",
     "scanning": "Scanning…",
-    "rescan": "Re-scan",
-    "runExtraction": "Run extraction",
+    "runScan": "Run Scan",
+    "rescan": "ReScan",
     "extractionFailed": "Extraction failed",
     "loadError": "Could not load conventions.",
+    "deselectAll": "Deselect all",
+    "acceptAll": "Accept all",
+    "acceptedCount": "{accepted} of {total} accepted",
+    "createSkill": "Create skill",
     "empty": {
       "title": "No conventions extracted yet",
       "body": "Scan the repo to surface house-rules — naming, error handling, structure — each backed by evidence you can turn into a Skill.",
-      "cta": "Run extraction"
+      "cta": "Run Scan"
     },
     "candidateCount": "{count, plural, one {# candidate} other {# candidates}} · grounded against sampled files"
   },
   "card": {
     "confidence": "Confidence",
     "accepted": "Accepted",
+    "accept": "Accept",
+    "reject": "Reject",
+    "edit": "Edit",
+    "save": "Save",
+    "cancel": "Cancel",
+    "copy": "Copy snippet",
+    "ruleInput": "Convention rule",
     "accepting": "Accepting…",
     "acceptAsSkill": "Accept as Skill"
+  },
+  "modal": {
+    "title": "Create skill from conventions",
+    "banner": "Merged from <b>{count, plural, one {# accepted convention} other {# accepted conventions}}</b> in <code>{repo}</code>. Everything below is editable before you save.",
+    "name": "Name",
+    "description": "Description",
+    "type": "Type",
+    "enabled": "Enabled",
+    "enabledHint": "Whether this block is added to agents' prompts.",
+    "body": "Skill body",
+    "bodyHint": "The only text sent to the model. Merged from the accepted rules + evidence — edit freely.",
+    "tokens": "{count} tokens",
+    "unsaved": "unsaved",
+    "attach": "Attach to agent",
+    "attachHint": "Optional — link the new skill to a review agent right away.",
+    "attachNone": "— none —",
+    "footer": "Saved as v1 · added to Skills Lab",
+    "cancel": "Cancel",
+    "create": "Create skill",
+    "createFailed": "Could not create the skill"
   }
 }

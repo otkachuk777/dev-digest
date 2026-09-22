@@ -332,6 +332,58 @@ export async function seed(db: Db): Promise<{ workspaceId: string; userId: strin
         author: 'marisa.koch',
       },
     },
+    {
+      // #485 → contract changes that read as a tidy-up: status code, error code and default
+      // sort all change under existing callers, and nothing in the PR says so. Unlike #484
+      // there is no renamed field or new required param for a reviewer to trip over.
+      pr: {
+        number: 485,
+        title: 'Tidy up the payments API responses',
+        author: 'marisa.koch',
+        branch: 'chore/payments-api-tidy',
+        base: 'main',
+        headSha: 'd5f9b2c7e8a1',
+        additions: 3,
+        deletions: 3,
+        filesCount: 1,
+        status: 'needs_review',
+        body: 'Small cleanup: POST /payments now answers 201 like the other create routes, the 404 code says which resource is missing, and the list shows newest payments first.',
+      },
+      files: [
+        {
+          path: 'src/api/payments.ts',
+          additions: 3,
+          deletions: 3,
+          patch: [
+            "@@ -28,22 +28,22 @@ app.post('/payments', { schema: { body: CreatePayment } }, async (req, reply) => {",
+            " app.post('/payments', { schema: { body: CreatePayment } }, async (req, reply) => {",
+            '   const payment = await service.create(req.body);',
+            '-  return reply.status(200).send(toPaymentDto(payment));',
+            '+  return reply.status(201).send(toPaymentDto(payment));',
+            ' });',
+            ' ',
+            " app.get('/payments/:id', { schema: { params: IdParams } }, async (req, reply) => {",
+            '   const payment = await repo.byId(req.params.id);',
+            '-  if (!payment) return reply.status(404).send({ error: { code: \'not_found\', message: \'Payment not found\' } });',
+            '+  if (!payment) return reply.status(404).send({ error: { code: \'payment_not_found\', message: \'Payment not found\' } });',
+            '   return toPaymentDto(payment);',
+            ' });',
+            ' ',
+            " app.get('/payments', { schema: { querystring: ListQuery } }, async (req) => {",
+            '   const { limit, status } = req.query;',
+            "-  const rows = await repo.list({ limit, status, order: 'created_at asc' });",
+            "+  const rows = await repo.list({ limit, status, order: 'created_at desc' });",
+            '   return rows.map(toPaymentDto);',
+            ' });',
+          ].join('\n'),
+        },
+      ],
+      commit: {
+        sha: 'd5f9b2c7e8a1',
+        message: 'Tidy up the payments API responses',
+        author: 'marisa.koch',
+      },
+    },
   ];
 
   for (const fx of fixtures) {

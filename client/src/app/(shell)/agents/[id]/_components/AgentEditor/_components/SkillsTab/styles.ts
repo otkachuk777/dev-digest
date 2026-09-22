@@ -15,7 +15,7 @@ export const s = {
 
 /** Row background/opacity depends on attachment; not a static entry above
     because it varies per-row. */
-export function row(active: boolean): CSSProperties {
+export function row(active: boolean, draggable = false): CSSProperties {
   return {
     display: "flex",
     alignItems: "center",
@@ -24,6 +24,7 @@ export function row(active: boolean): CSSProperties {
     borderRadius: 8,
     background: active ? "var(--bg-hover)" : "transparent",
     opacity: active ? 1 : 0.7,
+    cursor: draggable ? "grab" : "default",
   };
 }
 

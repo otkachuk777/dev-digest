@@ -1,6 +1,6 @@
 import type { Container } from '../../platform/container.js';
 import type { Skill, SkillSource, SkillType, SkillVersion } from '@devdigest/shared';
-import { SkillsRepository } from './repository.js';
+import { SkillsRepository, type SkillRow } from './repository.js';
 import { toSkillDto, toSkillVersionDto } from './helpers.js';
 
 /**
@@ -38,12 +38,18 @@ export class SkillsService {
 
   async list(workspaceId: string): Promise<Skill[]> {
     const rows = await this.repo.list(workspaceId);
-    return rows.map(toSkillDto);
+    const counts = await this.repo.agentCounts(workspaceId, rows.map((r) => r.id));
+    return rows.map((r) => toSkillDto(r, counts.get(r.id) ?? 0));
   }
 
   async get(workspaceId: string, id: string): Promise<Skill | undefined> {
     const row = await this.repo.byId(workspaceId, id);
-    return row ? toSkillDto(row) : undefined;
+    return row ? this.withCount(workspaceId, row) : undefined;
+  }
+
+  private async withCount(workspaceId: string, row: SkillRow): Promise<Skill> {
+    const counts = await this.repo.agentCounts(workspaceId, [row.id]);
+    return toSkillDto(row, counts.get(row.id) ?? 0);
   }
 
   async create(workspaceId: string, input: CreateSkillInput): Promise<Skill> {
@@ -65,12 +71,26 @@ export class SkillsService {
     patch: UpdateSkillInput,
   ): Promise<Skill | undefined> {
     const row = await this.repo.update(workspaceId, id, patch);
-    return row ? toSkillDto(row) : undefined;
+    return row ? this.withCount(workspaceId, row) : undefined;
   }
 
   /** Delete a skill (and its versions/agent-links, via cascade). */
   async delete(workspaceId: string, id: string): Promise<boolean> {
     return this.repo.delete(workspaceId, id);
+  }
+
+  /**
+   * Restore an earlier body as a NEW version (history is append-only, so a
+   * restore never rewrites or deletes what was there). Workspace-scoped through
+   * `byId`; undefined when the skill or the version does not exist.
+   */
+  async restoreVersion(workspaceId: string, id: string, version: number): Promise<Skill | undefined> {
+    const skill = await this.repo.byId(workspaceId, id);
+    if (!skill) return undefined;
+    const snapshot = (await this.repo.listVersions(id)).find((v) => v.version === version);
+    if (!snapshot) return undefined;
+    const row = await this.repo.update(workspaceId, id, { body: snapshot.body });
+    return row ? this.withCount(workspaceId, row) : undefined;
   }
 
   /**

@@ -54,6 +54,20 @@ export function useUpdateSkill() {
   });
 }
 
+/** Restore an old body as a NEW version (history stays append-only). */
+export function useRestoreSkillVersion() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, version }: { id: string; version: number }) =>
+      api.post(`/skills/${id}/versions/${version}/restore`, undefined, Skill),
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: skillKeys.all });
+      qc.setQueryData(skillKeys.detail(data.id), data);
+      qc.invalidateQueries({ queryKey: skillKeys.versions(data.id) });
+    },
+  });
+}
+
 export function useDeleteSkill() {
   const qc = useQueryClient();
   return useMutation({

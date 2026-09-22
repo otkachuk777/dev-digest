@@ -4,7 +4,7 @@
 
 import React from "react";
 import { useTranslations } from "next-intl";
-import { Icon, Badge, Toggle } from "@devdigest/ui";
+import { Icon, Badge, IconBtn, Toggle } from "@devdigest/ui";
 import type { Skill } from "@devdigest/shared";
 import { sourceIcon, typeColor } from "./helpers";
 import { s } from "./styles";
@@ -14,11 +14,13 @@ export function SkillCard({
   active,
   onClick,
   onToggle,
+  onDelete,
 }: {
   skill: Skill;
   active?: boolean;
   onClick?: () => void;
   onToggle?: (enabled: boolean) => void;
+  onDelete?: () => void;
 }) {
   const t = useTranslations("skills");
   const color = typeColor(skill.type);
@@ -39,6 +41,11 @@ export function SkillCard({
             <Toggle on={skill.enabled} onChange={onToggle} size={14} />
           </div>
         )}
+        {onDelete && (
+          <div onClick={(e) => e.stopPropagation()}>
+            <IconBtn icon="Trash" label={t("listItem.delete")} size={24} onClick={onDelete} />
+          </div>
+        )}
       </div>
       <div style={s.description}>{skill.description}</div>
       <div style={s.metaRow}>
@@ -48,6 +55,11 @@ export function SkillCard({
         <span style={s.sourceLabel}>
           <SourceIcon size={12} />
           {t(`listItem.source.${skill.source}`)}
+        </span>
+        <Badge mono>{t("listItem.version", { version: skill.version })}</Badge>
+        <span style={s.sourceLabel}>
+          <Icon.Cpu size={12} />
+          {t("listItem.agentCount", { count: skill.agent_count })}
         </span>
         {needsVetting && (
           <span title={t("listItem.vettingTitle")}>

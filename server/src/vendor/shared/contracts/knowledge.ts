@@ -133,6 +133,8 @@ export const Skill = z.object({
   body: z.string(),
   enabled: z.boolean(),
   version: z.number().int(),
+  /** How many agents this skill is attached to (any per-link enabled state). */
+  agent_count: z.number().int().default(0),
   evidence_files: z.array(z.string()).nullish(),
   created_at: z.string(),
 });
@@ -180,13 +182,37 @@ export type CommunitySkill = z.infer<typeof CommunitySkill>;
 // ---- Conventions ----
 export const ConventionCandidate = z.object({
   id: z.string(),
+  category: z.string(),
   rule: z.string(),
   evidence_path: z.string(),
+  evidence_start: z.number().int(),
+  evidence_end: z.number().int(),
   evidence_snippet: z.string(),
+  /** GitHub blob URL pinned to the scanned commit, with a line anchor. */
+  evidence_url: z.string(),
   confidence: z.number().min(0).max(1),
   accepted: z.boolean(),
 });
 export type ConventionCandidate = z.infer<typeof ConventionCandidate>;
+
+/** Result of `GET /repos/:id/conventions` and `POST /repos/:id/conventions/extract`. */
+export const ConventionScan = z.object({
+  items: z.array(ConventionCandidate),
+  sample_count: z.number().int(),
+  scanned_at: z.string().nullable(),
+});
+export type ConventionScan = z.infer<typeof ConventionScan>;
+
+/** Body for `PATCH /conventions/:id` (accept/unaccept and/or edit the rule). */
+export const UpdateConventionInput = z
+  .object({
+    accepted: z.boolean().optional(),
+    rule: z.string().min(1).max(2000).optional(),
+  })
+  .refine((v) => v.accepted !== undefined || v.rule !== undefined, {
+    message: 'Provide accepted and/or rule',
+  });
+export type UpdateConventionInput = z.infer<typeof UpdateConventionInput>;
 
 // ---- Agents ----
 // 'openrouter' routes through the OpenAI-compatible API (OpenAIProvider with a
@@ -225,6 +251,8 @@ export const Agent = z.object({
   // Inject repo-intel context (repo skeleton + callers + rank note) into this
   // agent's review prompt. Default on; gated again by the global flag.
   repo_intel: z.boolean().default(true),
+  /** How many skills are attached to this agent (enabled or not). */
+  skill_count: z.number().int().default(0),
 });
 export type Agent = z.infer<typeof Agent>;
 

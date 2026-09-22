@@ -7,7 +7,7 @@ import React from "react";
 import { useTranslations } from "next-intl";
 import { Badge, Markdown } from "@devdigest/ui";
 import type { Skill } from "@devdigest/shared";
-import { estimateTokens } from "./helpers";
+import { estimateTokens } from "@/lib/tokens";
 import { s } from "./styles";
 
 export function PreviewTab({ skill }: { skill: Skill }) {

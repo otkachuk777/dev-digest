@@ -6,7 +6,7 @@ import { Badge, Checkbox, IconBtn, Skeleton, TextInput, Toggle } from "@devdiges
 import { useSkills } from "@/lib/api/skills";
 import { useAgentSkills, useSetAgentSkills } from "@/lib/api/agents";
 import { SKILL_TYPE_COLOR } from "@/components/skills";
-import { buildRows, toAttachedLinks, type SkillRow } from "./helpers";
+import { buildRows, reorderAttached, toAttachedLinks, type SkillRow } from "./helpers";
 import { orderBtnWrap, row, s, typeChip } from "./styles";
 
 /** Skills tab: attach/detach workspace skills to this agent, toggle each on
@@ -18,6 +18,8 @@ export function SkillsTab({ agentId }: { agentId: string }) {
   const { data: links, isLoading: linksLoading } = useAgentSkills(agentId);
   const setAgentSkills = useSetAgentSkills();
   const [filter, setFilter] = React.useState("");
+  // The row being dragged. A ref, not state: nothing re-renders while dragging.
+  const dragId = React.useRef<string | null>(null);
 
   // No local copy of the list: the mutation writes the next state into the
   // query cache optimistically, so this renders straight from the query and
@@ -43,6 +45,14 @@ export function SkillsTab({ agentId }: { agentId: string }) {
 
   const toggleEnabled = (id: string) => {
     commit(rows.map((r) => (r.skill_id === id ? { ...r, enabled: !r.enabled } : r)));
+  };
+
+  const drop = (toId: string) => {
+    const fromId = dragId.current;
+    dragId.current = null;
+    if (!fromId) return;
+    const next = reorderAttached(rows, fromId, toId);
+    if (next !== rows) commit(next);
   };
 
   const move = (id: string, dir: -1 | 1) => {
@@ -85,7 +95,26 @@ export function SkillsTab({ agentId }: { agentId: string }) {
           const isFirst = posInAttached === 0;
           const isLast = posInAttached === attachedRows.length - 1;
           return (
-            <div key={r.skill_id} style={row(r.attached)}>
+            <div
+              key={r.skill_id}
+              data-skill-row
+              // Only a skill that reaches the prompt has an order worth changing.
+              draggable={r.attached && r.enabled}
+              onDragStart={() => {
+                dragId.current = r.skill_id;
+              }}
+              onDragEnd={() => {
+                dragId.current = null;
+              }}
+              onDragOver={(e) => {
+                if (dragId.current && r.attached) e.preventDefault();
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                if (r.attached) drop(r.skill_id);
+              }}
+              style={row(r.attached, r.attached && r.enabled)}
+            >
               {r.attached ? (
                 <div style={s.order}>
                   <span style={orderBtnWrap(isFirst)}>
@@ -108,11 +137,13 @@ export function SkillsTab({ agentId }: { agentId: string }) {
                   <Badge color="var(--text-muted)">{t("skills.globalDisabled")}</Badge>
                 </span>
               )}
-              {r.attached ? (
-                <Toggle on={r.enabled} onChange={() => toggleEnabled(r.skill_id)} size={16} />
-              ) : (
-                <div style={s.spacer} />
-              )}
+              {/* One switch per skill: on = attached AND enabled for this agent.
+                  Switching an unattached skill on attaches it in one step. */}
+              <Toggle
+                on={r.attached && r.enabled}
+                onChange={() => (r.attached ? toggleEnabled(r.skill_id) : toggleAttach(r.skill_id))}
+                size={16}
+              />
             </div>
           );
         })}

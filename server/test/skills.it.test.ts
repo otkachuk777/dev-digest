@@ -125,6 +125,99 @@ d('skills module', () => {
     await app.close();
   });
 
+  it('reports how many agents each skill is attached to (agent_count)', async () => {
+    const app = await makeApp();
+    const skillId = (await app.inject({ method: 'POST', url: '/skills', payload: createBody })).json()
+      .id as string;
+    expect((await app.inject({ method: 'GET', url: `/skills/${skillId}` })).json().agent_count).toBe(0);
+
+    const mkAgent = async (n: number) =>
+      (
+        await app.inject({
+          method: 'POST',
+          url: '/agents',
+          payload: { name: `Count ${n} ${Date.now()}`, provider: 'openai', model: 'gpt-4.1', system_prompt: 'p' },
+        })
+      ).json().id as string;
+    for (const agentId of [await mkAgent(1), await mkAgent(2)]) {
+      await app.inject({ method: 'POST', url: `/agents/${agentId}/skills`, payload: { skill_id: skillId } });
+    }
+
+    expect((await app.inject({ method: 'GET', url: `/skills/${skillId}` })).json().agent_count).toBe(2);
+    const listed = (await app.inject({ method: 'GET', url: '/skills' })).json() as {
+      id: string;
+      agent_count: number;
+    }[];
+    expect(listed.find((x) => x.id === skillId)?.agent_count).toBe(2);
+    await app.close();
+  });
+
+  it('reports how many skills each agent has attached (skill_count) on list and get', async () => {
+    const app = await makeApp();
+    const mkSkill = async (n: number) =>
+      (
+        await app.inject({
+          method: 'POST',
+          url: '/skills',
+          payload: { ...createBody, name: `Count skill ${n} ${Date.now()}` },
+        })
+      ).json().id as string;
+    const agentId = (
+      await app.inject({
+        method: 'POST',
+        url: '/agents',
+        payload: { name: `Skill count ${Date.now()}`, provider: 'openai', model: 'gpt-4.1', system_prompt: 'p' },
+      })
+    ).json().id as string;
+    expect((await app.inject({ method: 'GET', url: `/agents/${agentId}` })).json().skill_count).toBe(0);
+
+    // one enabled, one disabled for this agent — both are ATTACHED, both count
+    await app.inject({
+      method: 'POST',
+      url: `/agents/${agentId}/skills`,
+      payload: { skill_ids: [{ id: await mkSkill(1), enabled: true }, { id: await mkSkill(2), enabled: false }] },
+    });
+
+    expect((await app.inject({ method: 'GET', url: `/agents/${agentId}` })).json().skill_count).toBe(2);
+    const listed = (await app.inject({ method: 'GET', url: '/agents' })).json() as { id: string; skill_count: number }[];
+    expect(listed.find((a) => a.id === agentId)?.skill_count).toBe(2);
+    await app.close();
+  });
+
+  it('restores an old version as a NEW version, leaving history intact', async () => {
+    const app = await makeApp();
+    const skillId = (await app.inject({ method: 'POST', url: '/skills', payload: createBody })).json()
+      .id as string;
+    await app.inject({ method: 'PUT', url: `/skills/${skillId}`, payload: { body: 'second body' } });
+
+    const restored = await app.inject({ method: 'POST', url: `/skills/${skillId}/versions/1/restore` });
+    expect(restored.statusCode).toBe(200);
+    expect(restored.json()).toMatchObject({ body: createBody.body, version: 3 });
+
+    const versions = (await app.inject({ method: 'GET', url: `/skills/${skillId}/versions` })).json();
+    expect(versions.map((v: { version: number }) => v.version)).toEqual([3, 2, 1]);
+    expect(versions.find((v: { version: number }) => v.version === 2).body).toBe('second body');
+
+    const ghost = await app.inject({ method: 'POST', url: `/skills/${skillId}/versions/99/restore` });
+    expect(ghost.statusCode).toBe(404);
+    await app.close();
+  });
+
+  it("will not restore a version of another workspace's skill", async () => {
+    const { db } = pg.handle;
+    const [otherWs] = await db.insert(t.workspaces).values({ name: 'other-restore' }).returning();
+    const [foreign] = await db
+      .insert(t.skills)
+      .values({ workspaceId: otherWs!.id, name: 'F', description: 'd', type: 'rubric', source: 'manual', body: 'x' })
+      .returning();
+    await db.insert(t.skillVersions).values({ skillId: foreign!.id, version: 1, body: 'x' });
+    const app = await makeApp();
+    expect(
+      (await app.inject({ method: 'POST', url: `/skills/${foreign!.id}/versions/1/restore` })).statusCode,
+    ).toBe(404);
+    await app.close();
+  });
+
   it('deletes a skill', async () => {
     const app = await makeApp();
     const skillId = (

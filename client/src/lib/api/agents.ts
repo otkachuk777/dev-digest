@@ -69,6 +69,19 @@ export function useAgentSkills(agentId: string | null | undefined) {
   });
 }
 
+/** Append ONE skill to an agent's set (enabled, last in order) without rewriting the rest. */
+export function useAttachAgentSkill() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ agentId, skillId }: { agentId: string; skillId: string }) =>
+      api.post(`/agents/${agentId}/skills`, { skill_id: skillId }, AgentAttachedSkill.array()),
+    onSuccess: (_d, { agentId }) => {
+      qc.invalidateQueries({ queryKey: agentKeys.skills(agentId) });
+      qc.invalidateQueries({ queryKey: agentKeys.all });
+    },
+  });
+}
+
 /**
  * Replaces the agent's whole ordered skill set — array position becomes `order`.
  *

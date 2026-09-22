@@ -47,9 +47,14 @@ describe('toSkillDto', () => {
       body: 'Never leave a console.log in a PR.',
       enabled: true,
       version: 3,
+      agent_count: 0,
       evidence_files: null,
       created_at: '2026-09-01T00:00:00.000Z',
     });
+  });
+
+  it('carries the attached-agent count it is given', () => {
+    expect(toSkillDto(row, 4).agent_count).toBe(4);
   });
 
   it('never leaks workspace_id (not part of the public DTO)', () => {
