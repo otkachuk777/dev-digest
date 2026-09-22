@@ -51,7 +51,7 @@ Without answers I would plan: <one concrete goal>, modules: <...>.
 - Do-not-touch: migrations journal (append-only via `pnpm db:generate`), `*/src/vendor/shared/` and `client/src/vendor/ui/` (hand-duplicated — both copies change together), lock files (only via package manager).
 - `pnpm arch` (dependency-cruiser) must stay green; the known-violations baseline only shrinks, never regenerated.
 - Contracts in `vendor/shared/contracts/*.ts`, wire fields snake_case; i18n `messages/en/<namespace>.json`; naming rules from `CLAUDE.md`.
-- Tests: co-located `<Name>.test.ts(x)`; `*.it.test.ts` needs Docker Postgres; e2e only if the change is user-flow-visible — say so explicitly in the Test plan.
+- Tests: client co-located `<Name>.test.ts(x)`; server and reviewer-core in `<module>/test/` (never under `src/`) — follow the neighbouring tests; `*.it.test.ts` needs Docker Postgres; e2e only if the change is user-flow-visible — say so explicitly in the Test plan.
 
 ## Output — Development Plan
 

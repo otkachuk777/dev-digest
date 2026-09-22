@@ -37,7 +37,7 @@ Before the first edit: `Read` `.claude/skills/engineering-insights/SKILL.md` sec
 ## Step 3 — Implement
 
 - Follow the plan's step order. Read the surrounding code first; match its naming, comment density and idioms; reuse existing helpers.
-- Write or update the tests the plan's Test plan lists (co-located `<Name>.test.ts(x)`; `*.it.test.ts` for Postgres).
+- Write or update the tests the plan's Test plan lists (client: co-located `<Name>.test.ts(x)`; server / reviewer-core: `<module>/test/`; `*.it.test.ts` for Postgres).
 - After each step run its "Verify" command; fix failures caused by your change before moving on.
 
 ## Step 4 — Verify (only the modules you changed)
