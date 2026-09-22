@@ -2,7 +2,7 @@
 
 Setup/run → see [README.md](README.md), не дублюй тут.
 
-Pure TS lib (no HTTP/DB), zod + OpenAI SDK. Layout: `src/review` (pipeline), `src/llm`, `src/output`, `src/prompt.ts`, `src/grounding.ts`. Public surface: `src/index.ts`. Consumed by `server` via tsconfig path alias `@devdigest/reviewer-core` (not a published npm package) — there is no standalone "run"; it only executes inside `server`'s process or its own tests. Build: `pnpm build` (typecheck only, no bundle). Test: `pnpm test`. Typecheck: `pnpm typecheck`. Lint: not configured.
+Pure TS lib (no HTTP/DB), zod + OpenAI SDK. Layout: `src/review` (pipeline), `src/llm`, `src/output`, `src/prompt.ts`, `src/grounding.ts`. Public surface: `src/index.ts`. Consumed by `server` via tsconfig path alias `@devdigest/reviewer-core` (not a published npm package) — there is no standalone "run"; it only executes inside `server`'s process or its own tests. Package manager: **npm** (`package-lock.json`) — never pnpm here, it litters a stray `pnpm-lock.yaml` (root `INSIGHTS.md`). Build: `npm run build` (typecheck only, no bundle). Test: `npm test`. Typecheck: `npm run typecheck`. Lint: not configured.
 
 ## Read when
 

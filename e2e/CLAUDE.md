@@ -2,7 +2,7 @@
 
 Setup/run → see [README.md](README.md), не дублюй тут.
 
-Custom runner (`run.ts`, not Playwright/Cypress) driving Vercel agent-browser over CDP — deterministic, no LLM in the loop. Run/Test: `pnpm test` (= `tsx run.ts`, needs a running app — see README). Hermetic run: `pnpm e2e:hermetic` (`../scripts/e2e.sh`, boots its own isolated stack, direct `tsx`, not `pnpm start`/watch). Typecheck: `pnpm typecheck`. Lint: not configured.
+Custom runner (`run.ts`, not Playwright/Cypress) driving Vercel agent-browser over CDP — deterministic, no LLM in the loop. Package manager: **npm** (`package-lock.json`) — never pnpm here (root `INSIGHTS.md`). Run/Test: `npm test` (= `tsx run.ts`, needs a running app — see README). Hermetic run: `npm run e2e:hermetic` (`../scripts/e2e.sh`, boots its own isolated stack, direct `tsx`, not `pnpm start`/watch). Typecheck: `npm run typecheck`. Lint: not configured.
 
 ## Read when
 

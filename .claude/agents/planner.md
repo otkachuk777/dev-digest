@@ -84,13 +84,13 @@ Unmapped skills: <name — why used> | none
 - Files: create `…` / modify `…`
 - Skills: <name> — <rule> (`<skill>/<file>` §…)
 - Change: <what and how, concrete enough to implement without guessing>
-- Verify: `cd <module> && pnpm test -- <file>` → <expected>
+- Verify: `cd <module> && pnpm test -- <file>` (npm in reviewer-core / e2e) → <expected>
 - Done when: <observable condition>
 
 ## Test plan
 - New/changed tests: <…>
-- Commands per module: `pnpm typecheck`, `pnpm test`, `pnpm arch` (server/client)
-- Docker needed: yes/no · e2e (`pnpm e2e:hermetic`): required / not required — <why>
+- Commands per module (package manager from the module's lock file): client/server `pnpm typecheck`, `pnpm test`, `pnpm arch`; reviewer-core `npm run typecheck`, `npm test`
+- Docker needed: yes/no · e2e (`npm run e2e:hermetic`): required / not required — <why>
 
 ## Risks & open questions
 - <risk / INSIGHTS entry that conflicts with the task / decision needed>
