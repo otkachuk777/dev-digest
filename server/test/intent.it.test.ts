@@ -226,6 +226,13 @@ d('PR Intent (Testcontainers pg)', () => {
     const [run] = await pg.handle.db.select().from(t.agentRuns).where(eq(t.agentRuns.id, runId));
     expect(run?.status).toBe('done');
 
+    // `completeAgentRun` (status → done) lands before `saveRunTrace`, so wait
+    // for the trace row itself or the read races the write under load.
+    for (const start = Date.now(); Date.now() - start < 10_000; ) {
+      const [tr] = await pg.handle.db.select().from(t.runTraces).where(eq(t.runTraces.runId, runId));
+      if (tr) break;
+      await new Promise((r) => setTimeout(r, 25));
+    }
     const traceRes = await app.inject({ method: 'GET', url: `/runs/${runId}/trace` });
     const trace = traceRes.json();
     expect(trace.log.some((l: { msg: string }) => l.msg.includes('Intent unavailable'))).toBe(true);

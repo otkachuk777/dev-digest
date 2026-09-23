@@ -260,3 +260,4 @@ sequenceDiagram
 - **Re-derive:** `created_at` оновлюється при upsert; сирі помилки SDK → `ExternalServiceError` (502).
 - **it-тест:** додатково перевіряє відсутність `-`- і контекстних рядків diff у запиті класифікатора.
 - Відоме обмеження: посилання на spec **всередині** тексту issue (другий рівень) не підтягуються; класифікатор чесно пише їх у `missing_context`.
+- **Міграція (після PR-рев'ю):** `0014_busy_lionheart` видалено через `drizzle-kit drop` і замінено двома: `0014_clear_pr_intent_cache` (custom, `DELETE FROM pr_intent` — кеш, перераховується) + `0015_pr_intent_layer` (ADD COLUMN + `CHECK (confidence IN ('high','medium','low'))`). Причина: 16 гілок курсу пишуть у `pr_intent`, тож на їхній БД NOT NULL без DEFAULT падав. Перевірено на легасі-рядку.
