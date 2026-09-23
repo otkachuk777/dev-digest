@@ -56,6 +56,12 @@ The first API-contract skills used `payments` / `page_size` / `{ items }` in the
 
 **Rule:** don't default a feature to a `:free` model; probe candidates on the real payload with a script before choosing (`docs/reports/conventions-extractor-quality.md`, `server/src/vendor/shared/contracts/platform.ts` `conventions` entry)
 
+### `deepseek-v4-flash` is too slow for a pre-review step (2026-09)
+
+The Intent Layer classifier was planned on `deepseek/deepseek-v4-flash` (the entry above calls it the one model that answers). On a real 74-file PR its prompt was only ~2.7k tokens (hunk headers, no bodies), yet it took ~71 s and hit the 60 s timeout twice in a row, so every first review would start a minute late or run without intent. `google/gemini-2.5-flash-lite` answered the same request in ~2 s with comparable intent quality. Unit and it-tests never showed this: they mock the model.
+
+**Rule:** for a call on the review's critical path, time the candidate on a real, large PR through the app (`POST /pulls/:id/intent`) before making it the default; "answers eventually" (conventions scan) is not "fast enough" (`server/src/vendor/shared/contracts/platform.ts` `review_intent`, commit `2cf6fe9`)
+
 ## Codebase Patterns
 
 ### Reuse the existing severity tally instead of duplicating it (2026-09-18)
@@ -88,6 +94,12 @@ commit `96a60d0`)
 `pnpm arch` rule `no-cross-module-internals` failed when `conventions/service.ts` imported `settings/feature-models.ts`. Nothing in the repo imported `feature-models` from another module yet, so there was no precedent. The sanctioned way is a small `index.ts` that re-exports the public functions; separately, `domain-pure` rejects a module's `helpers.ts` importing `db/rows.ts`, so a helper that maps rows declares a structural row type instead.
 
 **Rule:** to use another module's function, add/extend its `index.ts` and import from there; keep `helpers.ts` free of `db/*` imports (`src/modules/settings/index.ts`, `src/modules/conventions/helpers.ts:4`, commit `71ddf64`)
+
+### A new feature model defaulting to `openrouter` makes existing it-tests hit the real API (2026-09)
+
+Once intent derivation ran inside every review, `reviews.it.test.ts` kept passing but spent ~7 s and real money: its `appWith` only overrode `openai`/`anthropic`, so the new `review_intent` call (default provider `openrouter`) used the real key from `~/.devdigest/secrets.json`. Green, but networked. `MockLLMProvider` also only accepted `'openai' | 'anthropic'` as its id, so there was no ready way to mock it.
+
+**Rule:** when a feature's `FEATURE_MODELS` default gets wired into a flow that existing it-tests exercise, add a mock for that provider to every such test's container overrides in the same change, and check test durations for multi-second jumps (`server/test/reviews.it.test.ts:139`, `server/src/adapters/mocks.ts:59`, commit `2cf6fe9`)
 
 ## Tool & Library Notes
 
