@@ -6,8 +6,24 @@ import { z } from 'zod';
  */
 
 // ---- Intent ----
+export const IntentConfidence = z.enum(['high', 'medium', 'low']);
+export type IntentConfidence = z.infer<typeof IntentConfidence>;
+
+export const IntentSourceKind = z.enum(['title', 'description', 'issue', 'plan_file', 'files']);
+export type IntentSourceKind = z.infer<typeof IntentSourceKind>;
+
+export const IntentSourceStatus = z.enum(['used', 'unavailable']);
+export type IntentSourceStatus = z.infer<typeof IntentSourceStatus>;
+
+export const IntentSource = z.object({
+  kind: IntentSourceKind,
+  ref: z.string(),
+  status: IntentSourceStatus,
+});
+export type IntentSource = z.infer<typeof IntentSource>;
+
 export const Intent = z.object({
-  intent: z.string(),
+  summary: z.string(),
   in_scope: z.array(z.string()),
   out_of_scope: z.array(z.string()),
 });

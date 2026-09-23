@@ -15,5 +15,29 @@
     "blame": "blame",
     "noHistory": "No history available for this line.",
     "noCommits": "No commits found for this line."
+  },
+  "intent": {
+    "inScope": "In scope",
+    "outOfScope": "Out of scope",
+    "confidence": {
+      "high": "High confidence",
+      "medium": "Medium confidence",
+      "low": "Low confidence"
+    },
+    "sources": "Sources",
+    "sourceKind": {
+      "title": "title",
+      "description": "description",
+      "issue": "issue",
+      "plan_file": "plan file",
+      "files": "changed files"
+    },
+    "unavailable": "unavailable",
+    "stale": "stale",
+    "rederive": "Re-derive",
+    "derive": "Derive intent",
+    "empty": "No intent derived yet for this PR.",
+    "missingContext": "Missing context",
+    "derivedWith": "Derived with {model} · {sha}"
   }
 }

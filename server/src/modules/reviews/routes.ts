@@ -14,6 +14,8 @@ import { ReviewService } from './service.js';
  *   GET    /runs/:id/trace                             → the single-document RunTrace
  *   GET    /pulls/:id/reviews                          → persisted reviews + findings for a PR
  *   POST   /findings/:id/(accept|dismiss)              → finding actions
+ *   GET    /pulls/:id/intent                           → stored PR Intent, or null
+ *   POST   /pulls/:id/intent                           → re-derive the PR Intent synchronously
  */
 const FINDING_ACTIONS = ['accept', 'dismiss'] as const;
 export default async function reviewsRoutes(appBase: FastifyInstance) {
@@ -147,4 +149,22 @@ export default async function reviewsRoutes(appBase: FastifyInstance) {
       return result;
     });
   }
+
+  // ---- PR Intent ------------------------------------------------------------
+  app.get('/pulls/:id/intent', { schema: { params: IdParams } }, async (req) => {
+    const { workspaceId } = await getContext(container, req);
+    return service.getIntent(workspaceId, req.params.id);
+  });
+
+  // Manual "Re-derive" — same per-minute limit as /review (also an LLM call).
+  // A classifier failure here IS reported to the caller (unlike the auto-derive
+  // path in a review run) — ExternalServiceError → 502 via the global handler.
+  app.post(
+    '/pulls/:id/intent',
+    { schema: { params: IdParams }, config: { rateLimit: { max: 10, timeWindow: '1 minute' } } },
+    async (req) => {
+      const { workspaceId } = await getContext(container, req);
+      return service.rederiveIntent(workspaceId, req.params.id, req.log);
+    },
+  );
 }

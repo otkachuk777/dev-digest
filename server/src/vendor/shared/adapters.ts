@@ -162,6 +162,12 @@ export interface GitHubClient {
   /** The open PR whose head is `branch`, if any (so re-publish reuses it). */
   findOpenPr(repo: RepoRef, branch: string): Promise<{ url: string } | null>;
   getIssue(repo: RepoRef, n: number): Promise<IssueMeta>;
+  /**
+   * Fetch one file's text content from `repo` at `ref` (a commit SHA). Returns
+   * `null` when the path is missing, not a file (e.g. a directory), or the
+   * fetch fails — callers treat that as "unavailable", never as a throw.
+   */
+  getFileContent(repo: RepoRef, path: string, ref: string): Promise<string | null>;
   /** GET /user — for "posting as @user". */
   currentLogin(): Promise<string>;
 }

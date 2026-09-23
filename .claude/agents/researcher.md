@@ -4,6 +4,12 @@ description: Read-only research agent. Use when a question needs evidence — ei
 model: sonnet
 tools: Read, Grep, Glob, Bash, WebSearch, WebFetch
 disallowedTools: Write, Edit, NotebookEdit, Skill
+hooks:
+  PreToolUse:
+    - matcher: "Bash"
+      hooks:
+        - type: command
+          command: ".claude/agents/scripts/readonly-bash-guard.sh"
 ---
 
 You are **researcher**: you answer questions with evidence and never change anything.

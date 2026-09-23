@@ -1,8 +1,8 @@
 import { and, eq } from 'drizzle-orm';
 import type { Db } from '../../../db/client.js';
 import * as t from '../../../db/schema.js';
-import type { Intent } from '@devdigest/shared';
-import type { PullRow } from '../../../db/rows.js';
+import type { IntentConfidence, IntentSource } from '@devdigest/shared';
+import type { PullRow, PrIntentRow } from '../../../db/rows.js';
 
 // ---- PR lookup (workspace-scoped) -----------------------------------------
 
@@ -46,23 +46,36 @@ export async function markReviewed(db: Db, prId: string, sha: string): Promise<v
 
 // ---- intent ---------------------------------------------------------------
 
-export async function upsertIntent(db: Db, prId: string, intent: Intent): Promise<void> {
-  await db
-    .insert(t.prIntent)
-    .values({
-      prId,
-      intent: intent.intent,
-      inScope: intent.in_scope,
-      outOfScope: intent.out_of_scope,
-    })
-    .onConflictDoUpdate({
-      target: t.prIntent.prId,
-      set: { intent: intent.intent, inScope: intent.in_scope, outOfScope: intent.out_of_scope },
-    });
+export interface UpsertIntentInput {
+  summary: string;
+  inScope: string[];
+  outOfScope: string[];
+  headSha: string;
+  model: string;
+  confidence: IntentConfidence;
+  sources: IntentSource[];
+  missingContext: string[];
 }
 
-export async function getIntent(db: Db, prId: string): Promise<Intent | undefined> {
+export async function upsertIntent(db: Db, prId: string, intent: UpsertIntentInput): Promise<void> {
+  const values = {
+    prId,
+    summary: intent.summary,
+    inScope: intent.inScope,
+    outOfScope: intent.outOfScope,
+    headSha: intent.headSha,
+    model: intent.model,
+    confidence: intent.confidence,
+    sources: intent.sources,
+    missingContext: intent.missingContext,
+  };
+  await db
+    .insert(t.prIntent)
+    .values(values)
+    .onConflictDoUpdate({ target: t.prIntent.prId, set: { ...values, createdAt: new Date() } });
+}
+
+export async function getIntent(db: Db, prId: string): Promise<PrIntentRow | undefined> {
   const [row] = await db.select().from(t.prIntent).where(eq(t.prIntent.prId, prId));
-  if (!row) return undefined;
-  return { intent: row.intent, in_scope: row.inScope, out_of_scope: row.outOfScope };
+  return row;
 }

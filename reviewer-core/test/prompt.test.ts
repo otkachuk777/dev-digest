@@ -91,6 +91,48 @@ describe('assemblePrompt — skills slot', () => {
 });
 
 /**
+ * The intent slot: absent by default (prompt/schema stay byte-identical to
+ * the no-intent baseline), and when present adds both the SCOPE_RULE system
+ * addendum and a `## PR intent` user section.
+ */
+describe('assemblePrompt — intent slot', () => {
+  it('is BYTE-IDENTICAL to the no-intent baseline when intent is undefined', () => {
+    const base = assemblePrompt({ system: 'S', diff: 'DIFF', task: 'Review PR #1' });
+    const noIntent = assemblePrompt({
+      system: 'S',
+      diff: 'DIFF',
+      task: 'Review PR #1',
+      intent: undefined,
+    });
+    expect(noIntent).toEqual(base);
+  });
+
+  it('adds SCOPE_RULE to the system message and a PR intent section to the user message', () => {
+    const { messages, assembly } = assemblePrompt({
+      system: 'S',
+      diff: 'DIFF',
+      intent: 'Summary: adds rate limiting\n\nIn scope:\n- api endpoints',
+    });
+    expect(messages[0]!.content).toMatch(/scope rule/i);
+    expect(messages[1]!.content).toContain('## PR intent (derived, unverified)');
+    expect(messages[1]!.content).toContain('<untrusted source="pr-intent">');
+    expect(messages[1]!.content).toContain('adds rate limiting');
+    expect(assembly.intent).toContain('adds rate limiting');
+  });
+
+  it('places the intent section before the diff and after the description', () => {
+    const user = userOf({
+      system: 'S',
+      diff: 'DIFF',
+      prDescription: 'body',
+      intent: 'Summary: x',
+    });
+    expect(user.indexOf('## PR description')).toBeLessThan(user.indexOf('## PR intent'));
+    expect(user.indexOf('## PR intent')).toBeLessThan(user.indexOf('## Diff to review'));
+  });
+});
+
+/**
  * The label lands inside the opening tag, and some labels carry user text (a
  * skill's name). Nothing else escapes it, so it must not be able to close the
  * attribute or the tag.

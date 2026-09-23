@@ -1,13 +1,14 @@
 import type { Container } from '../../platform/container.js';
-import type { Provider, Review, RunTrace, UnifiedDiff } from '@devdigest/shared';
-import { reviewPullRequest, countBlockers } from '@devdigest/reviewer-core';
+import type { PrIntentRecord, Provider, Review, RunTrace, UnifiedDiff } from '@devdigest/shared';
+import { reviewPullRequest, countBlockers, renderIntentBlock } from '@devdigest/reviewer-core';
 import { RunLogger } from '../../platform/run-logger.js';
 import * as schema from '../../db/schema.js';
 import type { AgentRow } from '../../db/rows.js';
 import type { ReviewRepository, FindingRow, PullRow, ReviewRow } from './repository.js';
 import { REVIEW_STRATEGY } from './constants.js';
-import { skillPromptBlocks, taskLine } from './helpers.js';
+import { skillPromptBlocks, taskLine, toIntentRecord } from './helpers.js';
 import { loadDiff } from './diff-loader.js';
+import { deriveIntent } from './intent.js';
 
 /** Thrown by a run when the user cancels it mid-flight (between map files). */
 export class RunCancelledError extends Error {
@@ -105,6 +106,36 @@ export class ReviewRunExecutor {
     }
     runLog.info(`Diff ready — ${diff.files.length} changed file(s); starting ${jobs.length} agent run(s)`);
 
+    // PR Intent — auto-derived once per review batch when none is stored yet;
+    // a stored intent is reused even if stale (the UI surfaces `stale` + a
+    // manual Re-derive). ANY failure here (missing key, GitHub error, model
+    // timeout) is swallowed to `info` — the review always proceeds without it.
+    let intentRecord: PrIntentRecord | undefined;
+    try {
+      const stored = await this.repo.getIntent(pull.id);
+      if (stored) {
+        const stale = stored.headSha !== pull.headSha;
+        runLog.info(
+          `Using stored PR intent (head ${stored.headSha.slice(0, 7)}${
+            stale ? `, stale — PR head is now ${pull.headSha.slice(0, 7)}` : ''
+          })`,
+        );
+        intentRecord = toIntentRecord(stored);
+      } else {
+        intentRecord = await deriveIntent({
+          container: this.container,
+          repo: this.repo,
+          workspaceId,
+          pull,
+          repoRef: { owner: repo.owner, name: repo.name },
+          diff,
+          log: runLog,
+        });
+      }
+    } catch (err) {
+      runLog.info(`Intent unavailable — continuing without it: ${(err as Error).message}`);
+    }
+
     for (const { agent, runId } of jobs) {
       const agentStart = Date.now();
       logger?.info(
@@ -112,7 +143,7 @@ export class ReviewRunExecutor {
         `review: agent "${agent.name}" started (${agent.provider}/${agent.model})`,
       );
       try {
-        const outcome = await this.runOneAgent(workspaceId, pull, repo, diff, agent, runId, runLog);
+        const outcome = await this.runOneAgent(workspaceId, pull, repo, diff, agent, runId, runLog, intentRecord);
         logger?.info(
           {
             runId,
@@ -144,6 +175,7 @@ export class ReviewRunExecutor {
     agent: AgentRow,
     runId: string,
     parentLog: RunLogger,
+    intentRecord?: PrIntentRecord,
   ): Promise<RunOutcome> {
     const start = Date.now();
     // Narrow the fanned-out pre-work logger to THIS run; the shared diff/intent
@@ -157,6 +189,7 @@ export class ReviewRunExecutor {
     // assembled. A trace is what you read when a run failed; one that says the
     // prompt had no skills when it did sends you looking in the wrong place.
     let skills: string[] = [];
+    const intentBlock = intentRecord ? renderIntentBlock(intentRecord) : undefined;
 
     try {
       // Resolve the agent's LLM provider. (container.llm throws if the provider
@@ -216,6 +249,7 @@ export class ReviewRunExecutor {
         // PR author's description/body — untrusted; assemblePrompt wraps +
         // truncates it. Omitted when the PR has no body.
         ...(pull.body ? { prDescription: pull.body } : {}),
+        ...(intentBlock ? { intent: intentBlock } : {}),
         task,
         sessionId: `${repo.owner}/${repo.name}#${pull.number}:${agent.name}`,
         onEvent: (e) => runLog.event(e.kind, e.msg, e.data),
@@ -322,7 +356,10 @@ export class ReviewRunExecutor {
         })
         .catch(() => undefined);
       await this.repo
-        .saveRunTrace(runId, this.traceFromBuffer(runId, pull, agent, '0/0 passed', Date.now() - start, skills))
+        .saveRunTrace(
+          runId,
+          this.traceFromBuffer(runId, pull, agent, '0/0 passed', Date.now() - start, skills, intentBlock),
+        )
         .catch(() => undefined);
       this.container.runBus.complete(runId);
       throw err;
@@ -450,6 +487,7 @@ export class ReviewRunExecutor {
     grounding: string,
     durationMs = 0,
     skills: string[] = [],
+    intent?: string,
   ): RunTrace {
     return {
       config: {
@@ -466,6 +504,7 @@ export class ReviewRunExecutor {
         skills: skills.length > 0 ? skills.join('\n\n') : null,
         memory: null,
         specs: null,
+        intent: intent ?? null,
         user: '',
       },
       tool_calls: [],

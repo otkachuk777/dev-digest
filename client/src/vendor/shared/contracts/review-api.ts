@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { Finding, Verdict } from './findings.js';
-import { Intent, SmartDiff } from './brief.js';
+import { Intent, IntentConfidence, IntentSource, SmartDiff } from './brief.js';
 
 /**
  * A2 — Review-Core API surface contracts. These extend the core
@@ -68,7 +68,15 @@ export const ActiveRun = z.object({
 export type ActiveRun = z.infer<typeof ActiveRun>;
 
 /** Intent persisted for a PR (the Intent plus the pr_id it scopes). */
-export const PrIntentRecord = Intent.extend({ pr_id: z.string() });
+export const PrIntentRecord = Intent.extend({
+  pr_id: z.string(),
+  head_sha: z.string(),
+  model: z.string(),
+  confidence: IntentConfidence,
+  sources: z.array(IntentSource),
+  missing_context: z.array(z.string()),
+  created_at: z.string(),
+});
 export type PrIntentRecord = z.infer<typeof PrIntentRecord>;
 
 /** Smart-diff response for a PR (the SmartDiff). */

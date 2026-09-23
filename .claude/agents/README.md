@@ -42,16 +42,16 @@ task ──► researcher (optional, facts) ──► planner ──► Developm
 
 | Agent | Allowed tools | Denied | Enforcement |
 |-------|---------------|--------|-------------|
-| researcher | Read, Grep, Glob, Bash, WebSearch, WebFetch | Write, Edit, NotebookEdit, Skill | Bash read-only by prompt; `Skill` denied → no `/deep-research` |
-| planner | Read, Grep, Glob, Bash | Write, Edit, NotebookEdit, Agent, WebSearch, WebFetch | `permissionMode: plan`; Bash read-only by prompt |
+| researcher | Read, Grep, Glob, Bash, WebSearch, WebFetch | Write, Edit, NotebookEdit, Skill | **Hook** `readonly-bash-guard.sh`; `Skill` denied → no `/deep-research` |
+| planner | Read, Grep, Glob, Bash | Write, Edit, NotebookEdit, Agent, WebSearch, WebFetch | `permissionMode: plan`; **Hook** `readonly-bash-guard.sh` |
 | implementer | Read, Grep, Glob, Edit, Write, Bash, Skill | Agent, NotebookEdit, WebSearch, WebFetch | No git writes, no do-not-touch files, never regenerates the dependency-cruiser baseline (by prompt) |
 | test-writer | Read, Grep, Glob, Edit, Write, Bash, Skill | Agent, NotebookEdit, WebSearch, WebFetch | **Hook** `path-guard.sh tests`: Edit/Write only on test files; production code only via `mutation-probe.sh` |
-| architecture-reviewer | Read, Grep, Glob, Bash | Write, Edit, NotebookEdit, Agent, Skill, WebSearch, WebFetch | Bash limited to reads + `pnpm arch` (by prompt); no `permissionMode: plan` because it must run checks |
-| plan-verifier | Read, Grep, Glob, Bash | Write, Edit, NotebookEdit, Agent, Skill, WebSearch, WebFetch | Bash limited to reads + the plan's Verify commands (by prompt) |
+| architecture-reviewer | Read, Grep, Glob, Bash | Write, Edit, NotebookEdit, Agent, Skill, WebSearch, WebFetch | **Hook** `readonly-bash-guard.sh`; no `permissionMode: plan` because it must run checks |
+| plan-verifier | Read, Grep, Glob, Bash | Write, Edit, NotebookEdit, Agent, Skill, WebSearch, WebFetch | **Hook** `readonly-bash-guard.sh` (also allows the plan's own Verify commands) |
 | doc-writer | Read, Grep, Glob, Edit, Write, Bash, Skill | Agent, NotebookEdit, WebSearch, WebFetch | **Hook** `path-guard.sh docs`: Edit/Write only in `docs/`, `<module>/docs/`, READMEs; never plans, prompts, specs, `CLAUDE.md`, `INSIGHTS.md` |
 
 - "By prompt" = instruction, not a technical block. Hooks are declared in the agent's frontmatter and run only while that agent is active.
-- Hooks cover Edit/Write only — a Bash command can still write files; that part stays a prompt rule. Session-wide `permissions.deny` would also block the main session and implementer, so it is not used.
+- Hooks cover Edit/Write (`path-guard.sh`) and now Bash (`readonly-bash-guard.sh`, pattern-matched — not a sandbox) for the read-only agents; session-wide `permissions.deny` would also block the main session and implementer, so it is not used.
 
 ### Scripts ([scripts/](scripts/))
 
@@ -59,6 +59,8 @@ task ──► researcher (optional, facts) ──► planner ──► Developm
 |--------|---------|--------------|
 | `path-guard.sh <tests\|docs>` | test-writer, doc-writer (PreToolUse hook) | Denies Edit/Write outside the profile's paths; also denies paths outside the repo and `..` segments |
 | `path-guard.test.sh` | maintainers | Self-check: allowed paths pass, protected paths are denied |
+| `readonly-bash-guard.sh` | researcher, planner, architecture-reviewer, plan-verifier (PreToolUse hook, matcher `Bash`) | Denies write-shaped Bash commands (redirection to a file, `rm`/`mv`/`cp`/`touch`/`mkdir`/`chmod`, `sed -i`, mutating `git` subcommands, `npm/pnpm install`, `db:migrate`/`db:generate`); still allows `grep`, `cat`, `git diff/log/show/status`, `pnpm typecheck/test/arch`, `npm test`/`run typecheck`, `diff -r`, `ls`, `find` without `-delete`/`-exec rm` |
+| `readonly-bash-guard.test.sh` | maintainers | Self-check: read-only commands pass, write-shaped commands are denied |
 | `mutation-probe.sh <file> <line> <replacement> -- <cmd>` | test-writer | Mutates one line of a committed file, expects red, restores from git, verifies the hash, expects green. Refuses files with uncommitted changes |
 
 ## Inputs and outputs

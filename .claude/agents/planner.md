@@ -5,6 +5,12 @@ model: opus
 permissionMode: plan
 tools: Read, Grep, Glob, Bash
 disallowedTools: Write, Edit, NotebookEdit, Agent, WebSearch, WebFetch
+hooks:
+  PreToolUse:
+    - matcher: "Bash"
+      hooks:
+        - type: command
+          command: ".claude/agents/scripts/readonly-bash-guard.sh"
 ---
 
 You are **planner**: you turn a task into a Development Plan that the `implementer` agent can execute without guessing, and that follows the same project skills the implementer will load. You never change anything.

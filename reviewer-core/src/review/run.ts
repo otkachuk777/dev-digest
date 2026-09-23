@@ -9,6 +9,7 @@ import type {
 import { Review as ReviewSchema } from '@devdigest/shared';
 import { assemblePrompt } from '../prompt.js';
 import { groundFindings, groundingSummary } from '../grounding.js';
+import { applyScopeFilter, ScopedReview } from '../intent.js';
 import { reduceReviews, scoreFromFindings, sliceDiff } from './reduce.js';
 
 /**
@@ -71,6 +72,14 @@ export interface ReviewInput {
   /** PR author's description/body (untrusted; truncated + delimiter-wrapped in
       the prompt). Empty/undefined → section omitted. */
   prDescription?: string;
+  /**
+   * Rendered PR intent block (`renderIntentBlock`). When present, the prompt
+   * gains a `## PR intent` section + `SCOPE_RULE`, and the LLM call validates
+   * against `ScopedReview` (findings tagged `in_scope`) instead of `Review` —
+   * `applyScopeFilter` then runs after grounding. Absent → prompt, schema and
+   * behavior are BYTE-IDENTICAL to before this feature.
+   */
+  intent?: string;
   /** Task framing line, e.g. "Review PR #482 …". */
   task?: string;
   /** Override the structured-output retry budget. */
@@ -110,6 +119,8 @@ export interface ReviewOutcome {
   costUsd: number | null;
   /** Joined raw model outputs (for the run trace). */
   raw: string;
+  /** Findings the scope filter dropped (out-of-scope, not kept as the signal). Empty when no intent. */
+  scopeDropped: Finding[];
 }
 
 function selectMode(strategy: ReviewStrategy, diff: UnifiedDiff, threshold: number): ReviewMode {
@@ -135,8 +146,10 @@ export async function reviewPullRequest(input: ReviewInput): Promise<ReviewOutco
     callers: input.callers,
     repoMap: input.repoMap,
     prDescription: input.prDescription,
+    intent: input.intent,
     task: input.task,
   };
+  const reviewSchema = input.intent ? ScopedReview : ReviewSchema;
 
   // Whole-diff assembly is the trace default; overwritten below for single-pass.
   let assembly: PromptAssembly = assemblePrompt({ ...promptParts, diff: input.diff.raw }).assembly;
@@ -173,7 +186,7 @@ export async function reviewPullRequest(input: ReviewInput): Promise<ReviewOutco
     if (mode === 'single-pass') assembly = a.assembly;
     const res = await input.llm.completeStructured<Review>({
       model: input.model,
-      schema: ReviewSchema,
+      schema: reviewSchema,
       schemaName: 'Review',
       messages: a.messages,
       maxRetries,
@@ -201,11 +214,28 @@ export async function reviewPullRequest(input: ReviewInput): Promise<ReviewOutco
   }
   emit('result', `Citation grounding: ${grounding}`);
 
-  // Score is derived from the findings that SURVIVED grounding (not the model's
-  // self-reported number, and not the pre-grounding set) so the score, the
-  // findings list, and the deterministic event always agree.
+  // Scope filter — only when an intent was supplied. Without one the schema has
+  // no `in_scope` tag, so we skip it entirely (no extra event, identical run).
+  const scopeResult = input.intent
+    ? applyScopeFilter(ground.kept)
+    : { kept: ground.kept, dropped: [], signal: null };
+  if (input.intent) {
+    for (const d of scopeResult.dropped) {
+      emit('info', `scope filter dropped "${d.title}" (out of scope)`);
+    }
+    emit(
+      'result',
+      scopeResult.signal
+        ? `Scope filter: dropped ${scopeResult.dropped.length} out-of-scope finding(s); kept 1 critical as signal: "${scopeResult.signal.title}"`
+        : `Scope filter: dropped ${scopeResult.dropped.length} out-of-scope finding(s); no signal kept`,
+    );
+  }
+
+  // Score is derived from the findings that SURVIVED grounding + scope (not the
+  // model's self-reported number, and not the pre-grounding set) so the score,
+  // the findings list, and the deterministic event always agree.
   return {
-    review: { ...merged, findings: ground.kept, score: scoreFromFindings(ground.kept) },
+    review: { ...merged, findings: scopeResult.kept, score: scoreFromFindings(scopeResult.kept) },
     grounding,
     dropped: ground.dropped,
     mode,
@@ -215,5 +245,6 @@ export async function reviewPullRequest(input: ReviewInput): Promise<ReviewOutco
     tokensOut,
     costUsd,
     raw: raws.join('\n---\n'),
+    scopeDropped: scopeResult.dropped,
   };
 }

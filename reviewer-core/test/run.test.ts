@@ -67,6 +67,8 @@ describe('reviewPullRequest (engine)', () => {
     expect(outcome.review.score).toBe(65);
     // progress is surfaced (server bridges this onto SSE; runner logs it)
     expect(events.some((m) => m.includes('Citation grounding'))).toBe(true);
+  // No intent → the scope filter does not run and emits nothing.
+  expect(events.some((m) => m.includes('Scope filter'))).toBe(false);
   });
 
   it('score is deterministic from findings: a clean approve scores 100', async () => {
@@ -134,5 +136,79 @@ describe('reviewPullRequest (engine)', () => {
     await reviewPullRequest({ systemPrompt: 's', model: 'm', diff, llm: recorder, sessionId: 'sess-abc' });
     expect(seen.length).toBeGreaterThan(0);
     expect(seen.every((s) => s === 'sess-abc')).toBe(true);
+  });
+
+  it('with intent: scope-filters findings — WARNING out-of-scope dropped, CRITICAL kept as signal', async () => {
+    const scoped = {
+      verdict: 'request_changes',
+      summary: 'mixed scope findings',
+      score: 40,
+      findings: [
+        {
+          id: 'in-scope-critical',
+          severity: 'CRITICAL',
+          category: 'security',
+          title: 'Hardcoded Stripe secret key',
+          file: 'src/config.ts',
+          start_line: 11,
+          end_line: 11,
+          rationale: 'sk_live in diff',
+          confidence: 0.98,
+          kind: 'finding',
+          in_scope: true,
+        },
+        {
+          id: 'out-of-scope-warning',
+          severity: 'WARNING',
+          category: 'style',
+          title: 'Pre-existing style nit',
+          file: 'src/config.ts',
+          start_line: 11,
+          end_line: 11,
+          rationale: 'unrelated to this PR',
+          confidence: 0.5,
+          kind: 'finding',
+          in_scope: false,
+        },
+        {
+          id: 'out-of-scope-critical',
+          severity: 'CRITICAL',
+          category: 'security',
+          title: 'Pre-existing SQL injection',
+          file: 'src/config.ts',
+          start_line: 11,
+          end_line: 11,
+          rationale: 'unrelated to this PR',
+          confidence: 0.7,
+          kind: 'finding',
+          in_scope: false,
+        },
+      ],
+    };
+    const llm = new MockLLMProvider('openai', { structured: scoped });
+    const diff = await new MockGitClient().diff();
+    const events: string[] = [];
+
+    const outcome = await reviewPullRequest({
+      systemPrompt: 'security reviewer',
+      model: 'gpt-4.1',
+      diff,
+      llm,
+      intent: 'Summary: adds config\n\nIn scope:\n- config.ts',
+      onEvent: (e) => events.push(e.msg),
+    });
+
+    const ids = outcome.review.findings.map((f) => f.id);
+    expect(ids).toContain('in-scope-critical');
+    expect(ids).not.toContain('out-of-scope-warning');
+    // the out-of-scope CRITICAL survives, renamed, as the signal
+    expect(ids).toContain('out-of-scope-critical');
+    const signalFinding = outcome.review.findings.find((f) => f.id === 'out-of-scope-critical');
+    expect(signalFinding?.title).toBe('(out of scope) Pre-existing SQL injection');
+    expect(outcome.scopeDropped.map((f) => f.id)).toEqual(['out-of-scope-warning']);
+    expect(events.some((m) => m.includes('scope filter dropped "Pre-existing style nit"'))).toBe(
+      true,
+    );
+    expect(events.some((m) => m.includes('kept 1 critical as signal'))).toBe(true);
   });
 });

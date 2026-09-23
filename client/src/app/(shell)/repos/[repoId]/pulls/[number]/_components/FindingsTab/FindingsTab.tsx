@@ -55,6 +55,9 @@ export function FindingsTab({
     if (prId) {
       qc.invalidateQueries({ queryKey: reviewKeys.activeRuns(prId) });
       qc.invalidateQueries({ queryKey: reviewKeys.runs(prId) });
+      // A run may have auto-derived an intent (none was stored yet) — refresh
+      // the Overview intent card so it doesn't keep showing the empty state.
+      qc.invalidateQueries({ queryKey: reviewKeys.intent(prId) });
     }
     refetchReviews();
   }, [prId, qc, refetchReviews]);

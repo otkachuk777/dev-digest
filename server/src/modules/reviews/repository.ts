@@ -1,6 +1,6 @@
 import type { Db } from '../../db/client.js';
 import * as t from '../../db/schema.js';
-import type { Finding, Intent, RunSummary, RunTrace } from '@devdigest/shared';
+import type { Finding, RunSummary, RunTrace } from '@devdigest/shared';
 
 /**
  * A2 — review data-access. The ONLY layer touching the DB for the review
@@ -13,8 +13,8 @@ import type { Finding, Intent, RunSummary, RunTrace } from '@devdigest/shared';
  * composes them so its public API stays identical.
  */
 
-import type { FindingRow, PullRow } from '../../db/rows.js';
-export type { FindingRow, PullRow };
+import type { FindingRow, PullRow, PrIntentRow } from '../../db/rows.js';
+export type { FindingRow, PullRow, PrIntentRow };
 
 export type ReviewRow = typeof t.reviews.$inferSelect;
 
@@ -127,11 +127,11 @@ export class ReviewRepository {
 
   // ---- intent -------------------------------------------------------------
 
-  upsertIntent(prId: string, intent: Intent): Promise<void> {
+  upsertIntent(prId: string, intent: pullRepo.UpsertIntentInput): Promise<void> {
     return pullRepo.upsertIntent(this.db, prId, intent);
   }
 
-  getIntent(prId: string): Promise<Intent | undefined> {
+  getIntent(prId: string): Promise<PrIntentRow | undefined> {
     return pullRepo.getIntent(this.db, prId);
   }
 
