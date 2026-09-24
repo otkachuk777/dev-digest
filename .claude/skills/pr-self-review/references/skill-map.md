@@ -17,6 +17,18 @@ Globs are relative to repo root. A file can match several rows; a skill with no 
 
 Deliberately unmapped: `mermaid-diagram`, `engineering-insights` (not review skills), `typescript-expert` (too generic, noisy).
 
+## Review groups (one agent per group, not per skill)
+
+Every agent reloads ~70k tokens of base context before reading a single line, so the cost is set by the agent count, not by the work. Skills are therefore reviewed in three groups; each group agent reads all its skills and returns findings tagged with the `skill` that produced them.
+
+| Group | Skills (only those the file list actually triggers) | Model |
+|---|---|---|
+| `client` | `frontend-ui-architecture`, `react-best-practices`, `next-best-practices`, `react-testing-library` | sonnet |
+| `server` | `onion-architecture`, `fastify-best-practices`, `security` | sonnet |
+| `data` | `drizzle-orm-patterns`, `postgresql-table-design`, `zod` | sonnet |
+
+`security` also covers non-test client files; they go into the `server` group's file list under that skill only. A group whose skills matched no files is not launched. Split a group by files (same skills) only when its diff exceeds ~1500 lines.
+
 ## Skip list (never sent to LLM review; see `scripts/changed-files.sh`)
 
 `*.snap`, lock files, `server/.dependency-cruiser-known-violations.json`, `server/src/db/migrations/meta/*`. Lock files and the journal are covered by `scripts/guards.sh`.

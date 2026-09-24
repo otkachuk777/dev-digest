@@ -8,6 +8,7 @@ import { notify } from "../toast";
 import {
   ActiveRun,
   PrCommentInput,
+  PrIntentRecord,
   PrReviewComment,
   ReviewRecord,
   ReviewRunResponse,
@@ -21,6 +22,7 @@ export const reviewKeys = {
   runs: (prId: string | null | undefined) => ["pr-runs", prId] as const,
   list: (prId: string | null | undefined) => ["reviews", prId] as const,
   comments: (prId: string | null | undefined) => ["pr-comments", prId] as const,
+  intent: (prId: string | null | undefined) => ["pr-intent", prId] as const,
 };
 
 // ---- Active (in-flight) runs — server-side source of truth ----
@@ -159,6 +161,27 @@ export function useFindingAction() {
       ),
     onSuccess: (_d, { prId }) => {
       if (prId) qc.invalidateQueries({ queryKey: reviewKeys.list(prId) });
+    },
+  });
+}
+
+// ---- PR Intent ----
+/** The stored PR intent, or `null` when none has been derived yet. */
+export function useIntent(prId: string | null | undefined) {
+  return useQuery({
+    queryKey: reviewKeys.intent(prId),
+    queryFn: () => api.get(`/pulls/${prId}/intent`, PrIntentRecord.nullable()),
+    enabled: !!prId,
+  });
+}
+
+/** Manually re-derive the intent (the card's "Re-derive"/"Derive intent" button). */
+export function useRederiveIntent(prId: string | null | undefined) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.post(`/pulls/${prId}/intent`, undefined, PrIntentRecord),
+    onSuccess: (data) => {
+      qc.setQueryData(reviewKeys.intent(prId), data);
     },
   });
 }

@@ -1,11 +1,14 @@
 import { randomUUID } from 'node:crypto';
 import type { Container } from '../../platform/container.js';
-import type { FindingActionKind, RunEventKind, RunTrace } from '@devdigest/shared';
+import type { FindingActionKind, PrIntentRecord, RunEventKind, RunTrace } from '@devdigest/shared';
 import { AppError, NotFoundError } from '../../platform/errors.js';
 import type { AgentRow } from '../../db/rows.js';
 import { ReviewRepository } from './repository.js';
-import { type ReviewDto, type ReviewDtoFinding } from './helpers.js';
+import { type ReviewDto, type ReviewDtoFinding, toIntentRecord } from './helpers.js';
 import { ReviewRunExecutor, type Logger } from './run-executor.js';
+import { RunLogger } from '../../platform/run-logger.js';
+import { loadDiff } from './diff-loader.js';
+import { deriveIntent } from './intent.js';
 import { actOnFinding as actOnFindingImpl } from './findings.js';
 import { reviewToDto } from './helpers.js';
 
@@ -135,7 +138,7 @@ export class ReviewService {
 
     // Fire-and-forget: the HTTP response returns now with the runIds; reviews
     // are persisted as each agent finishes and the client refetches on SSE done.
-    void this.executor.executeRuns(workspaceId, pull, repo, jobs, logger).catch((err) => {
+    void this.executor.executeRuns(workspaceId, pull, repo, jobs, logger, batchId).catch((err) => {
       logger?.error({ prId, err: (err as Error).message }, 'review: background execution crashed');
     });
 
@@ -144,6 +147,45 @@ export class ReviewService {
 
   private publish(runId: string, kind: RunEventKind, msg: string, data?: unknown) {
     return this.container.runBus.publish(runId, kind, msg, data);
+  }
+
+  // ===========================================================================
+  // PR Intent
+  // ===========================================================================
+
+  /** The stored intent for a PR, or `null` when none has been derived yet. */
+  async getIntent(workspaceId: string, prId: string): Promise<PrIntentRecord | null> {
+    const pull = await this.repo.getPull(workspaceId, prId);
+    if (!pull) throw new NotFoundError('Pull request not found');
+    const row = await this.repo.getIntent(prId);
+    return row ? toIntentRecord(row) : null;
+  }
+
+  /**
+   * Re-derive the intent synchronously (manual "Re-derive" in the UI). Builds a
+   * `RunLogger` with NO target runIds (`[]`) — there is no run in progress, so
+   * only the pino mirror is used, not the SSE bus.
+   */
+  async rederiveIntent(workspaceId: string, prId: string, logger?: Logger): Promise<PrIntentRecord> {
+    const pull = await this.repo.getPull(workspaceId, prId);
+    if (!pull) throw new NotFoundError('Pull request not found');
+    const repoRow = await this.repo.getRepo(pull.repoId);
+    if (!repoRow) throw new NotFoundError('Repo not found');
+    const diff = await loadDiff(this.container, this.repo, workspaceId, pull, repoRow);
+    // No batch here: the re-derive request gets its own correlation id (pino's
+    // req.log also carries Fastify's reqId).
+    const correlationId = randomUUID();
+    const runLog = new RunLogger(this.container.runBus, [], logger, { prId, correlation_id: correlationId });
+    return deriveIntent({
+      container: this.container,
+      repo: this.repo,
+      workspaceId,
+      pull,
+      repoRef: { owner: repoRow.owner, name: repoRow.name },
+      diff,
+      log: runLog,
+      correlationId,
+    });
   }
 
   // ===========================================================================

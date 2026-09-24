@@ -20,7 +20,7 @@ The server is organized into four layers, each with distinct responsibilities:
 **`src/modules/<kebab-case>`** — feature areas, each with `routes.ts` as the entry point:
 - `repos/`: repo CRUD, polling, indexing state (imports from GitHub; see [routes.ts:1–23](../src/modules/repos/routes.ts))
 - `pulls/`: PR import, sync, list, detail (see [routes.ts:14–22](../src/modules/pulls/routes.ts)); exports three reduce-on-read helpers: `deriveReviewStatus`, `totalCostByPr`, `findingsCountsByPr`
-- `reviews/`: review trigger, SSE run events, trace read, finding actions (see [routes.ts:10–17](../src/modules/reviews/routes.ts))
+- `reviews/`: review trigger, SSE run events, trace read, finding actions, PR Intent derive/re-derive (see [routes.ts:10–19](../src/modules/reviews/routes.ts)) — the Intent Layer that runs before each review is documented separately in [`intent-layer.md`](intent-layer.md)
 - `agents/`: agent CRUD (create/list/update/delete)
 - `settings/`, `workspace/`, `repoIntel/`: platform settings and workspace config
 

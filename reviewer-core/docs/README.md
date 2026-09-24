@@ -146,6 +146,49 @@ All exports are re-surfaced from `src/index.ts` (src/index.ts:15-60):
 - `OpenRouterProvider` class — the one structured provider (llm/openrouter.ts)
 - Type: `OpenRouterProviderOptions`
 
+## PR Intent & scope filter (`intent.ts`)
+
+`src/intent.ts` is a second pure module, alongside `prompt.ts`/`grounding.ts`:
+zod + `@devdigest/shared` only, no I/O. It backs the **Intent Layer** — a
+cheap, separate LLM call the server runs before the main review, so findings
+can be scoped to what the PR is actually trying to do. Full flow (which
+sources feed it, caching, logging) is documented server-side:
+[`server/docs/intent-layer.md`](../../server/docs/intent-layer.md).
+
+Exports (all re-surfaced from `src/index.ts`):
+
+- `IntentModelOutput` / `clampIntentOutput(output)` — the classifier's raw
+  schema has no `.max()` (the default `review_intent` model's strict-schema
+  support is unverified), so length caps are enforced in code instead
+  (`intent.ts:19-44`).
+- `deriveConfidence(sources: IntentSource[]): IntentConfidence` —
+  deterministic, computed by code, never the model (`intent.ts:54-63`).
+- `hunkHeaders(diff)` — the one place that may look at a diff for this
+  feature; it extracts only `^@@ …@@` lines, never a body line, which is the
+  mechanical guarantee that diff bodies never reach the intent prompt
+  (`intent.ts:82-107`).
+- `buildIntentPrompt({title, description, docs, diff})` — wraps every source
+  through `wrapUntrusted` and returns `{messages, sections}` (`intent.ts:148-179`).
+- `renderIntentBlock(intent)` — renders the stored `Intent` into the block
+  `prompt.ts` injects into the reviewer's own prompt (`intent.ts:182-189`).
+- `ScopedReview` — `Review` extended with `findings[].in_scope: boolean`,
+  **local to reviewer-core**; the shared `Finding`/`Review` contracts are
+  unchanged (`intent.ts:198-201`).
+- `applyScopeFilter(findings): {kept, dropped, signal}` — drops
+  `in_scope: false` findings (an untagged finding is treated as in-scope —
+  fails open), and keeps at most one out-of-scope `CRITICAL` as a `signal`,
+  retitled with a `(out of scope) ` prefix (`intent.ts:221-241`).
+
+`prompt.ts` only changes shape when an intent is supplied:
+`SCOPE_RULE` (`prompt.ts:36-43`) is appended to the system prompt right after
+`INJECTION_GUARD`, and a `## PR intent (derived, unverified)` section is
+added to the user message. **Without an intent, the prompt and schema stay
+byte-identical to the no-intent baseline** (`prompt.ts:93`) — `ScopedReview`
+is only selected over `Review` when `input.intent` is set
+(`review/run.ts:152`), and `applyScopeFilter` only runs under the same guard
+(`review/run.ts:217-221`), so intent-less callers (e.g. the CI runner, until
+it opts in) see no behaviour change at all.
+
 ## Pure, Testable, Portable
 
 Reviewer-core is **pure TypeScript** with no runtime side effects except the injected `LLMProvider`. This design enables:

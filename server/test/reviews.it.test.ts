@@ -4,7 +4,7 @@ import { waitForPrRuns } from './helpers/runs.js';
 import { buildApp } from '../src/app.js';
 import { loadConfig } from '../src/platform/config.js';
 import { seed } from '../src/db/seed.js';
-import { MockLLMProvider, MockEmbedder, MockGitClient } from '../src/adapters/mocks.js';
+import { MockLLMProvider, MockEmbedder, MockGitClient, MockGitHubClient } from '../src/adapters/mocks.js';
 import * as t from '../src/db/schema.js';
 import { eq } from 'drizzle-orm';
 import type { Review } from '@devdigest/shared';
@@ -26,8 +26,13 @@ const DIFF = `diff --git a/src/config.ts b/src/config.ts
 +  stripeKey: "sk_live_xxx",
    redisUrl: x,`;
 
-/** A Review fixture: one valid finding (line 11), one hallucinated (line 999). */
-const REVIEW_FIXTURE: Review = {
+/**
+ * A Review fixture: one valid finding (line 11), one hallucinated (line 999).
+ * `in_scope: true` on every finding satisfies `ScopedReview` too — every run
+ * now derives an intent first (mocked below), so the review call always
+ * validates against the scoped schema, not just the plain `Review` one.
+ */
+const REVIEW_FIXTURE: Review & { findings: (Review['findings'][number] & { in_scope: boolean })[] } = {
   verdict: 'request_changes',
   summary: 'Hardcoded Stripe secret introduced.',
   score: 42,
@@ -44,6 +49,7 @@ const REVIEW_FIXTURE: Review = {
       suggestion: 'Move the key to an environment variable.',
       confidence: 0.95,
       kind: 'finding',
+      in_scope: true,
     },
     {
       id: 'f-halluc',
@@ -55,6 +61,7 @@ const REVIEW_FIXTURE: Review = {
       end_line: 999,
       rationale: 'This line does not exist in the diff.',
       confidence: 0.5,
+      in_scope: true,
       kind: 'finding',
     },
   ],
@@ -110,6 +117,15 @@ d('A2 reviews + agents (Testcontainers pg)', () => {
     await pg?.stop();
   });
 
+  /** A neutral PrIntent fixture — deterministic, no network, keeps every other
+      it-test unaware that PR Intent now runs before every review. */
+  const INTENT_FIXTURE = {
+    summary: 'Adds a config value.',
+    in_scope: ['src/config.ts changes'],
+    out_of_scope: [],
+    missing_context: [],
+  };
+
   function appWith(structured: unknown, provider: 'openai' | 'anthropic' = 'openai') {
     return buildApp({
       config: config(),
@@ -117,8 +133,15 @@ d('A2 reviews + agents (Testcontainers pg)', () => {
       overrides: {
         embedder: new MockEmbedder(),
         git: new MockGitClient({ diff: DIFF }),
+        github: new MockGitHubClient(),
         llm: {
           [provider]: new MockLLMProvider(provider, { structured }),
+          // PR Intent always defaults to openrouter — mocked here so no
+          // it-test above makes a real OpenRouter call or has to know intent
+          // runs at all.
+          openrouter: new MockLLMProvider('openrouter', {
+            structuredBySchema: { PrIntent: INTENT_FIXTURE },
+          }),
         },
       },
     });

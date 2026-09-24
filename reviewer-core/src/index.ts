@@ -17,6 +17,8 @@ export {
   wrapUntrusted,
   type PromptParts,
   type AssembledPrompt,
+  type PromptSection,
+  type PromptSectionSource,
 } from './prompt.js';
 
 // Citation grounding — the mandatory mechanical gate for diff findings.
@@ -57,3 +59,22 @@ export {
 // The single OpenAI-compatible structured provider (OpenRouter), shared by the
 // CI runner and the server's openrouter path. Owns session grouping + guards.
 export { OpenRouterProvider, type OpenRouterProviderOptions } from './llm/openrouter.js';
+
+// PR Intent — derives {summary, in_scope, out_of_scope} before review, and the
+// scope filter that trims out-of-scope findings after grounding.
+export {
+  IntentModelOutput,
+  clampIntentOutput,
+  deriveConfidence,
+  hunkHeaders,
+  buildIntentPrompt,
+  renderIntentBlock,
+  applyScopeFilter,
+  ScopedReview,
+  type FileHunkHeaders,
+  type IntentDoc,
+  type BuildIntentPromptInput,
+  type BuildIntentPromptResult,
+  type ScopedFinding,
+  type ScopeFilterResult,
+} from './intent.js';

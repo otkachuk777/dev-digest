@@ -30,6 +30,9 @@ const EnvSchema = z.object({
   WEB_PORT: z.coerce.number().int().default(3000),
   DEVDIGEST_CLONE_DIR: z.string().optional(),
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+  // Local-only: adds per-file / per-item sizes and content hashes to the
+  // `prompt.assembled` log record. Never content. Ignored in production.
+  PROMPT_LOG_VERBOSE: z.string().optional(),
   // `.env` (and .env.example) ship `LOG_LEVEL=` empty; an empty string is not a
   // valid enum member, so coerce '' → undefined to fall through to the default.
   LOG_LEVEL: z.preprocess(
@@ -59,6 +62,11 @@ export type AppConfig = {
    * EXACTLY like the ripgrep-only baseline.
    */
   repoIntelEnabled: boolean;
+  /**
+   * Verbose prompt-assembly logging (PROMPT_LOG_VERBOSE=true). Forced off when
+   * NODE_ENV=production so a stray env var can't turn it on in a deployment.
+   */
+  promptLogVerbose: boolean;
 };
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
@@ -77,5 +85,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     webOrigin: `http://localhost:${parsed.WEB_PORT}`,
     embeddingsEnabled: parsed.EMBEDDINGS_ENABLED === 'true',
     repoIntelEnabled: parsed.REPO_INTEL_ENABLED !== 'false',
+    promptLogVerbose: parsed.PROMPT_LOG_VERBOSE === 'true' && parsed.NODE_ENV !== 'production',
   };
 }

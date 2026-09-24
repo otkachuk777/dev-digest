@@ -56,19 +56,28 @@ consumer.
 1. **Import** — `client` calls `GET /repos/:id/pulls` (`server/src/modules/pulls/routes.ts`);
    the server syncs from GitHub when a token is configured, always serves
    persisted rows otherwise (local-first).
-2. **Review** — from the PR detail page, `client` triggers a run; `server`
-   passes the diff + repo map to `reviewer-core`, which assembles a prompt,
-   calls the configured LLM, and runs the mandatory grounding gate (drops any
-   finding that cites a line not in the diff) before persisting `reviews` +
-   `findings` rows (`server/src/db/schema/reviews.ts`).
-3. **List rollup** — the PR-list endpoint reduces those rows on read, not on
+2. **Intent** — before the first review of a PR, `server` derives its
+   *intent* (summary + in-scope/out-of-scope tags) with a separate, cheaper
+   LLM call over the title, description, GitHub-only issue/plan-file links,
+   and diff hunk headers (no diff bodies); the result is cached per PR
+   (`pr_intent`, keyed by `pr_id`) and reused across runs even after the PR's
+   head moves, until a manual re-derive. See
+   [`server/docs/intent-layer.md`](../server/docs/intent-layer.md).
+3. **Review** — from the PR detail page, `client` triggers a run; `server`
+   passes the diff + repo map + intent to `reviewer-core`, which assembles a
+   prompt, calls the configured LLM, runs the mandatory grounding gate (drops
+   any finding that cites a line not in the diff), and — when an intent was
+   supplied — filters out findings tagged out of the PR's scope (keeping at
+   most one CRITICAL as a signal) before persisting `reviews` + `findings`
+   rows (`server/src/db/schema/reviews.ts`).
+4. **List rollup** — the PR-list endpoint reduces those rows on read, not on
    write: latest review's score, the SUM of every `status='done'` run's cost
    across all batches (`server/src/modules/pulls/total-cost.ts`), and each
    agent's latest-review severity breakdown
    (`server/src/modules/pulls/findings-counts.ts`). All three follow the same
    "one `IN` query + JS reduce" shape because the PR list is small enough
    that this beats a denormalized column that needs invalidation.
-4. **Detail view** — the PR detail page's "Agent runs" tab flattens findings
+5. **Detail view** — the PR detail page's "Agent runs" tab flattens findings
    from every review run (`client/src/app/repos/[repoId]/pulls/[number]/page.tsx`),
    grouped into per-run accordions
    (`.../_components/ReviewRunAccordion/ReviewRunAccordion.tsx`); each

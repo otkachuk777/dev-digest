@@ -23,6 +23,14 @@ Committing a two-file docs change during a parallel refactor produced "158 files
 
 **Rule:** while any subagent is editing the repo, never `git add -A` / `git add <dir>`; commit with explicit paths (`git commit -m … -- path/a path/b`), which ignores the index entirely. If a commit comes back with a file count you did not expect, `reset --soft` and redo it rather than "fixing it later" — the renames are unrecoverable from the message alone. (commit `6a5ebd4`, split out of an accidental 158-file commit)
 
+### A pr-self-review verify agent "confirmed" a critical with a false premise (2026-09)
+
+Self-review flagged migration `0014` (NOT NULL columns with no DEFAULT on `pr_intent`) as critical: it would fail on existing rows. The verify agent confirmed it, saying `reviews/intent.ts` already wrote to `pr_intent` at the merge-base. That file was new in this change. `git grep` at the merge-base showed `upsertIntent` was never called, so no database could hold rows. Blocking the PR on that verdict would have cost a needless rewrite of an already-applied migration.
+
+**Rule:** before acting on a confirmed critical whose scenario depends on prior state, check that premise at the merge-base yourself: `git cat-file -e $(git merge-base main HEAD):<path>` and `git grep <symbol> $(git merge-base main HEAD)`. A refuted premise means the finding goes down to major (`.claude/skills/pr-self-review/references/agent-prompt.md`, commit `2cf6fe9`)
+
+> **2026-09-23 correction:** the merge-base check was too narrow, and so was my refutation. `git grep upsertIntent` across `origin/*` found callers in 16 course branches (`reference/full-build`, `lesson-3-lab/intent-layer-finish`, `lesson-7-lab/*`, …), so any DB that ever ran one of them holds old-shape `pr_intent` rows. On such a DB the migration really fails. Fixed with a `DELETE FROM pr_intent` custom migration (`0014_clear_pr_intent_cache`) before the ADD COLUMNs (`0015_pr_intent_layer`), tested on a seeded legacy row. **Rule:** for a migration's "existing rows" premise, grep every branch (`for b in $(git branch -a …); do git grep <writer> $b; done`), not just the merge-base. A shared local DB outlives branch switches.
+
 ## Codebase Patterns
 
 _No entries yet._

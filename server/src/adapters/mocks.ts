@@ -56,11 +56,11 @@ export interface MockLLMOptions {
 }
 
 export class MockLLMProvider implements LLMProvider {
-  readonly id: 'openai' | 'anthropic';
+  readonly id: 'openai' | 'anthropic' | 'openrouter';
   public calls: { method: string; req: unknown }[] = [];
 
   constructor(
-    id: 'openai' | 'anthropic' = 'openai',
+    id: 'openai' | 'anthropic' | 'openrouter' = 'openai',
     private opts: MockLLMOptions = {},
   ) {
     this.id = id;
@@ -125,6 +125,8 @@ export interface MockGitHubOptions {
   login?: string;
   /** Existing inline review comments returned by listReviewComments. */
   comments?: PrReviewComment[];
+  /** File contents keyed by path, served by getFileContent (missing path → null). */
+  files?: Record<string, string>;
 }
 
 export class MockGitHubClient implements GitHubClient {
@@ -232,6 +234,10 @@ export class MockGitHubClient implements GitHubClient {
 
   async getIssue(_repo: RepoRef, n: number): Promise<IssueMeta> {
     return { number: n, title: `Issue #${n}`, body: 'mock issue', state: 'open' };
+  }
+
+  async getFileContent(_repo: RepoRef, path: string, _ref: string): Promise<string | null> {
+    return this.opts.files?.[path] ?? null;
   }
 
   async currentLogin(): Promise<string> {

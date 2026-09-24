@@ -29,7 +29,7 @@ No root package.json — 4 standalone packages, each own lockfile. Cross-package
 - **DB:** tables/columns `snake_case` in Postgres, camelCase in Drizzle schema (`src/db/schema/*.ts`), one schema file per table group.
 - **API contracts:** every request/response shape is a Zod schema in `vendor/shared/contracts/*.ts`, PascalCase export name matching its inferred type (`export const PrMeta = z.object(...); export type PrMeta = z.infer<typeof PrMeta>`). JSON wire fields are `snake_case`; once destructured into TS they're camelCase — the Zod schema is the seam.
 - **i18n:** one file per feature area under `messages/en/<namespace>.json`; components read it via `useTranslations("<namespace>")`, so the namespace name IS the filename.
-- **Tests:** co-located, `<Name>.test.ts(x)`; integration tests needing Postgres are `*.it.test.ts` and skip themselves when Docker isn't available (`dockerAvailable()`).
+- **Tests:** `<Name>.test.ts(x)` — co-located in `client`, in `<module>/test/` for `server` and `reviewer-core` (never under `src/`); integration tests needing Postgres are `*.it.test.ts` and skip themselves when Docker isn't available (`dockerAvailable()`).
 
 ## Do not touch
 

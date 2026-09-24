@@ -10,3 +10,12 @@
  * model's context.
  */
 export const REVIEW_STRATEGY = 'single-pass' as const;
+
+// ---- PR Intent ----
+
+/** Max GitHub issue/PR + plan-file links followed out of a PR's body. */
+export const MAX_INTENT_LINKS = 5;
+/** Max sources recorded on the intent (used + unavailable combined). */
+export const MAX_INTENT_SOURCES = 10;
+/** Hard bound on the intent classifier call (its own `timeoutMs` isn't honored — see INSIGHTS). */
+export const INTENT_TIMEOUT_MS = 60_000;
