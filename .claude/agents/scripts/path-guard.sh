@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # PreToolUse hook (matcher: Write|Edit) declared in an agent's frontmatter. Denies writes outside the
-# agent's profile. Usage: path-guard.sh <tests|docs>   (hook JSON on stdin)
+# agent's profile. Usage: path-guard.sh <tests|docs|plans>   (hook JSON on stdin)
 #   tests — test-writer: test files and test-only helpers/fixtures
 #   docs  — doc-writer: docs/, <module>/docs/, READMEs; never plans, prompts, specs, CLAUDE.md, INSIGHTS.md
+#   plans — planner: draft plan files ~/.claude/plans/<name>.md only (outside the repo, never docs/cc-plans/)
 # Covers Edit/Write only — Bash writes are limited by the agent prompt, not here.
 set -uo pipefail
 PROFILE="${1:-}"
@@ -10,6 +11,14 @@ deny() { jq -nc --arg r "path-guard($PROFILE): $1" '{hookSpecificOutput:{hookEve
 
 FILE=$(jq -r '.tool_input.file_path // ""' 2>/dev/null)
 [ -n "$FILE" ] || deny "no file_path in tool input"
+
+if [ "$PROFILE" = plans ]; then
+  # Checked before the repo root: drafts live in the harness plan dir, outside the working tree.
+  PLANS="$HOME/.claude/plans"
+  case "$FILE" in "$PLANS"/*.md) NAME=${FILE#"$PLANS"/};; *) deny "$FILE is not a draft plan in $PLANS/*.md";; esac
+  [[ "$NAME" =~ ^[A-Za-z0-9._+-]+\.md$ ]] && [[ "$NAME" != *..* ]] && exit 0
+  deny "$NAME: plan file name must be a single path segment of [A-Za-z0-9._+-]"
+fi
 ROOT=$(git rev-parse --show-toplevel 2>/dev/null) || deny "not inside a git repository"
 case "$FILE" in /*) ;; *) FILE="$PWD/$FILE";; esac
 case "$FILE" in "$ROOT"/*) REL=${FILE#"$ROOT"/};; *) deny "$FILE is outside the repository";; esac
@@ -32,5 +41,5 @@ case "$PROFILE" in
     [[ "$REL" =~ ^(docs/.+|($MODULES)/docs/.+|README\.md|($MODULES)/README\.md)$ ]] && exit 0
     deny "$REL is outside the documentation locations (docs/, <module>/docs/, README.md, <module>/README.md)"
     ;;
-  *) deny "unknown profile '$PROFILE' (expected tests|docs)";;
+  *) deny "unknown profile '$PROFILE' (expected tests|docs|plans)";;
 esac

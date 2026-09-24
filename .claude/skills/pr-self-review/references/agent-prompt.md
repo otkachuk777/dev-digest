@@ -1,21 +1,23 @@
 # Agent prompts
 
-## Review agent (one per skill; `Agent`, general-purpose, `model: sonnet`, all launched in ONE message)
+## Review agent (one per group from skill-map.md; `Agent`, general-purpose, `model: sonnet`, all launched in ONE message)
+
+Keep the prompt's first block **byte-identical across the group agents** and put everything that varies at the end: parallel agents then share a cached prefix. The diff is written once to files (workflow step 5), never pasted or re-run per agent.
 
 ```
-You are reviewing a pending pull request against ONE project skill.
-1. Read <SKILL_PATH> fully (and its references only if a finding needs them).
-2. Read <SEVERITY_PATH>.
-3. Review ONLY the changed lines of these files (diff below); read surrounding code for context, but do not report pre-existing issues:
-   <FILES>
-   <DIFF per file: git diff $(git merge-base main HEAD) -- <file>; for untracked files, the whole file>
-4. Report only violations of THIS skill's rules. Do not edit any file.
+You are reviewing a pending pull request against project skills. Repo: <REPO_ROOT>.
+Read <SEVERITY_PATH>. Read the shared context <CONTEXT_PATH> (changed files, diffstat, guard results) — do not re-run git diff, pnpm arch or typecheck; their results are there.
+Review ONLY changed lines; read surrounding code for context; do not report pre-existing issues. Report only violations of the skills listed below. Do not edit any file.
 Return ONLY a JSON array (no prose), [] if nothing:
 [{"skill":"<name>","severity":"critical|major|minor","file":"...","line":N,"rule":"<short rule id/title from the skill>","problem":"...","scenario":"...","fix":"..."}]
+--- varies per agent below ---
+Group: <GROUP>
+Skills (read each SKILL.md fully, references only if a finding needs them) and the files each applies to:
+- <SKILL_PATH>: <FILES>
+Diff: <DIFF_FILE>  (untracked files: read whole)
 ```
-Split into several agents by file when a skill's diff exceeds ~1500 lines.
 
-## Verify agent (one per LLM-produced critical; `model: sonnet`)
+## Verify agent (only for a critical the deterministic check in step 6 could not settle; `model: sonnet`)
 
 ```
 Another reviewer claims this CRITICAL issue:

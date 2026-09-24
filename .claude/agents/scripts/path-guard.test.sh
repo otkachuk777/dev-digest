@@ -34,6 +34,14 @@ check docs "$ROOT/e2e/specs-docs/01.md" deny
 check docs "$ROOT/client/specs/x.md" deny
 check docs "$ROOT/docs/../server/src/app.ts" deny
 
+check plans "$HOME/.claude/plans/intent-layer.md" allow
+check plans "$HOME/.claude/plans/2026-09-24+x.md" allow
+check plans "$HOME/.claude/plans/sub/x.md" deny
+check plans "$HOME/.claude/plans/../settings.json" deny
+check plans "$HOME/.claude/plans/x.txt" deny
+check plans "$ROOT/docs/cc-plans/2026-09-24+x.md" deny
+check plans "$ROOT/server/src/app.ts" deny
+
 check other "$ROOT/docs/architecture.md" deny
 
 exit $FAIL

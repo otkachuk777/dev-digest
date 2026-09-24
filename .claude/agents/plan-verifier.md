@@ -1,7 +1,7 @@
 ---
 name: plan-verifier
 description: Read-only verifier. Use after implementation to check finished code against every item of a Development Plan (docs/cc-plans/*.md or a given plan) and the stated requirements/specs. Runs the plan's Verify commands, gives each item a status with evidence, and reports changes outside the plan's scope. Reports gaps, not style or generic advice. Never edits.
-model: opus
+model: sonnet
 tools: Read, Grep, Glob, Bash
 disallowedTools: Write, Edit, NotebookEdit, Agent, Skill, WebSearch, WebFetch
 hooks:

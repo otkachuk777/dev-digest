@@ -7,11 +7,11 @@ Project subagents for Claude Code. Each file here is the source of truth for its
 | Agent | Model | Responsibility | Writes |
 |-------|-------|----------------|--------|
 | [researcher](researcher.md) | sonnet | Answers a concrete question with evidence — from this repo or from external sources | nothing |
-| [planner](planner.md) | opus | Turns a task into a Development Plan that follows module rules, INSIGHTS.md and project skills | nothing |
+| [planner](planner.md) | opus | Turns a task into a Development Plan that follows module rules, INSIGHTS.md and project skills | draft plan file only (`~/.claude/plans/*.md`) |
 | [implementer](implementer.md) | sonnet | Executes an approved plan in client / server / reviewer-core and verifies its own changes | code |
 | [test-writer](test-writer.md) | sonnet | Writes UI and backend tests (test-first or backfill) and proves each one can fail | tests only |
 | [architecture-reviewer](architecture-reviewer.md) | opus | Checks architectural boundaries of a change: deterministic checks first, then judgement; findings with evidence | nothing |
-| [plan-verifier](plan-verifier.md) | opus | Checks finished code against every plan item and requirement; status + evidence per item | nothing |
+| [plan-verifier](plan-verifier.md) | sonnet | Checks finished code against every plan item and requirement; status + evidence per item | nothing |
 | [doc-writer](doc-writer.md) | sonnet | Documents implemented functionality with Mermaid diagrams and ADRs, verified against code | docs only |
 
 Out of scope for every agent: git commits, writing `INSIGHTS.md`, security review (a separate security reviewer does not exist yet).
@@ -20,7 +20,7 @@ Out of scope for every agent: git commits, writing `INSIGHTS.md`, security revie
 
 ```
 task ──► researcher (optional, facts) ──► planner ──► Development Plan
-                                                        │  main session saves it:
+                                                        │  planner writes it (path-guard plans):
                                                         │  ~/.claude/plans/ → docs/cc-plans/ after approval
                                                         ▼
                               [test-writer: test-first] ──► implementer ──► [test-writer: backfill]
@@ -43,7 +43,7 @@ task ──► researcher (optional, facts) ──► planner ──► Developm
 | Agent | Allowed tools | Denied | Enforcement |
 |-------|---------------|--------|-------------|
 | researcher | Read, Grep, Glob, Bash, WebSearch, WebFetch | Write, Edit, NotebookEdit, Skill | **Hook** `readonly-bash-guard.sh`; `Skill` denied → no `/deep-research` |
-| planner | Read, Grep, Glob, Bash | Write, Edit, NotebookEdit, Agent, WebSearch, WebFetch | `permissionMode: plan`; **Hook** `readonly-bash-guard.sh` |
+| planner | Read, Grep, Glob, Bash, Write | Edit, NotebookEdit, Agent, WebSearch, WebFetch | **Hooks** `readonly-bash-guard.sh` (Bash) and `path-guard.sh plans` (Write only to `~/.claude/plans/<name>.md`) |
 | implementer | Read, Grep, Glob, Edit, Write, Bash, Skill | Agent, NotebookEdit, WebSearch, WebFetch | No git writes, no do-not-touch files, never regenerates the dependency-cruiser baseline (by prompt) |
 | test-writer | Read, Grep, Glob, Edit, Write, Bash, Skill | Agent, NotebookEdit, WebSearch, WebFetch | **Hook** `path-guard.sh tests`: Edit/Write only on test files; production code only via `mutation-probe.sh` |
 | architecture-reviewer | Read, Grep, Glob, Bash | Write, Edit, NotebookEdit, Agent, Skill, WebSearch, WebFetch | **Hook** `readonly-bash-guard.sh`; no `permissionMode: plan` because it must run checks |
@@ -57,7 +57,7 @@ task ──► researcher (optional, facts) ──► planner ──► Developm
 
 | Script | Used by | What it does |
 |--------|---------|--------------|
-| `path-guard.sh <tests\|docs>` | test-writer, doc-writer (PreToolUse hook) | Denies Edit/Write outside the profile's paths; also denies paths outside the repo and `..` segments |
+| `path-guard.sh <tests\|docs\|plans>` | test-writer, doc-writer, planner (PreToolUse hook) | Denies Edit/Write outside the profile's paths; also denies paths outside the repo (except `plans`: only `~/.claude/plans/<name>.md`) and `..` segments |
 | `path-guard.test.sh` | maintainers | Self-check: allowed paths pass, protected paths are denied |
 | `readonly-bash-guard.sh` | researcher, planner, architecture-reviewer, plan-verifier (PreToolUse hook, matcher `Bash`) | Denies write-shaped Bash commands (redirection to a file, `rm`/`mv`/`cp`/`touch`/`mkdir`/`chmod`, `sed -i`, mutating `git` subcommands, `npm/pnpm install`, `db:migrate`/`db:generate`); still allows `grep`, `cat`, `git diff/log/show/status`, `pnpm typecheck/test/arch`, `npm test`/`run typecheck`, `diff -r`, `ls`, `find` without `-delete`/`-exec rm` |
 | `readonly-bash-guard.test.sh` | maintainers | Self-check: read-only commands pass, write-shaped commands are denied |
@@ -68,7 +68,7 @@ task ──► researcher (optional, facts) ──► planner ──► Developm
 | Agent | Input | Reads | Output |
 |-------|-------|-------|--------|
 | researcher | A concrete question | Repo code, git history / docs, specs, issues | Report: Answer · Findings with evidence · Links / Sources · Contradictions (external) · **Not found** · Open questions |
-| planner | Task / feature request | Root + module `CLAUDE.md`, `INSIGHTS.md`, code to change, `skill-map.md`, current `SKILL.md` (+ relevant sub-files) | **Development Plan**: Context · Scope · Insights applied · Constraints · Skills for implementer · Steps (Files / Skills / Change / Verify / Done when) · Test plan · Risks · Not verified |
+| planner | Task / feature request | Root + module `CLAUDE.md`, `INSIGHTS.md`, code to change, `skill-map.md`, current `SKILL.md` (+ relevant sub-files) | **Plan file** in `~/.claude/plans/` + final message = path, ≤10-line summary, risks (the plan is never pasted into chat). Plan sections: Context · Scope · Insights applied · Constraints · Skills for implementer · Steps (Files / Skills / Change / Verify / Done when) · Test plan · Risks · Not verified |
 | implementer | Approved Development Plan | `INSIGHTS.md`, skills via `Skill`, code | **Implementation report**: Status · Insights read · Steps + skills applied · Verification evidence · Deviations · Not done · Insight candidates · Handoff for reviewers |
 | test-writer | Mode (test-first / backfill / per-plan) + plan step, spec or code | `TESTING.md`, neighbouring tests, `INSIGHTS.md`, skills via `Skill` | **Test report**: Status · Tests written · Fail-proof (red run / probe KILLED) · Verification · Suspected bugs · Not covered · Handoff |
 | architecture-reviewer | Diff scope (default: branch vs main) or implementer's handoff | `pnpm arch` output, baseline + cruiser config diff, `vendor/shared` copies, boundary skills (read, not invoked) | **Architecture review**: Verdict · Deterministic checks · Findings (severity, blocking, rule + source, evidence) · Pre-existing · Unknown · Out of scope for security · Not verified |
