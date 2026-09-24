@@ -14,6 +14,7 @@ import {
   ReviewRunResponse,
   RunRequest,
   RunSummary,
+  SmartDiffResponse,
 } from "@devdigest/shared";
 import type { FindingActionKind, RunEvent } from "@devdigest/shared";
 
@@ -23,6 +24,7 @@ export const reviewKeys = {
   list: (prId: string | null | undefined) => ["reviews", prId] as const,
   comments: (prId: string | null | undefined) => ["pr-comments", prId] as const,
   intent: (prId: string | null | undefined) => ["pr-intent", prId] as const,
+  smartDiff: (prId: string | null | undefined) => ["pr-smart-diff", prId] as const,
 };
 
 // ---- Active (in-flight) runs — server-side source of truth ----
@@ -183,6 +185,15 @@ export function useRederiveIntent(prId: string | null | undefined) {
     onSuccess: (data) => {
       qc.setQueryData(reviewKeys.intent(prId), data);
     },
+  });
+}
+
+// ---- Smart Diff (role-grouped files + finding lines, no LLM) ----
+export function useSmartDiff(prId: string | null | undefined) {
+  return useQuery({
+    queryKey: reviewKeys.smartDiff(prId),
+    queryFn: () => api.get(`/pulls/${prId}/smart-diff`, SmartDiffResponse),
+    enabled: !!prId,
   });
 }
 

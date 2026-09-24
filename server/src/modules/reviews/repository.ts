@@ -64,6 +64,13 @@ export class ReviewRepository {
     return reviewRepo.reviewsForPull(this.db, prId);
   }
 
+  /** Smart Diff: finding locations for a PR, newest review first, kind=review only. */
+  reviewFindingLocations(
+    prId: string,
+  ): Promise<{ agentId: string | null; reviewId: string; file: string; startLine: number }[]> {
+    return reviewRepo.reviewFindingLocations(this.db, prId);
+  }
+
   getReview(reviewId: string): Promise<ReviewRow | undefined> {
     return reviewRepo.getReview(this.db, reviewId);
   }

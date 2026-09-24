@@ -43,8 +43,23 @@ export function PrDetailHeader({
         ? "var(--stale)"
         : "var(--warn)";
 
+  // Publish this sticky header's height so content below (Smart Diff group
+  // headers) can stick right under it; the height changes as the title wraps.
+  const rootRef = React.useRef<HTMLDivElement>(null);
+  React.useLayoutEffect(() => {
+    const el = rootRef.current;
+    const host = el?.parentElement;
+    if (!el || !host) return;
+    const ro = new ResizeObserver(() => host.style.setProperty("--pr-header-h", `${el.offsetHeight}px`));
+    ro.observe(el);
+    return () => {
+      ro.disconnect();
+      host.style.removeProperty("--pr-header-h");
+    };
+  }, []);
+
   return (
-    <div style={s.root}>
+    <div ref={rootRef} style={s.root}>
       <div style={s.titleRow}>
         <div style={s.titleCol}>
           <h1 style={s.h1}>

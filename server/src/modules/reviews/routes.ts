@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
-import { RunRequest } from '@devdigest/shared';
+import { RunRequest, SmartDiffResponse } from '@devdigest/shared';
 import type { RunEvent } from '@devdigest/shared';
 import { getContext } from '../_shared/context.js';
 import { IdParams } from '../_shared/schemas.js';
@@ -16,6 +16,7 @@ import { ReviewService } from './service.js';
  *   POST   /findings/:id/(accept|dismiss)              → finding actions
  *   GET    /pulls/:id/intent                           → stored PR Intent, or null
  *   POST   /pulls/:id/intent                           → re-derive the PR Intent synchronously
+ *   GET    /pulls/:id/smart-diff                       → role-grouped files + finding lines (no LLM)
  */
 const FINDING_ACTIONS = ['accept', 'dismiss'] as const;
 export default async function reviewsRoutes(appBase: FastifyInstance) {
@@ -165,6 +166,16 @@ export default async function reviewsRoutes(appBase: FastifyInstance) {
     async (req) => {
       const { workspaceId } = await getContext(container, req);
       return service.rederiveIntent(workspaceId, req.params.id, req.log);
+    },
+  );
+
+  // ---- Smart Diff -----------------------------------------------------------
+  app.get(
+    '/pulls/:id/smart-diff',
+    { schema: { params: IdParams, response: { 200: SmartDiffResponse } } },
+    async (req) => {
+      const { workspaceId } = await getContext(container, req);
+      return service.smartDiff(workspaceId, req.params.id);
     },
   );
 }

@@ -5,6 +5,7 @@ import { Gallery } from "./showcase";
 import { DiffViewer } from "@/app/(shell)/repos/[repoId]/pulls/[number]/_components/DiffTab/diff-viewer";
 import type { PrFile } from "@devdigest/shared";
 import shellMessages from "../../messages/en/shell.json";
+import prReviewMessages from "../../messages/en/prReview.json";
 
 afterEach(cleanup);
 
@@ -34,7 +35,7 @@ describe("web smoke (both themes)", () => {
       },
     ];
     render(
-      <NextIntlClientProvider locale="en" messages={{ shell: shellMessages }}>
+      <NextIntlClientProvider locale="en" messages={{ shell: shellMessages, prReview: prReviewMessages }}>
         <div data-theme="dark">
           <DiffViewer files={files} />
         </div>

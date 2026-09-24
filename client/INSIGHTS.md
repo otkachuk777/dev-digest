@@ -61,6 +61,18 @@ Same `.next` directory, two writers: every `pnpm build` run for verification mad
 
 **Rule:** run `pnpm build` only when the preview server is stopped; if you ran it anyway, `rm -rf client/.next` and restart. After any restart, verify in a NEW tab (`tabs_create`) — an existing tab's JS and its console buffer both belong to the dead process. Trust `preview_logs` over the browser console when they disagree. (symptom: `Cannot find module './156.js'`; dev-server log showed `✓ Compiled` + 200s at the same moment)
 
+### `scripts/e2e.sh` is a third writer to `client/.next` — and it bakes in API port 3101 (2026-09)
+
+The implementer ran `npm run e2e:hermetic` as a regression check while the user's own `next dev` (:3000) was running. The script starts another `next dev` on the SAME `client/.next` with `NEXT_PUBLIC_API_BASE=http://localhost:3101`. Afterwards the user's dev server served a 404 for the PR page chunk and the page called `:3101/repos` (connection refused), so it hung on a skeleton even though `curl :3000/...` returned 200. It is the same failure as the `pnpm build` entry above, reached another way, plus a wrong API base inlined into the bundle.
+
+**Rule:** treat `scripts/e2e.sh` like `pnpm build`: never run it while the preview `next dev` is up. If you already did (symptom: requests to `:3101`, chunk 404s), stop the dev server, `rm -rf client/.next`, and restart it via `preview_start` (`scripts/e2e.sh:42`, `.claude/launch.json`)
+
+### `<Button active>` only renders for `kind="tertiary"` (2026-09)
+
+The Smart/Original order toggle used `kind="ghost" active={…}`. Typecheck, unit tests and the plan-verifier all accepted it, but both buttons looked identical in the browser, because only the `tertiary` variant reads `active`. Only a screenshot caught it.
+
+**Rule:** for a selected-state button (segmented control, tab-like toggle), use `kind="tertiary"` inside a bordered wrapper, and check it on a screenshot (`client/src/vendor/ui/primitives/Button.tsx:52`, `DiffTab/DiffTab.tsx`)
+
 ### Node's `DecompressionStream` tolerates trailing junk, the browser's does not (2026-09)
 
 The skill importer read a ZIP entry by handing the decompressor everything from the
