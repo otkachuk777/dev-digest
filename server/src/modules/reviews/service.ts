@@ -138,7 +138,7 @@ export class ReviewService {
 
     // Fire-and-forget: the HTTP response returns now with the runIds; reviews
     // are persisted as each agent finishes and the client refetches on SSE done.
-    void this.executor.executeRuns(workspaceId, pull, repo, jobs, logger).catch((err) => {
+    void this.executor.executeRuns(workspaceId, pull, repo, jobs, logger, batchId).catch((err) => {
       logger?.error({ prId, err: (err as Error).message }, 'review: background execution crashed');
     });
 
@@ -172,7 +172,10 @@ export class ReviewService {
     const repoRow = await this.repo.getRepo(pull.repoId);
     if (!repoRow) throw new NotFoundError('Repo not found');
     const diff = await loadDiff(this.container, this.repo, workspaceId, pull, repoRow);
-    const runLog = new RunLogger(this.container.runBus, [], logger);
+    // No batch here: the re-derive request gets its own correlation id (pino's
+    // req.log also carries Fastify's reqId).
+    const correlationId = randomUUID();
+    const runLog = new RunLogger(this.container.runBus, [], logger, { prId, correlation_id: correlationId });
     return deriveIntent({
       container: this.container,
       repo: this.repo,
@@ -181,6 +184,7 @@ export class ReviewService {
       repoRef: { owner: repoRow.owner, name: repoRow.name },
       diff,
       log: runLog,
+      correlationId,
     });
   }
 

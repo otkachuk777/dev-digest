@@ -48,6 +48,7 @@ describe('reviewPullRequest (engine)', () => {
     const diff = await new MockGitClient().diff();
 
     const events: string[] = [];
+    const assembled: { index: number; count: number; names: string[] }[] = [];
     const outcome = await reviewPullRequest({
       systemPrompt: 'security reviewer',
       model: 'gpt-4.1',
@@ -55,7 +56,12 @@ describe('reviewPullRequest (engine)', () => {
       llm,
       task: 'Review PR #482',
       onEvent: (e) => events.push(e.msg),
+      onPromptAssembled: ({ index, count, sections }) =>
+        assembled.push({ index, count, names: sections.map((s) => s.name) }),
     });
+
+    // One prompt-assembly callback per LLM call, before it, with the sections.
+    expect(assembled).toEqual([{ index: 0, count: 1, names: ['system', 'guard', 'task', 'diff'] }]);
 
     expect(outcome.mode).toBe('single-pass');
     expect(outcome.grounding).toBe('1/2 passed');
@@ -67,8 +73,8 @@ describe('reviewPullRequest (engine)', () => {
     expect(outcome.review.score).toBe(65);
     // progress is surfaced (server bridges this onto SSE; runner logs it)
     expect(events.some((m) => m.includes('Citation grounding'))).toBe(true);
-  // No intent → the scope filter does not run and emits nothing.
-  expect(events.some((m) => m.includes('Scope filter'))).toBe(false);
+    // No intent → the scope filter does not run and emits nothing.
+    expect(events.some((m) => m.includes('Scope filter'))).toBe(false);
   });
 
   it('score is deterministic from findings: a clean approve scores 100', async () => {

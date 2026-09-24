@@ -7,7 +7,7 @@ import type {
   UnifiedDiff,
 } from '@devdigest/shared';
 import { Review as ReviewSchema } from '@devdigest/shared';
-import { assemblePrompt } from '../prompt.js';
+import { assemblePrompt, type PromptSection } from '../prompt.js';
 import { groundFindings, groundingSummary } from '../grounding.js';
 import { applyScopeFilter, ScopedReview } from '../intent.js';
 import { reduceReviews, scoreFromFindings, sliceDiff } from './reduce.js';
@@ -93,6 +93,12 @@ export interface ReviewInput {
   sessionId?: string;
   /** Progress sink. */
   onEvent?: (e: ReviewEvent) => void;
+  /**
+   * Called once per LLM call with the assembled prompt's sections, right before
+   * the call. Carries raw section text so the caller can size/hash it — the
+   * caller decides what (if anything) is logged; never log `text` verbatim.
+   */
+  onPromptAssembled?: (p: { chunk: string; index: number; count: number; sections: PromptSection[] }) => void;
   /**
    * Cancellation checkpoint, called before each (expensive) chunk LLM call.
    * Supply a function that THROWS to abort mid-run (the caller owns the error
@@ -184,6 +190,7 @@ export async function reviewPullRequest(input: ReviewInput): Promise<ReviewOutco
     );
     const a = assemblePrompt({ ...promptParts, diff: chunk.diffText });
     if (mode === 'single-pass') assembly = a.assembly;
+    input.onPromptAssembled?.({ chunk: chunk.label, index: chunks.indexOf(chunk), count: chunks.length, sections: a.sections });
     const res = await input.llm.completeStructured<Review>({
       model: input.model,
       schema: reviewSchema,

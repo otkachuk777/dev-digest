@@ -52,6 +52,15 @@ export class RunLogger {
     this.base?.[LEVEL[kind]]({ ...this.ctx, runIds: this.runIds, kind, ...(data !== undefined ? { data } : {}) }, msg);
   }
 
+  /**
+   * Structured record for the server log ONLY (pino, info) — not streamed to
+   * the Live Log and not persisted in the trace. For machine-readable payloads
+   * (e.g. `prompt.assembled`) that a human line already summarizes.
+   */
+  record(msg: string, fields: Record<string, unknown>): void {
+    this.base?.info({ ...this.ctx, runIds: this.runIds, ...fields }, msg);
+  }
+
   info(msg: string, data?: unknown): void {
     this.event('info', msg, data);
   }

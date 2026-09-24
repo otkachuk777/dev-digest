@@ -99,9 +99,42 @@ export interface PromptParts {
   task?: string;
 }
 
+/**
+ * Where a prompt section's content comes from — for prompt-assembly logging.
+ * `trusted` sources are authored by the workspace/engine; the rest are
+ * untrusted data (PR author, repo code, fetched docs).
+ */
+export type PromptSectionSource =
+  | 'agent'
+  | 'engine'
+  | 'pr'
+  | 'intent-classifier'
+  | 'skill'
+  | 'memory'
+  | 'repo-intel'
+  | 'project-context'
+  | 'github-issue'
+  | 'repo-file'
+  | 'git';
+
+/**
+ * One logical section of an assembled prompt. `text` is the raw content so the
+ * CALLER can measure it (chars/tokens/hash); it must never be logged as-is —
+ * logging policy lives in the server, the engine only describes the parts.
+ * `parts` splits multi-item sections (skills, specs) for per-item sizing.
+ */
+export interface PromptSection {
+  name: string;
+  source: PromptSectionSource;
+  text: string;
+  parts?: string[];
+}
+
 export interface AssembledPrompt {
   messages: ChatMessage[];
   assembly: PromptAssembly;
+  /** The sections that make up `messages`, in prompt order (for logging only). */
+  sections: PromptSection[];
 }
 
 /**
@@ -160,6 +193,28 @@ export function assemblePrompt(parts: PromptParts): AssembledPrompt {
     { role: 'user', content: user },
   ];
 
+  const sections: PromptSection[] = [
+    { name: 'system', source: 'agent', text: parts.system },
+    {
+      name: 'guard',
+      source: 'engine',
+      text: parts.intent ? `${INJECTION_GUARD}\n\n${SCOPE_RULE}` : INJECTION_GUARD,
+    },
+  ];
+  if (parts.task) sections.push({ name: 'task', source: 'pr', text: parts.task });
+  if (prDescription) sections.push({ name: 'pr-description', source: 'pr', text: prDescription });
+  if (parts.intent) sections.push({ name: 'pr-intent', source: 'intent-classifier', text: parts.intent });
+  if (skillsBlock) sections.push({ name: 'skills', source: 'skill', text: skillsBlock, parts: parts.skills });
+  if (memoryBlock) sections.push({ name: 'memory', source: 'memory', text: memoryBlock });
+  if (parts.repoMap && parts.repoMap.trim().length > 0) {
+    sections.push({ name: 'repo-map', source: 'repo-intel', text: parts.repoMap });
+  }
+  if (specsBlock) sections.push({ name: 'specs', source: 'project-context', text: specsBlock, parts: parts.specs });
+  if (parts.callers && parts.callers.trim().length > 0) {
+    sections.push({ name: 'callers', source: 'repo-intel', text: parts.callers });
+  }
+  sections.push({ name: 'diff', source: 'git', text: parts.diff });
+
   const assembly: PromptAssembly = {
     system,
     skills: skillsBlock ?? null,
@@ -172,5 +227,5 @@ export function assemblePrompt(parts: PromptParts): AssembledPrompt {
     user,
   };
 
-  return { messages, assembly };
+  return { messages, assembly, sections };
 }

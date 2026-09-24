@@ -7,6 +7,7 @@ import { resolveFeatureModel } from '../settings/index.js';
 import type { ReviewRepository, PullRow } from './repository.js';
 import { toIntentRecord, extractIntentLinks } from './helpers.js';
 import { INTENT_TIMEOUT_MS, MAX_INTENT_SOURCES } from './constants.js';
+import { buildPromptLogRecord } from './prompt-log.js';
 
 /**
  * Derive a PR's intent: resolve the feature model, gather sources (title,
@@ -26,8 +27,10 @@ export async function deriveIntent(params: {
   repoRef: RepoRef;
   diff: UnifiedDiff;
   log: RunLogger;
+  /** Groups this call with the rest of the user action (review batch / re-derive request). */
+  correlationId: string;
 }): Promise<PrIntentRecord> {
-  const { container, repo, workspaceId, pull, repoRef, diff, log } = params;
+  const { container, repo, workspaceId, pull, repoRef, diff, log, correlationId } = params;
   const start = Date.now();
   log.tool('Deriving PR intent…');
 
@@ -99,7 +102,17 @@ export async function deriveIntent(params: {
     diff,
   });
 
-  const tokLine = sections.map((s) => `${s.label} ~${container.tokenizer.count(s.text)} tok`).join(', ');
+  const rec = buildPromptLogRecord({
+    call: 'intent',
+    provider,
+    model,
+    correlationId,
+    sections,
+    countTokens: (t) => container.tokenizer.count(t),
+    verbose: container.config.promptLogVerbose,
+  });
+  log.record('prompt.assembled', { ...rec });
+  const tokLine = rec.sections.map((s) => `${s.name} ~${s.tokens} tok`).join(', ');
   log.info(
     `intent: prompt — ${tokLine} (${filesCount} files, ${hunkCount} hunk headers; no diff bodies)`,
   );

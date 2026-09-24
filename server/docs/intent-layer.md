@@ -200,6 +200,34 @@ strings from URLs, or any secret/key. `intent: sources` logs only
 (`container.tokenizer.count`, `intent.ts:102`) — never the section text
 itself.
 
+## Structured prompt-assembly log (`prompt.assembled`)
+
+Every LLM call — the intent classifier and each reviewer call (one per chunk in map-reduce) — writes one structured record to the **server log only** (pino, `info`). It is not streamed to the Live Log and not stored in the trace; the Live Log gets a one-line summary instead (`review prompt: ~61.9k tok — system ~1.0k, …, diff ~58.2k (openrouter/…)`, first call only).
+
+| Field | Meaning |
+|---|---|
+| `event` | always `prompt.assembled` |
+| `call` | `intent` or `review` |
+| `provider`, `model` | the model actually used for this call |
+| `correlation_id` | review: the batch id (`agent_runs.batch_id`) shared by the intent call and every agent of one "Run Review"; re-derive: a fresh id per request (pino also adds Fastify's `reqId`) |
+| `prId`, `runIds`, `agent` | from the `RunLogger` context |
+| `chunk` | map-reduce file label; absent for single-pass |
+| `sections[]` | `{name, source, chars, tokens}` in prompt order |
+| `total_chars`, `total_tokens` | sums over sections (tokens via the tiktoken port) |
+
+Sources: `agent` (agent system prompt), `engine` (guard / classifier system text), `pr` (title, task line, description), `intent-classifier`, `skill`, `memory`, `repo-intel` (repo map, callers), `project-context` (specs), `github-issue`, `repo-file` (plan/spec `.md`), `git` (diff / hunk headers).
+
+**Never logged:** section text of any kind — no secrets, diff lines, spec / issue / PR text or model output. The record is built from lengths, counts, names and sources only (`server/src/modules/reviews/prompt-log.ts`); `server/test/prompt-log.test.ts` asserts a secret, diff lines and spec text never appear in it.
+
+### Verbose mode (local only)
+
+`PROMPT_LOG_VERBOSE=true` in `server/.env` adds, still without content:
+- `sha256` — first 12 hex of each section's hash, to see which parts changed between two runs;
+- `items[]` — per-skill / per-spec sizes (by index);
+- `diff_files[]` — per-file `{path, chars, tokens, hunks}` of the diff section.
+
+It is forced off when `NODE_ENV=production` (`config.promptLogVerbose`), so a stray variable in a deployment cannot enable it.
+
 ## Settings: which model runs the classifier
 
 `review_intent` is a `FeatureModelId`

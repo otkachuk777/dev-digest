@@ -77,7 +77,7 @@ describe('buildIntentPrompt', () => {
       docs: [{ label: 'issue:#12', content: 'issue body' }],
       diff: diffFixture(RAW_DIFF),
     });
-    expect(sections.map((s) => s.label)).toEqual([
+    expect(sections.map((s) => s.name)).toEqual([
       'system',
       'pr-title',
       'pr-description',

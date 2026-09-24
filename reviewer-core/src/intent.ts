@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { ChatMessage, Finding, Intent, IntentConfidence, IntentSource, UnifiedDiff } from '@devdigest/shared';
 import { Finding as FindingSchema, Review as ReviewSchema } from '@devdigest/shared';
-import { wrapUntrusted } from './prompt.js';
+import { wrapUntrusted, type PromptSection } from './prompt.js';
 
 /**
  * PR Intent — a cheap, separate model call that derives {summary, in_scope,
@@ -133,31 +133,30 @@ export interface BuildIntentPromptInput {
   diff: UnifiedDiff;
 }
 
-export interface IntentPromptSection {
-  label: string;
-  text: string;
-}
-
 export interface BuildIntentPromptResult {
   messages: ChatMessage[];
-  sections: IntentPromptSection[];
+  sections: PromptSection[];
   filesCount: number;
   hunkCount: number;
 }
 
 export function buildIntentPrompt(input: BuildIntentPromptInput): BuildIntentPromptResult {
-  const sections: IntentPromptSection[] = [{ label: 'system', text: INTENT_SYSTEM }];
+  const sections: PromptSection[] = [{ name: 'system', source: 'engine', text: INTENT_SYSTEM }];
   const userParts: string[] = [`## PR title\n${wrapUntrusted('pr-title', input.title)}`];
-  sections.push({ label: 'pr-title', text: input.title });
+  sections.push({ name: 'pr-title', source: 'pr', text: input.title });
 
   if (input.description && input.description.trim().length > 0) {
     userParts.push(`## PR description\n${wrapUntrusted('pr-description', input.description)}`);
-    sections.push({ label: 'pr-description', text: input.description });
+    sections.push({ name: 'pr-description', source: 'pr', text: input.description });
   }
 
   for (const doc of input.docs) {
     userParts.push(`## ${doc.label}\n${wrapUntrusted(doc.label, doc.content)}`);
-    sections.push({ label: doc.label, text: doc.content });
+    sections.push({
+      name: doc.label,
+      source: doc.label.startsWith('plan_file:') ? 'repo-file' : 'github-issue',
+      text: doc.content,
+    });
   }
 
   const groups = hunkHeaders(input.diff);
@@ -168,7 +167,7 @@ export function buildIntentPrompt(input: BuildIntentPromptInput): BuildIntentPro
   userParts.push(
     `## Changed files (hunk headers only — no diff bodies)\n${wrapUntrusted('changed-files', filesBlock)}`,
   );
-  sections.push({ label: 'changed-files', text: filesBlock });
+  sections.push({ name: 'changed-files', source: 'git', text: filesBlock });
 
   const messages: ChatMessage[] = [
     { role: 'system', content: INTENT_SYSTEM },

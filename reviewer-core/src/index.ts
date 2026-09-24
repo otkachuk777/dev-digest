@@ -17,6 +17,8 @@ export {
   wrapUntrusted,
   type PromptParts,
   type AssembledPrompt,
+  type PromptSection,
+  type PromptSectionSource,
 } from './prompt.js';
 
 // Citation grounding — the mandatory mechanical gate for diff findings.
@@ -72,7 +74,6 @@ export {
   type FileHunkHeaders,
   type IntentDoc,
   type BuildIntentPromptInput,
-  type IntentPromptSection,
   type BuildIntentPromptResult,
   type ScopedFinding,
   type ScopeFilterResult,
