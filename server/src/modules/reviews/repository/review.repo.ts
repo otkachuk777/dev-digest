@@ -129,6 +129,27 @@ export async function setFindingAccepted(
   return row;
 }
 
+// ---- Smart Diff ------------------------------------------------------------
+
+/** Finding file/line locations for a PR's reviews, newest review first
+ *  (kind='review' only — summaries carry no line-anchored findings). */
+export async function reviewFindingLocations(
+  db: Db,
+  prId: string,
+): Promise<{ agentId: string | null; reviewId: string; file: string; startLine: number }[]> {
+  return db
+    .select({
+      agentId: t.reviews.agentId,
+      reviewId: t.findings.reviewId,
+      file: t.findings.file,
+      startLine: t.findings.startLine,
+    })
+    .from(t.findings)
+    .innerJoin(t.reviews, eq(t.findings.reviewId, t.reviews.id))
+    .where(and(eq(t.reviews.prId, prId), eq(t.reviews.kind, 'review')))
+    .orderBy(desc(t.reviews.createdAt));
+}
+
 export async function setFindingDismissed(
   db: Db,
   findingId: string,

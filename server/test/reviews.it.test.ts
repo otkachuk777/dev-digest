@@ -235,6 +235,18 @@ d('A2 reviews + agents (Testcontainers pg)', () => {
     expect(run!.costUsd).toBe(0.001);
     expect(trace.stats.cost_usd).toBe(0.001);
 
+    // Smart Diff: role-grouped files + the finding's line, no LLM call.
+    const smartDiff = (
+      await app.inject({ method: 'GET', url: `/pulls/${pr.id}/smart-diff` })
+    ).json();
+    expect(smartDiff.groups).toEqual([
+      {
+        role: 'core',
+        files: [{ path: 'src/config.ts', additions: 1, deletions: 0, finding_lines: [11] }],
+      },
+    ]);
+    expect(smartDiff.split_suggestion.total_lines).toBe(1);
+
     await app.close();
   });
 

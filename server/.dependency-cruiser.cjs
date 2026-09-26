@@ -65,7 +65,7 @@ module.exports = {
         'import Fastify, Drizzle, an adapter, src/db, or the composition root ' +
         '(platform/container.ts), all of which are outer-ring details.',
       from: {
-        path: '^src/modules/[^/]+/(model|helpers|constants)\\.ts$|^src/vendor/shared/',
+        path: '^src/modules/[^/]+/(model|helpers|constants)\\.ts$|^src/modules/reviews/smart-diff/|^src/vendor/shared/',
       },
       to: {
         path:
