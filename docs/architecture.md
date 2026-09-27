@@ -14,7 +14,14 @@ client (Next.js :3000) ──REST──▶ server (Fastify :3001) ──▶ Post
 
 e2e drives `client` over CDP (Vercel agent-browser), asserting against the
 rendered DOM — it never talks to `server` or Postgres directly.
+
+Claude Code ──stdio──▶ mcp ──REST──▶ server
 ```
+
+`mcp` is a local stdio MCP server (`mcp/`) that lets Claude Code drive
+DevDigest reviews from chat. It has no process of its own beyond the stdio
+connection Claude Code starts on demand, holds no DB access, and reaches
+`server` only through its public REST API — same trust boundary as `client`.
 
 `client` and `server` are two long-running processes on the developer's host
 (`pnpm dev` in each, per `client/CLAUDE.md`, `server/CLAUDE.md`). Only
@@ -32,6 +39,7 @@ distribution.
 | `server` | HTTP API (`src/modules/<kebab-case>/routes.ts`), Postgres schema (`src/db/`), orchestrating a review run | prompt assembly, grounding (delegates to `reviewer-core`) |
 | `reviewer-core` | diff → prompt → LLM → grounded findings pipeline | HTTP, DB, GitHub — pure function of (diff, prompt, LLMProvider) |
 | `e2e` | browser-driven flow assertions against a running `client` | unit/integration coverage (that's `server/test/`, `client/**/*.test.tsx`) |
+| `mcp` | MCP tool surface + response shaping for Claude Code | persistence, review logic (delegates to `server`'s REST API) |
 
 ## Cross-module contract: `@devdigest/shared`
 

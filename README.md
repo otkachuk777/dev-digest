@@ -16,6 +16,7 @@ aliases, not published modules):
 | `reviewer-core/` | `@devdigest/reviewer-core`  | Pure review engine: diff → prompt → LLM → findings    | —    |
 | `e2e/`           | `@devdigest/e2e`            | Deterministic browser e2e (agent-browser)             | —    |
 | `server/src/vendor/shared` | `@devdigest/shared` | Zod contracts shared across every package             | —    |
+| `mcp/`           | `@devdigest/mcp`            | Local stdio MCP server wrapping the API for Claude Code | —  |
 
 `repo-intel` (the codebase indexer that powers the **Indexed** badge and feeds
 project context into reviews) lives inside the server at
@@ -131,6 +132,29 @@ cd ../client && pnpm install && pnpm dev               # web on :3000
 `server/`: `dev` · `build` · `db:migrate` · `db:seed` · `db:generate` · `test` · `typecheck`
 (unit/integration split: `pnpm exec vitest run --exclude '**/*.it.test.ts'` / `pnpm exec vitest run .it.test`)
 `client/`: `dev` · `build` · `start` · `test` · `typecheck`
+
+## MCP server
+
+`mcp/` is a local stdio MCP server that lets Claude Code drive DevDigest
+reviews from chat. It's a thin wrapper over the running API — no DB access,
+no duplicated business logic.
+
+```sh
+cd mcp && npm ci && npm run build
+```
+
+It is opt-in: `scripts/dev.sh` does not start it and there is no root
+`.mcp.json`. With the API running (`:3001`), start a Claude Code session with
+it only when needed: `claude --mcp-config mcp/claude-mcp.json` (from the repo
+root). Full from-scratch steps: [`mcp/README.md`](mcp/README.md#setup-from-scratch). Five tools:
+
+- `list_agents` — list configured reviewer agents.
+- `run_agent_on_pr` — review a PR with one agent; returns verdict and findings.
+- `get_findings` — get a review run's findings (newest run if `run_id` is omitted).
+- `get_conventions` — get a repo's accepted coding conventions.
+- `get_blast_radius` — PR impact map. Not implemented yet.
+
+See [`mcp/README.md`](mcp/README.md) for details.
 
 ## Testing & CI
 

@@ -20,7 +20,7 @@ worth writing. Read first, always. Write only when there is something real.
 
 | Module | File |
 |---|---|
-| `client` · `server` · `reviewer-core` · `e2e` | `<module>/INSIGHTS.md` |
+| `client` · `server` · `reviewer-core` · `e2e` · `mcp` | `<module>/INSIGHTS.md` |
 | cross-module, tooling, CI, root config | `INSIGHTS.md` (repo root) |
 
 Don't guess the module — ask git:

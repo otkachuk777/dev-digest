@@ -9,6 +9,7 @@ Globs are relative to repo root. A file can match several rows; a skill with no 
 | `client/src/app/**`, `client/next.config.*` | `next-best-practices` |
 | `client/**/*.test.{ts,tsx}` | `react-testing-library` |
 | `server/src/**`, `reviewer-core/src/**` | `onion-architecture` |
+| `mcp/src/**` | `onion-architecture`, `zod` (tool input schemas) |
 | `server/src/**/routes.ts`, `server/src/app.ts`, `server/src/server.ts`, `server/src/platform/**` | `fastify-best-practices` |
 | `server/src/db/**`, `server/src/**/repository*` | `drizzle-orm-patterns` |
 | `server/src/db/schema/**`, `server/src/db/migrations/*.sql` | `postgresql-table-design` |

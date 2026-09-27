@@ -11,6 +11,21 @@ import { MockGitHubClient, MockLLMProvider } from '../src/adapters/mocks.js';
 const config = loadConfig({ ...process.env, NODE_ENV: 'test' } as NodeJS.ProcessEnv);
 
 describe('routes (no DB)', () => {
+  // buildApp once reaped 'running' agent_runs itself; since config loads
+  // server/.env, every test run marked the dev DB's in-flight reviews failed.
+  it('buildApp does not query the database', async () => {
+    const touched: string[] = [];
+    const db = new Proxy({} as NonNullable<Parameters<typeof buildApp>[0]>['db'] & object, {
+      get(_t, prop) {
+        touched.push(String(prop));
+        throw new Error(`buildApp touched db.${String(prop)}`);
+      },
+    });
+    const app = await buildApp({ config, db });
+    await app.close();
+    expect(touched).toEqual([]);
+  });
+
   it('GET /health → ok', async () => {
     const app = await buildApp({ config });
     const res = await app.inject({ method: 'GET', url: '/health' });
