@@ -80,6 +80,11 @@ claude mcp remove devdigest --scope local   # turn it off again
 `--scope local` keeps it private to you and this checkout (stored in
 `~/.claude.json`, not in git).
 
+**Keep the build fresh.** Both options run `mcp/dist/index.js`, not the source.
+Claude's own edits to `mcp/src` trigger `npm run build` via a PostToolUse hook
+(`.claude/settings.json`); after a manual edit or `git pull`, run `cd mcp && npm run build`.
+The change takes effect in the next session.
+
 ### 5. Use it
 
 In the session, check `/mcp` shows `devdigest` connected, then ask e.g.

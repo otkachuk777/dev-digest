@@ -20,6 +20,19 @@
           }
         ]
       }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "f=$(jq -r \".tool_input.file_path // .tool_response.filePath // empty\"); case \"$f\" in */mcp/src/*.ts) cd \"$CLAUDE_PROJECT_DIR/mcp\" && npm run build --silent >/dev/null 2>&1 || echo \"{\\\"systemMessage\\\":\\\"devdigest MCP rebuild failed — run: cd mcp && npm run build\\\"}\";; esac",
+            "timeout": 60,
+            "statusMessage": "Rebuilding devdigest MCP…"
+          }
+        ]
+      }
     ]
   }
 }

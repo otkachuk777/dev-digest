@@ -22,6 +22,12 @@ directly here). Dev: `npm run dev` (`tsx src/index.ts`). Test: `npm test`
 type-safety gate — `build` only strips types, it does not check them, so
 always run `typecheck` too). Lint: not configured.
 
+Rebuild: the registered `devdigest` server runs `mcp/dist/index.js`, not the
+source. A PostToolUse hook in `.claude/settings.json` runs `npm run build` after
+any Claude edit to `mcp/src/*.ts`; after editing by hand (or a `git pull`), run
+`npm run build` yourself. New sessions pick up the new build; a running session
+keeps the old process.
+
 `pnpm arch` (dependency-cruiser) does not scan this package — the ring/import
 rules for `mcp/` are checked by hand; see `.claude/skills/onion-architecture/SKILL.md`
 ("mcp/" section) for the allowed-imports table.
