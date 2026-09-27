@@ -143,8 +143,10 @@ no duplicated business logic.
 cd mcp && npm ci && npm run build
 ```
 
-The `server/` API must be running (`pnpm dev`, `:3001`). Then approve the
-`devdigest` server in Claude Code (`.mcp.json` at repo root). Five tools:
+It is opt-in: `scripts/dev.sh` does not start it and there is no root
+`.mcp.json`. With the API running (`:3001`), start a Claude Code session with
+it only when needed: `claude --mcp-config mcp/claude-mcp.json` (from the repo
+root). Full from-scratch steps: [`mcp/README.md`](mcp/README.md#setup-from-scratch). Five tools:
 
 - `list_agents` — list configured reviewer agents.
 - `run_agent_on_pr` — review a PR with one agent; returns verdict and findings.

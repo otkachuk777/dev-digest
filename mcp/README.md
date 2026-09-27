@@ -15,26 +15,88 @@ access, no duplicated review logic.
 | `get_conventions` | Get a repo's accepted coding conventions with file:line evidence. |
 | `get_blast_radius` | PR impact map. Not implemented yet — always returns an error. |
 
-## Setup
+## Setup from scratch
 
-1. Start the DevDigest server (`cd server && pnpm dev`) — the MCP server is
-   only a proxy and does nothing without it.
-2. Install and build:
+The MCP server is **opt-in**: `scripts/dev.sh` never starts it, and the repo has
+no root `.mcp.json`, so Claude Code does not spawn it in every session. You
+connect it only when you want it. It is a stdio process — the MCP client
+(Claude Code) starts it as a child and it exits with the session; there is no
+daemon to run or stop.
 
-   ```bash
-   cd mcp
-   npm ci
-   npm run build
-   ```
+### 0. Prerequisites
 
-3. Point your MCP client at `node mcp/dist/index.js` (stdio). This repo's
-   `.mcp.json` (root) already does this for Claude Code — approve the
-   `devdigest` server when prompted.
+- Node 22+ and npm (this package uses npm, not pnpm)
+- The DevDigest stack prerequisites: Docker + pnpm (see the root `README.md`)
+- Claude Code CLI (`claude --version`)
+
+### 1. Start the DevDigest API (the MCP server is only a proxy)
+
+```bash
+./scripts/dev.sh              # Postgres → migrate → seed → server (:3001) + client (:3000)
+./scripts/dev.sh --no-client  # enough for MCP: API only
+curl -s localhost:3001/health # → 200
+```
+
+`run_agent_on_pr` calls the LLM, so `server/.env` needs a model key
+(`OPENROUTER_API_KEY` for the default models); `GITHUB_TOKEN` lets the API
+import fresh PRs. Read-only tools work on the seeded data without keys.
+
+### 2. Install and build the MCP server (once, and after pulling changes)
+
+```bash
+cd mcp
+npm ci
+npm run build        # → mcp/dist/index.js
+npm test             # optional: 44 hermetic tests, no API needed
+```
+
+### 3. Check it on its own (optional)
+
+```bash
+cd mcp
+npm exec devdigest-mcp                 # stdio server; prints "devdigest-mcp: connected…" to stderr, Ctrl+C to stop
+npm run inspect                        # MCP Inspector UI: call each tool by hand
+npx @modelcontextprotocol/inspector --cli node dist/index.js --method tools/list
+```
+
+### 4. Connect it to Claude Code — only when you need it
+
+**Per session (recommended).** From the repo root:
+
+```bash
+claude --mcp-config mcp/claude-mcp.json
+```
+
+The server exists for that session only. `mcp/claude-mcp.json` uses the
+relative path `mcp/dist/index.js`, so start `claude` from the repo root.
+
+**Toggle for this project** (also works in the desktop app's Code tab):
+
+```bash
+claude mcp add devdigest --scope local -e DEVDIGEST_API_URL=http://localhost:3001 -- node "$PWD/mcp/dist/index.js"
+claude mcp remove devdigest --scope local   # turn it off again
+```
+
+`--scope local` keeps it private to you and this checkout (stored in
+`~/.claude.json`, not in git).
+
+### 5. Use it
+
+In the session, check `/mcp` shows `devdigest` connected, then ask e.g.
+"review PR #6 of otkachuk777/dev-digest with the Security Reviewer". The
+expected flow is `list_agents` → `run_agent_on_pr` → (if still running)
+`get_findings`.
+
+### Troubleshooting
+
+| Symptom | Fix |
+|---|---|
+| "DevDigest API not reachable at …" | Start the API (step 1); check `DEVDIGEST_API_URL` |
+| `/mcp` shows devdigest failed | `mcp/dist/index.js` missing → `npm run build`; started `claude` outside the repo root → use the absolute-path variant |
+| "PR #N not found … Known PRs: …" | The API only knows imported PRs; open the repo in the DevDigest UI or set `GITHUB_TOKEN` |
+| `run_agent_on_pr` returns `status: running` | Normal for slow models (120 s cap) — call `get_findings` with the returned `run_id` later |
 
 Environment: `DEVDIGEST_API_URL` (default `http://localhost:3001`).
-
-Standalone command: the package exposes a `devdigest-mcp` bin, so from `mcp/`
-`npm exec devdigest-mcp` starts the stdio server (after `npm run build`).
 
 ## Development
 

@@ -31,6 +31,8 @@ Checking the MCP flow with `claude -p "…" --mcp-config .mcp.json` first produc
 
 **Rule:** for scripted checks use `claude -p "<prompt>" --permission-mode default --strict-mcp-config --mcp-config .mcp.json --allowedTools "mcp__devdigest__…" --output-format stream-json --verbose`; for token cost use `claude -p "/context" --strict-mcp-config --mcp-config <cfg>` with `ENABLE_TOOL_SEARCH=false|true` (numbers in `mcp/README.md` § Context cost)
 
+> **2026-09-27 correction:** the root `.mcp.json` was moved to `mcp/claude-mcp.json` (MCP is opt-in, not auto-loaded per session); use `--mcp-config mcp/claude-mcp.json` in the commands above.
+
 ## Recurring Errors & Fixes
 
 _No entries yet._
