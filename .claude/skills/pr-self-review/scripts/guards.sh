@@ -13,7 +13,8 @@ has() { echo "$ALL" | grep -qx "$1"; }
 
 # 1. lock file changed without its package.json
 for pair in client/pnpm-lock.yaml:client/package.json server/pnpm-lock.yaml:server/package.json \
-            reviewer-core/package-lock.json:reviewer-core/package.json e2e/package-lock.json:e2e/package.json; do
+            reviewer-core/package-lock.json:reviewer-core/package.json e2e/package-lock.json:e2e/package.json \
+            mcp/package-lock.json:mcp/package.json; do
   lock=${pair%%:*}; pkg=${pair##*:}
   if has "$lock" && ! has "$pkg"; then
     add "$lock" "lockfile-hand-edit" "$lock changed but $pkg did not: lock files must only change via the package manager." "git checkout $BASE -- $lock (or change package.json and run pnpm/npm install)"

@@ -7,7 +7,7 @@
 # Adding a module later (e.g. repo-intel) is a one-line change to MODULES.
 set -euo pipefail
 
-MODULES=(client server reviewer-core e2e)
+MODULES=(client server reviewer-core e2e mcp)
 
 cd "$(git rev-parse --show-toplevel)"
 

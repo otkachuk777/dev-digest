@@ -62,6 +62,15 @@ The red-flag examples below are real **baseline debt** that already exists in th
 
 **Touching a file that's in the baseline?** Don't widen the violation. If your change is in the same function, move that piece to the right ring (a small extract to `repository.ts` or `service.ts` is in scope). A full cleanup of the module is a separate task.
 
+## `mcp/`
+
+`mcp/` (the local stdio MCP server) follows the same ring-by-file-role
+principle, but it isn't Fastify/Drizzle and `pnpm arch` doesn't scan it —
+check the import direction by hand (`mcp/src/{errors,match,shape}.ts` →
+domain, `port.ts` → port, `http-api.ts` → infrastructure adapter,
+`usecases.ts` → application, `server.ts` → presentation, `index.ts` →
+composition root).
+
 ## Transactions
 
 - As of 2026-09 there are **zero** `db.transaction` call sites in `server/src`, so the first one introduces the pattern below. Don't go looking for a reference implementation.
