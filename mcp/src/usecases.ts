@@ -25,8 +25,22 @@ const STILL_RUNNING_HINT = (repo: string, pr: number, runId: string) =>
 export interface WaitOpts {
   pollMs?: number;
   waitMs?: number;
+  /** How long a reasonless `failed` may persist before we believe it. */
+  failGraceMs?: number;
   signal?: AbortSignal;
 }
+
+/** A real failure always records `error`; `failed` with no error is what the
+ *  server's boot-time reaper writes, and the live runner may still overwrite
+ *  it with `done` — so it is not trusted until it outlasts a grace window. */
+const isReasonlessFailure = (run?: RunSummary): boolean =>
+  run?.status === 'failed' && !run.error;
+
+/** Past this age a reasonless `failed` cannot be overwritten any more — the
+ *  run is really dead (reviews finish in minutes; the slowest seen ~4.5 min). */
+const DEAD_RUN_AFTER_MS = 15 * 60_000;
+const mayStillFinish = (run: RunSummary): boolean =>
+  isReasonlessFailure(run) && (!run.ran_at || Date.now() - Date.parse(run.ran_at) < DEAD_RUN_AFTER_MS);
 
 export interface WaitResult {
   status: 'done' | 'failed' | 'cancelled' | 'running';
@@ -45,14 +59,21 @@ export async function waitForRun(
   const pollMs = opts.pollMs ?? 3000;
   const waitMs = opts.waitMs ?? 120_000;
   const signal = opts.signal;
+  const failGraceMs = opts.failGraceMs ?? 30_000;
   const deadline = Date.now() + waitMs;
+  let suspectSince: number | undefined;
 
   for (;;) {
     const runs = await api.runs(prId, signal);
     const run = runs.find((r) => r.run_id === runId);
     const status = run?.status;
-    if (status && status !== 'running') {
+    if (isReasonlessFailure(run)) {
+      suspectSince ??= Date.now();
+      if (Date.now() - suspectSince >= failGraceMs) return { status: 'failed', run };
+    } else if (status && status !== 'running') {
       return { status: status as 'done' | 'failed' | 'cancelled', run };
+    } else {
+      suspectSince = undefined;
     }
     if (Date.now() >= deadline || signal?.aborted) {
       return { status: 'running', run };
@@ -131,7 +152,7 @@ export async function runAgentOnPr(
   if (waited.status === 'failed' || waited.status === 'cancelled') {
     throw new DevDigestError(
       'server',
-      `Run ${runId} failed: ${waited.run?.error ?? waited.status}. ${RETRY_HINT}`,
+      `Run ${runId} failed: ${waited.run?.error ?? 'no reason recorded (server may have restarted)'}. ${RETRY_HINT}`,
     );
   }
 
@@ -176,14 +197,14 @@ export async function getFindings(
     if (!run) {
       throw new DevDigestError('not_found', 'run not found on this PR — call run_agent_on_pr first');
     }
-    if (run.status === 'running') {
+    if (run.status === 'running' || mayStillFinish(run)) {
       return {
         status: 'running',
         run_id: input.run_id,
         hint: STILL_RUNNING_HINT(input.repo, input.pr, input.run_id),
       };
     }
-    throw new DevDigestError('server', `Run ${input.run_id} failed: ${run.error ?? run.status}. ${RETRY_HINT}`);
+    throw new DevDigestError('server', `Run ${input.run_id} failed: ${run.error ?? 'no reason recorded (server may have restarted)'}. ${RETRY_HINT}`);
   }
 
   const newest = reviews[0];

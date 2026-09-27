@@ -7,7 +7,11 @@ See `.claude/skills/engineering-insights/`.
 
 ## What Works
 
-_No entries yet._
+### Don't trust a `failed` run that has no `error` (2026-09)
+
+Every genuine failure path in `run-executor.ts` writes an error message; only the boot-time reaper writes `status='failed'` with `error: null`, and a still-live runner can later overwrite it with `done`. Reporting it at once made Claude start a second, paid run while the first one was about to succeed.
+
+**Rule:** `waitForRun` keeps polling through a reasonless `failed` for `failGraceMs` (30 s) and `get_findings` answers `running` for it until the run is 15 min old; only a `failed` with an error text is final at once (`mcp/src/usecases.ts` `isReasonlessFailure`)
 
 ## What Doesn't Work
 

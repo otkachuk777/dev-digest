@@ -120,6 +120,21 @@ describe('waitForRun', () => {
     expect(result.status).toBe('running');
   });
 
+  it('keeps polling through a reasonless "failed" (reaper) until the run is done', async () => {
+    const api = new FakeApi();
+    const row = (status: string): RunSummary => ({ run_id: 'run-1', agent_id: 'agent-1', agent_name: 'Reviewer', provider: null, model: null, status, error: null, duration_ms: null, tokens_in: null, tokens_out: null, cost_usd: null, findings_count: null, grounding: null, ran_at: null, score: null, blockers: null });
+    api.runsQueue = [[row('running')], [row('failed')], [row('failed')], [row('done')]];
+    const result = await waitForRun(api, 'pr-1', 'run-1', { pollMs: 1, waitMs: 500 });
+    expect(result.status).toBe('done');
+  });
+
+  it('gives up on a reasonless "failed" after the grace window', async () => {
+    const api = new FakeApi();
+    api.runsQueue = [[{ run_id: 'run-1', agent_id: 'agent-1', agent_name: 'Reviewer', provider: null, model: null, status: 'failed', error: null, duration_ms: null, tokens_in: null, tokens_out: null, cost_usd: null, findings_count: null, grounding: null, ran_at: null, score: null, blockers: null }]];
+    const result = await waitForRun(api, 'pr-1', 'run-1', { pollMs: 1, waitMs: 500, failGraceMs: 10 });
+    expect(result.status).toBe('failed');
+  });
+
   it('honors an abort signal and stops early', async () => {
     const api = new FakeApi();
     api.runsQueue = [[{ run_id: 'run-1', agent_id: 'agent-1', agent_name: 'Reviewer', provider: null, model: null, status: 'running', error: null, duration_ms: null, tokens_in: null, tokens_out: null, cost_usd: null, findings_count: null, grounding: null, ran_at: null, score: null, blockers: null }]];
@@ -188,6 +203,22 @@ describe('getFindings', () => {
     api.runsQueue = [[{ run_id: 'run-2', agent_id: 'agent-1', agent_name: 'Reviewer', provider: null, model: null, status: 'running', error: null, duration_ms: null, tokens_in: null, tokens_out: null, cost_usd: null, findings_count: null, grounding: null, ran_at: null, score: null, blockers: null }]];
     const result = await getFindings(api, { repo: 'owner/name', pr: 42, run_id: 'run-2' });
     expect(result).toMatchObject({ status: 'running', run_id: 'run-2' });
+  });
+
+  it('treats a reasonless "failed" run as possibly still running', async () => {
+    const api = new FakeApi();
+    api.reviewsResult = [];
+    api.runsQueue = [[{ run_id: 'run-2', agent_id: 'agent-1', agent_name: 'Reviewer', provider: null, model: null, status: 'failed', error: null, duration_ms: null, tokens_in: null, tokens_out: null, cost_usd: null, findings_count: null, grounding: null, ran_at: null, score: null, blockers: null }]];
+    const result = await getFindings(api, { repo: 'owner/name', pr: 42, run_id: 'run-2' });
+    expect(result).toMatchObject({ status: 'running', run_id: 'run-2' });
+  });
+
+  it('reports a reasonless "failed" run as failed once it started long ago', async () => {
+    const api = new FakeApi();
+    api.reviewsResult = [];
+    const longAgo = new Date(Date.now() - 60 * 60_000).toISOString();
+    api.runsQueue = [[{ run_id: 'run-2', agent_id: 'agent-1', agent_name: 'Reviewer', provider: null, model: null, status: 'failed', error: null, duration_ms: null, tokens_in: null, tokens_out: null, cost_usd: null, findings_count: null, grounding: null, ran_at: longAgo, score: null, blockers: null }]];
+    await expect(getFindings(api, { repo: 'owner/name', pr: 42, run_id: 'run-2' })).rejects.toMatchObject({ kind: 'server' });
   });
 
   it('rejects an unknown run_id with a not_found error', async () => {

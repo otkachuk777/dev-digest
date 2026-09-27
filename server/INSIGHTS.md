@@ -62,6 +62,12 @@ The Intent Layer classifier was planned on `deepseek/deepseek-v4-flash` (the ent
 
 **Rule:** for a call on the review's critical path, time the candidate on a real, large PR through the app (`POST /pulls/:id/intent`) before making it the default; "answers eventually" (conventions scan) is not "fast enough" (`server/src/vendor/shared/contracts/platform.ts` `review_intent`, commit `2cf6fe9`)
 
+### A "no-DB" test that calls `buildApp` reaped the dev DB's live runs (2026-09)
+
+`buildApp` ran `reapStaleRunningRuns` (every `running` agent_run → `failed`, no error text), and `config.ts` imports `dotenv/config`, so `test/routes-smoke.test.ts` — documented as "no DB" — hit the real dev database on every `pnpm test`. Any review in flight at that moment flipped to `failed` with `error: null`, then back to `done` when the runner finished; the MCP client saw "failed" and paid for a duplicate run. Reproduced: `running` → run the smoke test → `failed` → `done`.
+
+**Rule:** process-boot side effects live in `src/server.ts` (before `listen`), never in `buildApp`, which tests construct freely; `routes-smoke.test.ts` pins it with a db Proxy that throws on any access (`src/server.ts`, `test/routes-smoke.test.ts`)
+
 ## Codebase Patterns
 
 ### Reuse the existing severity tally instead of duplicating it (2026-09-18)
