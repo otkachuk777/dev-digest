@@ -30,6 +30,10 @@ check "pnpm test 2>&1" allow
 check "pnpm arch > /dev/null" allow
 check "some-cmd 2>&1 | tail -50" allow
 check "npx vitest run 2>&1 | tail -100" allow
+check "cd server && pnpm audit" allow
+check "cd reviewer-core && npm audit --json" allow
+check "git diff main -U0 | grep -nE '^\+.*AKIA[0-9A-Z]{16}'" allow
+check "git ls-files --others --exclude-standard | xargs grep -nE 'gh[ps]_[A-Za-z0-9]{36,}'" allow
 
 # ---- must be denied (write-shaped) -----------------------------------------
 check "echo hi > f.txt" deny
@@ -58,5 +62,27 @@ check "cd server && pnpm db:migrate" deny
 check "some_cmd | tee out.txt" deny
 check "find . -name '*.log' -delete" deny
 check "find . -name '*.tmp' -exec rm {} \\;" deny
+check "npm audit fix" deny
+check "cd server && pnpm audit --fix" deny
+check "npm audit fix --force" deny
+check "npm --prefix mcp audit fix" deny
+check "pnpm -C server audit --fix" deny
+check "npm audit fix; echo done" deny
+check "npm audit fix&& echo done" deny
+check "npm audit --json | grep fix" allow
+check "npm --prefix mcp install" deny
+check "pnpm -C server add zod" deny
+check "pnpm --filter server install" deny
+check "npm install; echo done" deny
+check "cd server && pnpm -C . test" allow
+check "cd server && pnpm vitest run -t add" allow
+check "git branch -a" deny
+check "git branch -d old" deny
+check "git for-each-ref --format='%(refname:short)' refs/heads refs/remotes" allow
+
+# the git branch deny names the read-only alternative
+jq -nc '{tool_input:{command:"git branch -a"}}' | "$S/readonly-bash-guard.sh" | grep -q 'for-each-ref' \
+  && echo "ok   git branch deny reason names for-each-ref" \
+  || { echo "FAIL git branch deny reason lacks for-each-ref hint"; FAIL=1; }
 
 exit $FAIL
