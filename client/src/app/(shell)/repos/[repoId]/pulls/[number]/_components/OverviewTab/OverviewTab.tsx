@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { SectionLabel } from "@devdigest/ui";
+import { Markdown, SectionLabel } from "@devdigest/ui";
 import { IntentCard } from "./_components/IntentCard";
 import { BlastRadiusCard } from "./_components/BlastRadiusCard";
 import { s } from "./styles";
@@ -22,7 +22,9 @@ export function OverviewTab({ prId, headSha, prBody, repoId, repoFullName }: Ove
       {prBody && (
         <section>
           <SectionLabel icon="MessageSquare">Description</SectionLabel>
-          <div style={s.descriptionBox}>{prBody}</div>
+          <div style={s.descriptionBox}>
+            <Markdown>{prBody}</Markdown>
+          </div>
         </section>
       )}
     </>
