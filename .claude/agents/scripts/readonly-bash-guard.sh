@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # PreToolUse hook (matcher: Bash) for read-only agents (planner, researcher,
-# architecture-reviewer, plan-verifier). Denies commands that write to the
+# brainstorm, architecture-reviewer, security-reviewer, plan-verifier). Denies commands that write to the
 # filesystem, git history, or install/run migrations — modeled on path-guard.sh
 # but pattern-matching the COMMAND STRING, not a file_path. This is NOT a
 # sandbox: it blocks known write shapes, not every way to mutate state.
@@ -36,13 +36,24 @@ fi
 
 # ---- git: deny known-mutating subcommands, allow read-only ones ------------
 GIT_DENY='commit|add|push|checkout|reset|stash|apply|rebase|merge|cherry-pick|revert|clean|branch|tag|rm|mv|restore'
+# `git branch` lists OR creates/deletes depending on args — deny all forms, but
+# name the read-only way to list branches so the agent can retry.
+if printf '%s' "$CMD" | grep -qE "(^|[|;&]|[[:space:]])git[[:space:]]+branch([[:space:]|;&]|\$)"; then
+  deny "git branch is not allowed for a read-only agent (to list branches use: git for-each-ref --format='%(refname:short)' refs/heads refs/remotes): $CMD"
+fi
 if printf '%s' "$CMD" | grep -qE "(^|[|;&]|[[:space:]])git[[:space:]]+($GIT_DENY)([[:space:]]|\$)"; then
   deny "git write command is not allowed for a read-only agent: $CMD"
 fi
 
 # ---- package managers: deny install/modify; allow test/typecheck/arch/lint --
-if printf '%s' "$CMD" | grep -qE '(^|[|;&]|[[:space:]])(npm|pnpm)[[:space:]]+(install|i|ci|add|remove|uninstall|update|upgrade|link|publish)([[:space:]]|$)'; then
+# Global flags may sit before the subcommand (`npm --prefix mcp install`, `pnpm -C server add x`).
+if printf '%s' "$CMD" | grep -qE '(^|[|;&]|[[:space:]])(npm|pnpm)([[:space:]]+-[^[:space:]]+([[:space:]]+[^-[:space:]][^[:space:]]*)?)*[[:space:]]+(install|i|ci|add|remove|uninstall|update|upgrade|link|publish)([[:space:]|;&]|$)'; then
   deny "package install/modify is not allowed for a read-only agent: $CMD"
+fi
+
+# `audit` is read-only, `audit fix` / `audit --fix` rewrites package.json/lockfile.
+if printf '%s' "$CMD" | grep -qE '(^|[|;&]|[[:space:]])(npm|pnpm)([[:space:]][^|;&]*)?[[:space:]]audit([[:space:]][^|;&]*)?[[:space:]](fix|--fix)([[:space:]|;&]|$)'; then
+  deny "audit fix modifies package.json/lockfile: $CMD"
 fi
 
 # ---- DB migrations/seeds ----------------------------------------------------
