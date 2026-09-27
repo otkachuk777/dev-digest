@@ -84,6 +84,6 @@ flat primitive arguments; a capped, shaped result; errors that lead forward
 as `isError` text, never a thrown stack) — see
 `docs/cc-plans/2026-09-27+mcp-server.md` for the full rationale and the exact
 tool specs. `src/` is laid out by Onion Architecture file role
-(`errors.ts`/`match.ts`/`shape.ts` domain → `port.ts` → `http-api.ts` infra →
+(`errors.ts`/`match.ts`/`shape.ts`/`inputs.ts` domain → `port.ts` → `http-api.ts` infra →
 `usecases.ts` application → `server.ts` presentation → `index.ts` root); see
 `CLAUDE.md`.

@@ -7,11 +7,11 @@ Local stdio MCP server — a thin wrapper over the running DevDigest Fastify API
 business logic; every tool resolves its inputs against the HTTP API and
 shapes the response. Layout follows Onion Architecture by file role, not by
 folder (`domain/`/`application/`/`infrastructure/` folders do not exist
-here): `errors.ts`/`match.ts`/`shape.ts` (pure domain) → `port.ts` (the
+here): `errors.ts`/`match.ts`/`shape.ts`/`inputs.ts` (pure domain; `inputs.ts` holds the zod tool-input shapes that `server.ts` registers and `usecases.ts` types against) → `port.ts` (the
 `DevDigestApi` interface) → `http-api.ts` (fetch adapter, the only file that
 imports `fetch`/HTTP concerns) → `usecases.ts` (orchestration, incl.
 `waitForRun`) → `server.ts` (the only file that imports the MCP SDK;
-`registerTool`, zod input schemas, annotations, result/error mapping) →
+`registerTool` with the `inputs.ts` shapes, annotations, result/error mapping) →
 `index.ts` (composition root: wires `HttpDevDigestApi` to `createServer` and
 starts the stdio transport). Package manager: **npm**
 (`package-lock.json`) — never pnpm here (root `INSIGHTS.md`). Build:

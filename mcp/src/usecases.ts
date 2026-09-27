@@ -5,6 +5,7 @@ import { activeRunFor, findAgent, findPr, findRepo } from './match.js';
 import { capOutput, shapeAgents, shapeConventions, shapeReview } from './shape.js';
 import type { ShapedAgent, ShapedConventions, ShapedFinding } from './shape.js';
 import type { DevDigestApi } from './port.js';
+import type { GetConventionsInput, GetFindingsInput, RunAgentOnPrInput } from './inputs.js';
 
 /**
  * APPLICATION — orchestrates the port + domain rules into the outcome each
@@ -99,12 +100,6 @@ export async function listAgents(
   return { agents };
 }
 
-export interface RunAgentOnPrInput {
-  repo: string;
-  pr: number;
-  agent: string;
-}
-
 export async function runAgentOnPr(
   api: DevDigestApi,
   input: RunAgentOnPrInput,
@@ -156,13 +151,6 @@ export async function runAgentOnPr(
   });
 }
 
-export interface GetFindingsInput {
-  repo: string;
-  pr: number;
-  run_id?: string;
-  limit?: number;
-}
-
 export async function getFindings(
   api: DevDigestApi,
   input: GetFindingsInput,
@@ -208,11 +196,6 @@ export async function getFindings(
     agent: newest.agent_name ?? null,
     ...shapeReview(newest, input.limit ?? 20),
   });
-}
-
-export interface GetConventionsInput {
-  repo: string;
-  limit?: number;
 }
 
 export async function getConventions(

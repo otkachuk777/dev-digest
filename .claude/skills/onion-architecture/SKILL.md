@@ -66,7 +66,7 @@ The red-flag examples below are real **baseline debt** that already exists in th
 
 `mcp/` (the local stdio MCP server) follows the same ring-by-file-role
 principle, but it isn't Fastify/Drizzle and `pnpm arch` doesn't scan it —
-check the import direction by hand (`mcp/src/{errors,match,shape}.ts` →
+check the import direction by hand (`mcp/src/{errors,match,shape,inputs}.ts` →
 domain, `port.ts` → port, `http-api.ts` → infrastructure adapter,
 `usecases.ts` → application, `server.ts` → presentation, `index.ts` →
 composition root).

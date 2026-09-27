@@ -1,7 +1,12 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
-import { z } from 'zod';
 import { DevDigestError } from './errors.js';
+import {
+  GetBlastRadiusInput,
+  GetConventionsInput,
+  GetFindingsInput,
+  RunAgentOnPrInput,
+} from './inputs.js';
 import * as usecases from './usecases.js';
 import type { DevDigestApi } from './port.js';
 
@@ -14,13 +19,6 @@ import type { DevDigestApi } from './port.js';
 
 const INSTRUCTIONS =
   'DevDigest reviews GitHub PRs with configured agents. Flow: list_agents → run_agent_on_pr(repo "owner/name", pr number, agent name) → if still running, get_findings(repo, pr, run_id). get_conventions returns a repo\'s accepted house rules.';
-
-const repoField = z.string().describe('GitHub repo "owner/name"');
-const prField = z.number().int().positive().describe('PR number');
-const agentField = z.string().describe('Agent name from list_agents');
-const runIdField = z.string().uuid().describe('From run_agent_on_pr; omit for newest');
-const limitField = (min: number, max: number, def: number) =>
-  z.number().int().min(min).max(max).default(def).describe('Max items');
 
 function textResult(value: unknown): CallToolResult {
   return { content: [{ type: 'text', text: JSON.stringify(value) }] };
@@ -78,7 +76,7 @@ export function createServer(api: DevDigestApi, opts: CreateServerOpts = {}): Mc
     {
       description:
         'Review a GitHub PR with one agent: starts the run, waits up to 120 s, returns verdict and findings. If still running, returns run_id — then call get_findings.',
-      inputSchema: { repo: repoField, pr: prField, agent: agentField },
+      inputSchema: RunAgentOnPrInput,
       annotations: {
         readOnlyHint: false,
         destructiveHint: false,
@@ -105,12 +103,7 @@ export function createServer(api: DevDigestApi, opts: CreateServerOpts = {}): Mc
     'get_findings',
     {
       description: "Get the verdict and findings of a review run on a PR (newest run if run_id is omitted).",
-      inputSchema: {
-        repo: repoField,
-        pr: prField,
-        run_id: runIdField.optional(),
-        limit: limitField(1, 50, 20),
-      },
+      inputSchema: GetFindingsInput,
       annotations: { readOnlyHint: true },
     },
     async (args, extra) => {
@@ -126,7 +119,7 @@ export function createServer(api: DevDigestApi, opts: CreateServerOpts = {}): Mc
     'get_conventions',
     {
       description: "Get a repo's accepted coding conventions (house rules) with file:line evidence.",
-      inputSchema: { repo: repoField, limit: limitField(1, 100, 30) },
+      inputSchema: GetConventionsInput,
       annotations: { readOnlyHint: true },
     },
     async (args, extra) => {
@@ -142,7 +135,7 @@ export function createServer(api: DevDigestApi, opts: CreateServerOpts = {}): Mc
     'get_blast_radius',
     {
       description: 'PR impact map. Not implemented yet.',
-      inputSchema: { repo: repoField, pr: prField },
+      inputSchema: GetBlastRadiusInput,
       annotations: { readOnlyHint: true },
     },
     async () => errorResult('get_blast_radius is not implemented yet.'),
