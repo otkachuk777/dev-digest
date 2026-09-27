@@ -7,6 +7,8 @@ import type {
   ReviewRunResponse,
   ReviewRecord,
   ConventionScan,
+  PrDetail,
+  BlastRadius,
 } from '@devdigest/shared';
 import type { DevDigestApi } from './port.js';
 import { DevDigestError } from './errors.js';
@@ -115,5 +117,13 @@ export class HttpDevDigestApi implements DevDigestApi {
       { method: 'GET' },
       signal,
     );
+  }
+
+  async pullDetail(prId: string, signal?: AbortSignal): Promise<PrDetail> {
+    return this.request<PrDetail>(`/pulls/${encodeURIComponent(prId)}`, { method: 'GET' }, signal);
+  }
+
+  async blast(prId: string, signal?: AbortSignal): Promise<BlastRadius> {
+    return this.request<BlastRadius>(`/pulls/${encodeURIComponent(prId)}/blast`, { method: 'GET' }, signal);
   }
 }

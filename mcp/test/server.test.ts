@@ -10,6 +10,8 @@ import type {
   ReviewRunResponse,
   ReviewRecord,
   ConventionScan,
+  PrDetail,
+  BlastRadius,
 } from '@devdigest/shared';
 import type { DevDigestApi } from '../src/port.js';
 import { createServer } from '../src/server.js';
@@ -40,6 +42,28 @@ class FakeApi implements DevDigestApi {
   }
   async conventions(): Promise<ConventionScan> {
     return { items: [], sample_count: 0, scanned_at: null };
+  }
+  async pullDetail(): Promise<PrDetail> {
+    return {
+      id: 'p',
+      number: 1,
+      title: 't',
+      author: 'a',
+      branch: 'b',
+      base: 'main',
+      head_sha: 'sha',
+      additions: 0,
+      deletions: 0,
+      files_count: 0,
+      status: 'open',
+      body: null,
+      files: [],
+      commits: [],
+      linked_issue: null,
+    };
+  }
+  async blast(): Promise<BlastRadius> {
+    return { changed_symbols: [], downstream: [], summary: 'no changes' };
   }
 }
 
@@ -119,14 +143,14 @@ describe('MCP server', () => {
     expect(text(result)).toContain('not found');
   });
 
-  it('get_blast_radius always returns the not-implemented isError', async () => {
+  it('get_blast_radius maps a not_found error (unknown repo) to isError text', async () => {
     const { client } = await connect(api);
     const result = await client.callTool({
       name: 'get_blast_radius',
-      arguments: { repo: 'owner/name', pr: 1 },
+      arguments: { repo: 'owner/missing', pr: 1 },
     });
     expect(result.isError).toBe(true);
-    expect(text(result)).toBe('get_blast_radius is not implemented yet.');
+    expect(text(result)).toContain('not found');
   });
 
   it('rejects run_agent_on_pr input that fails the zod schema (pr must be positive)', async () => {

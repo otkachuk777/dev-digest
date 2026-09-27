@@ -18,7 +18,7 @@ import type { DevDigestApi } from './port.js';
  */
 
 const INSTRUCTIONS =
-  'DevDigest reviews GitHub PRs with configured agents. Flow: list_agents → run_agent_on_pr(repo "owner/name", pr number, agent name) → if still running, get_findings(repo, pr, run_id). get_conventions returns a repo\'s accepted house rules.';
+  'DevDigest reviews GitHub PRs with configured agents. Flow: list_agents → run_agent_on_pr(repo "owner/name", pr number, agent name) → if still running, get_findings(repo, pr, run_id). get_conventions returns a repo\'s accepted house rules. get_blast_radius(repo, pr) maps a PR\'s downstream callers and endpoints.';
 
 function textResult(value: unknown): CallToolResult {
   return { content: [{ type: 'text', text: JSON.stringify(value) }] };
@@ -134,11 +134,18 @@ export function createServer(api: DevDigestApi, opts: CreateServerOpts = {}): Mc
   server.registerTool(
     'get_blast_radius',
     {
-      description: 'PR impact map. Not implemented yet.',
+      description:
+        'What else a PR can break: changed symbols, their callers (file:line), affected HTTP endpoints and crons, from the prebuilt code index. Call before reviewing a PR to judge its risk.',
       inputSchema: GetBlastRadiusInput,
       annotations: { readOnlyHint: true },
     },
-    async () => errorResult('get_blast_radius is not implemented yet.'),
+    async (args, extra) => {
+      try {
+        return textResult(await usecases.getBlastRadius(api, args, extra.signal));
+      } catch (err) {
+        return handleError(err);
+      }
+    },
   );
 
   return server;

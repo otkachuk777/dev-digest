@@ -8,10 +8,19 @@ import type {
   ReviewRunResponse,
   ReviewRecord,
   ConventionScan,
+  PrDetail,
+  BlastRadius,
 } from '@devdigest/shared';
 import type { DevDigestApi } from '../src/port.js';
 import { DevDigestError } from '../src/errors.js';
-import { getConventions, getFindings, listAgents, runAgentOnPr, waitForRun } from '../src/usecases.js';
+import {
+  getBlastRadius,
+  getConventions,
+  getFindings,
+  listAgents,
+  runAgentOnPr,
+  waitForRun,
+} from '../src/usecases.js';
 
 const repo: Repo = {
   id: 'repo-1',
@@ -62,6 +71,17 @@ class FakeApi implements DevDigestApi {
   startReviewResult: ReviewRunResponse = { pr_id: 'pr-1', runs: [{ run_id: 'run-1', agent_id: 'agent-1', agent_name: 'Reviewer' }], reviews: [] };
   startReviewCalls = 0;
   conventionsResult: ConventionScan = { items: [], sample_count: 0, scanned_at: null };
+  blastResult: BlastRadius = { changed_symbols: [], downstream: [], summary: 'no changes' };
+  pullDetailCalls = 0;
+
+  async pullDetail(): Promise<PrDetail> {
+    this.pullDetailCalls += 1;
+    return { ...pr, body: null, files: [], commits: [], linked_issue: null };
+  }
+
+  async blast(): Promise<BlastRadius> {
+    return this.blastResult;
+  }
 
   async listAgents() {
     return [agent];
@@ -286,6 +306,37 @@ describe('getConventions', () => {
   it('throws not_found when there are no accepted conventions', async () => {
     const api = new FakeApi();
     await expect(getConventions(api, { repo: 'owner/name' })).rejects.toMatchObject({ kind: 'not_found' });
+  });
+});
+
+describe('getBlastRadius', () => {
+  it('returns the BlastRadius unchanged and calls pullDetail first', async () => {
+    const api = new FakeApi();
+    api.blastResult = {
+      changed_symbols: [{ name: 'alpha', file: 'a.ts', kind: 'function' }],
+      downstream: [
+        { symbol: 'alpha', callers: [{ name: 'x', file: 'b.ts', line: 1 }], endpoints_affected: [], crons_affected: [] },
+      ],
+      summary: '1 symbols changed · 1 callers',
+    };
+    const result = await getBlastRadius(api, { repo: 'owner/name', pr: 42 });
+    expect(result).toEqual(api.blastResult);
+    expect(api.pullDetailCalls).toBe(1);
+  });
+
+  it('rejects with not_found (Known PRs: #42) for an unknown PR', async () => {
+    const api = new FakeApi();
+    await expect(getBlastRadius(api, { repo: 'owner/name', pr: 999 })).rejects.toMatchObject({
+      kind: 'not_found',
+      message: expect.stringContaining('Known PRs: #42'),
+    });
+  });
+
+  it('rejects with not_found for an unknown repo', async () => {
+    const api = new FakeApi();
+    await expect(getBlastRadius(api, { repo: 'nope/nope', pr: 42 })).rejects.toMatchObject({
+      kind: 'not_found',
+    });
   });
 });
 

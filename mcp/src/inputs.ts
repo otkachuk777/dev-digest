@@ -23,3 +23,4 @@ export const GetBlastRadiusInput = { repo, pr };
 export type RunAgentOnPrInput = z.input<z.ZodObject<typeof RunAgentOnPrInput>>;
 export type GetFindingsInput = z.input<z.ZodObject<typeof GetFindingsInput>>;
 export type GetConventionsInput = z.input<z.ZodObject<typeof GetConventionsInput>>;
+export type GetBlastRadiusInput = z.input<z.ZodObject<typeof GetBlastRadiusInput>>;
