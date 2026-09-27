@@ -26,7 +26,11 @@ export default async function blastRoutes(appBase: FastifyInstance) {
 
   app.get(
     '/pulls/:id/history',
-    { schema: { params: IdParams, response: { 200: PrHistory } } },
+    // Fans out to GitHub (files × commits) — throttle like the other GitHub-calling routes.
+    {
+      schema: { params: IdParams, response: { 200: PrHistory } },
+      config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
+    },
     async (req) => {
       const { workspaceId } = await getContext(container, req);
       return service.history(workspaceId, req.params.id, req.log);
