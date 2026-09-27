@@ -29,6 +29,12 @@ _No entries yet._
 
 **Rule:** build with esbuild per-file transpile (`esbuild src/*.ts --outdir=dist --outbase=src`) and keep `tsc --noEmit` as the type gate; after any build experiment run `git status server/src/vendor/shared` (`mcp/package.json` `build` script)
 
+### `zod` alias must point at the file `exports` resolves to (2026-09)
+
+CI's `mcp` job failed typecheck with 17 errors that never showed locally: `server/src/vendor/shared/*` imports `zod`, which resolves next to those files — `server/node_modules`, present on a dev machine but not in the mcp-only CI job. Copying reviewer-core's alias `"zod": ["./node_modules/zod"]` (a directory) fixed that but broke `registerTool` typing (TS2589 / not assignable to `ZodRawShapeCompat`): the directory alias loads `index.d.ts`, while the MCP SDK resolves zod through `exports` to `index.d.cts`, so two distinct zod type identities meet.
+
+**Rule:** alias `"zod": ["./node_modules/zod/index.d.cts"]` (the `exports["."].types` file) and no `zod/*`; reproduce CI typecheck in a clean `git worktree` with only `mcp/node_modules` installed (`mcp/tsconfig.json`)
+
 ### Headless `claude -p` inherits plan mode — pass `--permission-mode default` (2026-09)
 
 Checking the MCP flow with `claude -p "…" --mcp-config .mcp.json` first produced no MCP calls at all: the user's settings default to plan mode, so the headless session wrote a plan file into `~/.claude/plans/` and asked for approval. `/context` works headless too and is the cheapest way to measure tool-schema cost per config.
