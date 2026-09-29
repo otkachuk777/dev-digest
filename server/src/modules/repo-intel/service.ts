@@ -339,7 +339,10 @@ export class RepoIntelService implements RepoIntel {
     }
 
     // Resolved cross-file callers.
-    const callerRows = await this.repo.getResolvedCallers(repoId, changedFiles, [...nameSet]);
+    // A decl file is never its own caller (the ripgrep path skips it at the ref loop).
+    const callerRows = (await this.repo.getResolvedCallers(repoId, changedFiles, [...nameSet])).filter(
+      (c) => !seenSym.has(`${c.toSymbol}:${c.fromPath}`),
+    );
     const callerFiles = [...new Set(callerRows.map((c) => c.fromPath))];
 
     // Enclosing caller symbol from the callers' persistent symbol rows.

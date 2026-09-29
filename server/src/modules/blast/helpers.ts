@@ -8,12 +8,9 @@ import type { BlastRadius, DownstreamImpact, PrHistoryItem, MergedPullRef } from
 
 /**
  * Group a flat, rank-sorted `result.callers` list by `viaSymbol`, attribute
- * endpoints/crons from `result.factsByFile`, drop a caller whose file is the
- * symbol's own declaration file, and sort groups by relevance.
+ * endpoints/crons from `result.factsByFile`, and sort groups by relevance.
  */
 export function toBlastRadius(result: BlastResult): BlastRadius {
-  const declByNameFile = new Set(result.changedSymbols.map((s) => `${s.name}:${s.file}`));
-
   const order: string[] = [];
   const groups = new Map<
     string,
@@ -21,10 +18,6 @@ export function toBlastRadius(result: BlastResult): BlastRadius {
   >();
 
   for (const c of result.callers) {
-    // Defends "a decl file is never its own caller" — the facade already
-    // guarantees this, but a pure mapper should not assume its input.
-    if (declByNameFile.has(`${c.viaSymbol}:${c.file}`)) continue;
-
     let group = groups.get(c.viaSymbol);
     if (!group) {
       group = { callers: [] };

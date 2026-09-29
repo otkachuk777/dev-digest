@@ -76,18 +76,6 @@ describe('toBlastRadius', () => {
     expect(blast.downstream.map((d) => d.symbol)).toEqual(['high', 'low']);
   });
 
-  it('drops a caller whose file equals the symbol decl file', () => {
-    const result = baseResult({
-      changedSymbols: [{ file: 'a.ts', name: 'alpha', kind: 'function' }],
-      callers: [
-        { file: 'a.ts', symbol: 'self', viaSymbol: 'alpha', line: 1, rank: 1 },
-        { file: 'c1.ts', symbol: 'real', viaSymbol: 'alpha', line: 2, rank: 2 },
-      ],
-    });
-    const blast = toBlastRadius(result);
-    expect(blast.downstream[0]!.callers).toEqual([{ name: 'real', file: 'c1.ts', line: 2 }]);
-  });
-
   it('no callers → downstream: [] and the summary mentions "no downstream"; parses as BlastRadius', () => {
     const result = baseResult({
       changedSymbols: [{ file: 'a.ts', name: 'alpha', kind: 'function' }],

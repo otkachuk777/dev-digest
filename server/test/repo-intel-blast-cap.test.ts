@@ -8,7 +8,7 @@ import type { IndexState } from '../src/modules/repo-intel/types.js';
  * PER `viaSymbol`, not to the whole caller list: the old code did
  * `callers.slice(0, MAX_CALLERS_PER_SYMBOL)` on the combined, rank-sorted
  * list, so a high-rank symbol's callers could crowd out a low-rank symbol's
- * callers entirely.
+ * callers entirely. Also pins that a decl file is never its own caller.
  */
 
 function declRow(path: string, name: string): FullSymbolRow {
@@ -19,6 +19,7 @@ function buildService(opts: {
   status: IndexState['status'];
   alphaCallers: number;
   betaCallers: number;
+  selfRow?: boolean;
 }): RepoIntelService {
   const container = {
     config: { repoIntelEnabled: true },
@@ -56,7 +57,11 @@ function buildService(opts: {
       }
       return [];
     },
-    getResolvedCallers: async () => [...alphaRows, ...betaRows],
+    getResolvedCallers: async () => [
+      ...alphaRows,
+      ...betaRows,
+      ...(opts.selfRow ? [{ fromPath: 'a.ts', toSymbol: 'alpha', line: 5, rank: 999 }] : []),
+    ],
     getFileFacts: async () => [],
   };
   return svc;
@@ -82,5 +87,12 @@ describe('RepoIntel facade — per-symbol caller cap', () => {
     const result = await svc.getBlastRadius('r1', ['a.ts']);
     expect(result.degraded).toBe(true);
     expect(result.reason).toBe('index_partial');
+  });
+
+  it("never returns a reference from the symbol's own decl file as a caller", async () => {
+    const svc = buildService({ status: 'full', alphaCallers: 2, betaCallers: 1, selfRow: true });
+    const result = await svc.getBlastRadius('r1', ['a.ts']);
+    expect(result.callers.some((c) => c.file === 'a.ts')).toBe(false);
+    expect(result.callers).toHaveLength(3);
   });
 });
