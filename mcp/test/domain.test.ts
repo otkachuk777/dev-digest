@@ -126,6 +126,10 @@ describe('shape', () => {
     expect(shaped!.description.length).toBe(120);
   });
 
+  it('shapeAgents exposes the model', () => {
+    expect(shapeAgents([agent({ model: 'gpt-5' })])[0]!.model).toBe('gpt-5');
+  });
+
   it('shapeReview sorts CRITICAL > WARNING > SUGGESTION and caps at limit', () => {
     const findings = [
       finding({ id: '1', severity: 'SUGGESTION' }),

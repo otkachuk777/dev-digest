@@ -21,6 +21,7 @@ export interface ShapedFinding {
 export interface ShapedAgent {
   id: string;
   name: string;
+  model: string;
   description: string;
   enabled: boolean;
 }
@@ -29,6 +30,7 @@ export function shapeAgents(agents: Agent[]): ShapedAgent[] {
   return agents.map((a) => ({
     id: a.id,
     name: a.name,
+    model: a.model,
     description: truncate(a.description, 120),
     enabled: a.enabled,
   }));

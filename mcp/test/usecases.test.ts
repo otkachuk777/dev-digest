@@ -353,5 +353,6 @@ describe('listAgents', () => {
   it('returns shaped agents otherwise', async () => {
     const result = await listAgents(new FakeApi());
     expect(result.agents).toHaveLength(1);
+    expect(result.agents[0]!.model).toBe('gpt-5');
   });
 });

@@ -131,6 +131,7 @@ describe('MCP server', () => {
     const parsed = JSON.parse(text(result));
     expect(parsed.agents).toHaveLength(1);
     expect(parsed.agents[0].name).toBe('Reviewer');
+    expect(parsed.agents[0].model).toBe('gpt-5');
   });
 
   it('run_agent_on_pr maps a not_found error (unknown repo) to isError text', async () => {
