@@ -17,6 +17,7 @@ import {
   getBlastRadius,
   getConventions,
   getFindings,
+  getPrFindings,
   listAgents,
   runAgentOnPr,
   waitForRun,
@@ -275,6 +276,33 @@ describe('getFindings', () => {
       expect(result.total).toBe(5);
       expect(result.truncated).toBe(true);
     }
+  });
+});
+
+describe('getPrFindings', () => {
+  const f = (id: string, severity: 'CRITICAL' | 'WARNING') => ({
+    id, severity, category: 'bug' as const, title: 't', file: 'a.ts', start_line: 1, end_line: 2, rationale: 'r', confidence: 0.9,
+  });
+
+  it('returns each agent latest review with totals', async () => {
+    const api = new FakeApi();
+    api.reviewsResult = [{ ...doneReview, findings: [f('1', 'CRITICAL'), f('2', 'WARNING')] }];
+    const result = await getPrFindings(api, { repo: 'owner/name', pr: 42 });
+    expect(result.reviews).toHaveLength(1);
+    expect(result.reviews[0]).toMatchObject({ agent: 'Reviewer', model: 'gpt-5', run_id: 'run-1' });
+    expect(result.total_findings).toBe(2);
+    expect(result.by_severity).toEqual({ CRITICAL: 1, WARNING: 1, SUGGESTION: 0 });
+  });
+
+  it('rejects an unknown PR with not_found', async () => {
+    await expect(getPrFindings(new FakeApi(), { repo: 'owner/name', pr: 999 })).rejects.toMatchObject({ kind: 'not_found' });
+  });
+
+  it('rejects with not_found and a run_agent_on_pr hint when there are no reviews', async () => {
+    await expect(getPrFindings(new FakeApi(), { repo: 'owner/name', pr: 42 })).rejects.toMatchObject({
+      kind: 'not_found',
+      message: expect.stringContaining('run_agent_on_pr'),
+    });
   });
 });
 

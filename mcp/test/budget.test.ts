@@ -8,7 +8,7 @@ import { createServer } from '../src/server.js';
 const unusedApi = {} as DevDigestApi;
 
 /**
- * Token-cost guard (plan: "5 tools with 1-2 sentence descriptions, tiny flat
+ * Token-cost guard (plan: "6 tools with 1-2 sentence descriptions, tiny flat
  * schemas, a 3-line instructions, no outputSchema"). ~6000 chars is a loose
  * ~1.5k-token budget so chat start stays cheap.
  */

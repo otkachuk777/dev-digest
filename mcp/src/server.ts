@@ -5,6 +5,7 @@ import {
   GetBlastRadiusInput,
   GetConventionsInput,
   GetFindingsInput,
+  GetPrFindingsInput,
   RunAgentOnPrInput,
 } from './inputs.js';
 import * as usecases from './usecases.js';
@@ -18,7 +19,7 @@ import type { DevDigestApi } from './port.js';
  */
 
 const INSTRUCTIONS =
-  'DevDigest reviews GitHub PRs with configured agents. Flow: list_agents → run_agent_on_pr(repo "owner/name", pr number, agent name) → if still running, get_findings(repo, pr, run_id). get_conventions returns a repo\'s accepted house rules. get_blast_radius(repo, pr) maps a PR\'s downstream callers and endpoints.';
+  'DevDigest reviews GitHub PRs with configured agents. Flow: list_agents → run_agent_on_pr(repo "owner/name", pr number, agent name) → if still running, get_findings(repo, pr, run_id). get_conventions returns a repo\'s accepted house rules. get_blast_radius(repo, pr) maps a PR\'s downstream callers and endpoints. get_pr_findings(repo, pr) returns all agents\' latest reviews at once.';
 
 function textResult(value: unknown): CallToolResult {
   return { content: [{ type: 'text', text: JSON.stringify(value) }] };
@@ -109,6 +110,23 @@ export function createServer(api: DevDigestApi, opts: CreateServerOpts = {}): Mc
     async (args, extra) => {
       try {
         return textResult(await usecases.getFindings(api, args, extra.signal));
+      } catch (err) {
+        return handleError(err);
+      }
+    },
+  );
+
+  server.registerTool(
+    'get_pr_findings',
+    {
+      description:
+        "Whole-PR review picture: every agent's latest verdict and findings plus severity totals. For one specific run use get_findings.",
+      inputSchema: GetPrFindingsInput,
+      annotations: { readOnlyHint: true },
+    },
+    async (args, extra) => {
+      try {
+        return textResult(await usecases.getPrFindings(api, args, extra.signal));
       } catch (err) {
         return handleError(err);
       }

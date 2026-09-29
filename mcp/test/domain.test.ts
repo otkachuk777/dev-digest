@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import type { Agent, ConventionScan, Finding, Repo, PrMeta, ActiveRun } from '@devdigest/shared';
+import type { Agent, ConventionScan, Finding, Repo, PrMeta, ActiveRun, ReviewRecord } from '@devdigest/shared';
 import { DevDigestError } from '../src/errors.js';
 import { activeRunFor, findAgent, findPr, findRepo } from '../src/match.js';
-import { capOutput, shapeAgents, shapeConventions, shapeReview } from '../src/shape.js';
+import { capOutput, shapeAgents, shapeConventions, shapePrFindings, shapeReview } from '../src/shape.js';
 
 const repo = (overrides: Partial<Repo> = {}): Repo => ({
   id: 'repo-1',
@@ -58,6 +58,22 @@ const finding = (overrides: Partial<Finding> = {}): Finding => ({
   end_line: 2,
   rationale: 'because reasons',
   confidence: 0.9,
+  ...overrides,
+});
+
+const rec = (overrides: Partial<ReviewRecord> = {}): ReviewRecord => ({
+  id: 'rev-1',
+  pr_id: 'pr-1',
+  agent_id: 'agent-1',
+  run_id: 'run-1',
+  agent_name: 'Reviewer',
+  kind: 'review',
+  verdict: 'comment',
+  summary: 'ok',
+  score: 80,
+  model: 'gpt-5',
+  created_at: '2026-09-27T00:00:00Z',
+  findings: [],
   ...overrides,
 });
 
@@ -128,6 +144,46 @@ describe('shape', () => {
 
   it('shapeAgents exposes the model', () => {
     expect(shapeAgents([agent({ model: 'gpt-5' })])[0]!.model).toBe('gpt-5');
+  });
+
+  it('shapePrFindings keeps only the latest review per agent', () => {
+    const older = rec({ id: 'old', created_at: '2026-09-26T00:00:00Z', findings: [finding({ id: '1' }), finding({ id: '2' }), finding({ id: '3' })] });
+    const newer = rec({ id: 'new', created_at: '2026-09-27T00:00:00Z', findings: [finding({ id: '4' })] });
+    const shaped = shapePrFindings([older, newer]);
+    expect(shaped.reviews).toHaveLength(1);
+    expect(shaped.total_findings).toBe(1);
+  });
+
+  it('shapePrFindings counts before the per-agent limit', () => {
+    const findings = [
+      finding({ id: '1', severity: 'SUGGESTION' }),
+      finding({ id: '2', severity: 'CRITICAL' }),
+      finding({ id: '3', severity: 'SUGGESTION' }),
+    ];
+    const shaped = shapePrFindings([rec({ findings })], 1);
+    expect(shaped.total_findings).toBe(3);
+    expect(shaped.by_severity).toEqual({ CRITICAL: 1, WARNING: 0, SUGGESTION: 2 });
+    const r = shaped.reviews[0]!;
+    expect(r.findings).toHaveLength(1);
+    expect(r.findings[0]!.severity).toBe('CRITICAL');
+    expect(r.total).toBe(3);
+    expect(r.truncated).toBe(true);
+  });
+
+  it('shapePrFindings skips summary-kind rows', () => {
+    const shaped = shapePrFindings([rec({ kind: 'summary', findings: [finding()] })]);
+    expect(shaped.reviews).toHaveLength(0);
+    expect(shaped.total_findings).toBe(0);
+  });
+
+  it('shapePrFindings groups by agent; a null agent_id is its own group', () => {
+    const shaped = shapePrFindings([
+      rec({ id: 'a', agent_id: 'agent-1' }),
+      rec({ id: 'b', agent_id: 'agent-2' }),
+      rec({ id: 'c', agent_id: null }),
+      rec({ id: 'd', agent_id: null }),
+    ]);
+    expect(shaped.reviews).toHaveLength(4);
   });
 
   it('shapeReview sorts CRITICAL > WARNING > SUGGESTION and caps at limit', () => {

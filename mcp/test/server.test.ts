@@ -88,14 +88,15 @@ describe('MCP server', () => {
     api = new FakeApi();
   });
 
-  it('registers exactly the 5 tools with their annotations', async () => {
+  it('registers exactly the 6 tools with their annotations', async () => {
     const { client } = await connect(api);
     const { tools } = await client.listTools();
     expect(tools.map((t) => t.name).sort()).toEqual(
-      ['get_blast_radius', 'get_conventions', 'get_findings', 'list_agents', 'run_agent_on_pr'].sort(),
+      ['get_blast_radius', 'get_conventions', 'get_findings', 'get_pr_findings', 'list_agents', 'run_agent_on_pr'].sort(),
     );
     const listAgents = tools.find((t) => t.name === 'list_agents')!;
     expect(listAgents.annotations?.readOnlyHint).toBe(true);
+    expect(tools.find((t) => t.name === 'get_pr_findings')!.annotations?.readOnlyHint).toBe(true);
     const runAgent = tools.find((t) => t.name === 'run_agent_on_pr')!;
     expect(runAgent.annotations?.readOnlyHint).toBe(false);
     expect(runAgent.annotations?.openWorldHint).toBe(true);
