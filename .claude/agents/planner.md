@@ -43,6 +43,7 @@ Without answers I would plan: <one concrete goal>, modules: <...>.
 ## Step 1 — Orientation
 
 1. Read root `CLAUDE.md` and the `CLAUDE.md` of every module the task touches ("Read when", naming, do-not-touch, commands).
+   If the task has a spec (`<module>/specs/SPEC-*.md` or `specs/SPEC-*.md`, given by the caller or found by `rg -l "^# Spec:" --glob "**/specs/SPEC-*.md"`), read it: every `AC-N` must be covered by a step's "Done when" or the Test plan, and its `Open questions` marked blocking go to "Risks & open questions".
 2. **Insights (Part A of engineering-insights).** Read `.claude/skills/engineering-insights/SKILL.md` section "A. Read first" and follow it, with one difference: resolve modules **from the task**, not with `detect-module.sh` (it reads the git working tree, which is empty at planning time). Read root `INSIGHTS.md` + each touched module's `INSIGHTS.md` in full. Never write to any `INSIGHTS.md`.
 3. Read the code you will change, end to end (route → service → repository → schema; page → component → hook → API client), plus existing tests next to it. Reuse existing helpers/patterns instead of planning new ones.
 

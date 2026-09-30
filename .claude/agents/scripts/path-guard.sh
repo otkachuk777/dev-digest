@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # PreToolUse hook (matcher: Write|Edit) declared in an agent's frontmatter. Denies writes outside the
-# agent's profile. Usage: path-guard.sh <tests|docs|plans>   (hook JSON on stdin)
+# agent's profile. Usage: path-guard.sh <tests|docs|plans|specs>   (hook JSON on stdin)
 #   tests — test-writer: test files and test-only helpers/fixtures
 #   docs  — doc-writer: docs/, <module>/docs/, READMEs; never plans, prompts, specs, CLAUDE.md, INSIGHTS.md
 #   plans — planner: draft plan files ~/.claude/plans/<name>.md only (outside the repo, never docs/cc-plans/)
+#   specs — spec-creator: <module>/specs/SPEC-NN-<slug>.md or top-level specs/SPEC-NN-<slug>.md (cross-module)
 # Covers Edit/Write only — Bash writes are limited by the agent prompt, not here.
 set -uo pipefail
 PROFILE="${1:-}"
@@ -35,11 +36,15 @@ case "$PROFILE" in
   docs)
     case "$REL" in
       docs/cc-plans/*|docs/agent-prompts/*|docs/reports/*|docs/designs/*|docs/api-contract-skills/*|docs/skills-import-demo/*) deny "$REL is a protected docs area";;
-      */specs/*|e2e/specs-docs/*) deny "$REL is a spec, not documentation";;
+      specs/*|*/specs/*|e2e/flows-docs/*) deny "$REL is a spec, not documentation";;
       CLAUDE.md|*/CLAUDE.md|INSIGHTS.md|*/INSIGHTS.md) deny "$REL holds agent instructions/insights, not documentation";;
     esac
     [[ "$REL" =~ ^(docs/.+|($MODULES)/docs/.+|README\.md|($MODULES)/README\.md)$ ]] && exit 0
     deny "$REL is outside the documentation locations (docs/, <module>/docs/, README.md, <module>/README.md)"
     ;;
-  *) deny "unknown profile '$PROFILE' (expected tests|docs|plans)";;
+  specs)
+    [[ "$REL" =~ ^(($MODULES|mcp)/)?specs/SPEC-[0-9]{2,}-[a-z0-9]+(-[a-z0-9]+)*\.md$ ]] && exit 0
+    deny "$REL is not a spec file. spec-creator may only write <module>/specs/SPEC-NN-<kebab-slug>.md (module: client|server|reviewer-core|e2e|mcp) or specs/SPEC-NN-<kebab-slug>.md for cross-module specs"
+    ;;
+  *) deny "unknown profile '$PROFILE' (expected tests|docs|plans|specs)";;
 esac

@@ -6,6 +6,7 @@ Project subagents for Claude Code. Each file here is the source of truth for its
 
 | Agent | Model | Responsibility | Writes |
 |-------|-------|----------------|--------|
+| [spec-creator](spec-creator.md) | opus | Turns a feature idea + design sources into an SDD spec (EARS ACs); asks the user about design gaps, corner cases, module interaction and UX first | spec files only (`<module>/specs/SPEC-*.md`, `specs/SPEC-*.md`) |
 | [researcher](researcher.md) | sonnet | Answers a concrete question with evidence — from this repo or from external sources | nothing |
 | [brainstorm](brainstorm.md) | opus | Compares at least three options for one technical decision before planning; recommendation with evidence and confidence | nothing |
 | [planner](planner.md) | opus | Turns a task into a Development Plan that follows module rules, INSIGHTS.md and project skills | draft plan file only (`~/.claude/plans/*.md`) |
@@ -21,7 +22,8 @@ Out of scope for every agent: git commits, writing `INSIGHTS.md`.
 ## Workflow
 
 ```
-task ──► researcher (optional, facts) ──► brainstorm (optional, options)
+task ──► spec-creator (⇄ user via main session) ──► SPEC-NN
+      ──► researcher (optional, facts) ──► brainstorm (optional, options)
                                       ──► planner ──► Development Plan
                                                         │  planner writes it (path-guard plans):
                                                         │  ~/.claude/plans/ → docs/cc-plans/ after approval
@@ -37,6 +39,7 @@ task ──► researcher (optional, facts) ──► brainstorm (optional, opti
                                   doc-writer ──► main session commits + /engineering-insights
 ```
 
+- spec-creator iterates through the main session: Round 1 returns a Discovery report (gaps, corner cases, module interactions, UX, numbered questions with options) and writes nothing → main asks the user with `AskUserQuestion` → answers go back via `SendMessage` → Round 2+ writes or updates the spec. planner and plan-verifier trace to its `AC-N`.
 - Every agent asks clarifying questions (returned as its answer) instead of working on a vague task — subagents cannot use `AskUserQuestion`.
 - test-writer and implementer never run in parallel on the same working tree; each test file has one owner per plan.
 - The reviewers are independent and can run in parallel; none of them fixes anything.
@@ -46,6 +49,7 @@ task ──► researcher (optional, facts) ──► brainstorm (optional, opti
 
 | Agent | Allowed tools | Denied | Enforcement |
 |-------|---------------|--------|-------------|
+| spec-creator | Read, Grep, Glob, Bash, Write, Edit, WebFetch, Playwright (view-only subset) | Agent, NotebookEdit, Skill, WebSearch | **Hooks** `readonly-bash-guard.sh` (Bash), `path-guard.sh specs` (Write/Edit only `SPEC-NN-<slug>.md` in `<module>/specs/` or `specs/`), `browser-url-guard.sh` (Playwright tool allowlist; URLs only localhost / 127.0.0.1 / *.figma.com). WebFetch only for caller-given URLs (by prompt) |
 | researcher | Read, Grep, Glob, Bash, WebSearch, WebFetch | Write, Edit, NotebookEdit, Skill | **Hook** `readonly-bash-guard.sh`; `Skill` denied → no `/deep-research` |
 | brainstorm | Read, Grep, Glob, Bash, WebSearch, WebFetch | Write, Edit, NotebookEdit, Agent, Skill | **Hook** `readonly-bash-guard.sh`; no `permissionMode: plan` (no agent uses it since `adc2fa7`) |
 | planner | Read, Grep, Glob, Bash, Write | Edit, NotebookEdit, Agent, WebSearch, WebFetch | **Hooks** `readonly-bash-guard.sh` (Bash) and `path-guard.sh plans` (Write only to `~/.claude/plans/<name>.md`) |
@@ -63,9 +67,11 @@ task ──► researcher (optional, facts) ──► brainstorm (optional, opti
 
 | Script | Used by | What it does |
 |--------|---------|--------------|
-| `path-guard.sh <tests\|docs\|plans>` | test-writer, doc-writer, planner (PreToolUse hook) | Denies Edit/Write outside the profile's paths; also denies paths outside the repo (except `plans`: only `~/.claude/plans/<name>.md`) and `..` segments |
+| `path-guard.sh <tests\|docs\|plans\|specs>` | test-writer, doc-writer, planner, spec-creator (PreToolUse hook) | Denies Edit/Write outside the profile's paths; also denies paths outside the repo (except `plans`: only `~/.claude/plans/<name>.md`) and `..` segments |
 | `path-guard.test.sh` | maintainers | Self-check: allowed paths pass, protected paths are denied |
-| `readonly-bash-guard.sh` | researcher, brainstorm, planner, architecture-reviewer, security-reviewer, plan-verifier (PreToolUse hook, matcher `Bash`) | Denies write-shaped Bash commands (redirection to a file, `rm`/`mv`/`cp`/`touch`/`mkdir`/`chmod`, `sed -i`, mutating `git` subcommands, `npm/pnpm install` (also with global flags before it, e.g. `--prefix`, `-C`), `npm/pnpm audit fix`, `db:migrate`/`db:generate`; `git branch` is denied with a `git for-each-ref` hint); still allows `grep`, `cat`, `git diff/log/show/status`, `pnpm typecheck/test/arch`, `npm test`/`run typecheck`, `diff -r`, `ls`, `find` without `-delete`/`-exec rm` |
+| `browser-url-guard.sh` | spec-creator (PreToolUse hook, matcher `mcp__plugin_playwright_playwright__.*`) | Denies Playwright tools outside the view-only allowlist, navigation outside localhost / 127.0.0.1 / *.figma.com, and screenshot filenames with a path |
+| `browser-url-guard.test.sh` | maintainers | Self-check: allowed tools/URLs pass, others (evil hosts, `localhost@evil`, `file:`, form filling, evaluate) are denied |
+| `readonly-bash-guard.sh` | researcher, brainstorm, planner, spec-creator, architecture-reviewer, security-reviewer, plan-verifier (PreToolUse hook, matcher `Bash`) | Denies write-shaped Bash commands (redirection to a file, `rm`/`mv`/`cp`/`touch`/`mkdir`/`chmod`, `sed -i`, mutating `git` subcommands, `npm/pnpm install` (also with global flags before it, e.g. `--prefix`, `-C`), `npm/pnpm audit fix`, `db:migrate`/`db:generate`; `git branch` is denied with a `git for-each-ref` hint); still allows `grep`, `cat`, `git diff/log/show/status`, `pnpm typecheck/test/arch`, `npm test`/`run typecheck`, `diff -r`, `ls`, `find` without `-delete`/`-exec rm` |
 | `readonly-bash-guard.test.sh` | maintainers | Self-check: read-only commands pass, write-shaped commands are denied |
 | `mutation-probe.sh <file> <line> <replacement> -- <cmd>` | test-writer | Mutates one line of a committed file, expects red, restores from git, verifies the hash, expects green. Refuses files with uncommitted changes |
 
@@ -73,9 +79,10 @@ task ──► researcher (optional, facts) ──► brainstorm (optional, opti
 
 | Agent | Input | Reads | Output |
 |-------|-------|-------|--------|
+| spec-creator | Feature description + design sources (text, `docs/designs/*.html`, images, Figma / localhost URLs, code); later rounds: user's answers | Root + module `CLAUDE.md` / `INSIGHTS.md`, existing `SPEC-*`, `vendor/shared/contracts`, touched code, design sources | Round 1: **Discovery report** (Understanding · Placement · Sources · Design gaps · Corner cases · Module interactions · UX improvements · Questions with options + recommendation). Round 2+: **spec file** + path, ≤10-line summary, open questions |
 | researcher | A concrete question | Repo code, git history / docs, specs, issues | Report: Answer · Findings with evidence · Links / Sources · Contradictions (external) · **Not found** · Open questions |
 | brainstorm | One technical decision + constraints + consumer (optionally a researcher report) | Code, `INSIGHTS.md`, external prior art | **Brainstorm**: Decision · Insights read · Context & drivers · Criteria (weights) · Considered options (≥3 incl. do-nothing; pros/cons with evidence, pre-mortem, reversibility, reuse) · Comparison matrix · Recommendation + confidence · Open questions · Not found |
-| planner | Task / feature request | Root + module `CLAUDE.md`, `INSIGHTS.md`, code to change, `skill-map.md`, current `SKILL.md` (+ relevant sub-files) | **Plan file** in `~/.claude/plans/` + final message = path, ≤10-line summary, risks (the plan is never pasted into chat). Plan sections: Context · Scope · Insights applied · Constraints · Skills for implementer · Steps (Files / Skills / Change / Verify / Done when) · Test plan · Risks · Not verified |
+| planner | Task / feature request (+ its SPEC if one exists) | Root + module `CLAUDE.md`, the SPEC, `INSIGHTS.md`, code to change, `skill-map.md`, current `SKILL.md` (+ relevant sub-files) | **Plan file** in `~/.claude/plans/` + final message = path, ≤10-line summary, risks (the plan is never pasted into chat). Plan sections: Context · Scope · Insights applied · Constraints · Skills for implementer · Steps (Files / Skills / Change / Verify / Done when) · Test plan · Risks · Not verified |
 | implementer | Approved Development Plan | `INSIGHTS.md`, skills via `Skill`, code | **Implementation report**: Status · Insights read · Steps + skills applied · Verification evidence · Deviations · Not done · Insight candidates · Handoff for reviewers |
 | test-writer | Mode (test-first / backfill / per-plan) + plan step, spec or code | `TESTING.md`, neighbouring tests, `INSIGHTS.md`, skills via `Skill` | **Test report**: Status · Tests written · Fail-proof (red run / probe KILLED) · Verification · Suspected bugs · Not covered · Handoff |
 | architecture-reviewer | Diff scope (default: branch vs main) or implementer's handoff | `pnpm arch` output, baseline + cruiser config diff, `vendor/shared` copies, boundary skills (read, not invoked) | **Architecture review**: Verdict · Deterministic checks · Findings (severity, blocking, rule + source, evidence) · Pre-existing · Unknown · Out of scope for security · Not verified |

@@ -30,7 +30,8 @@ check docs "$ROOT/server/src/app.ts" deny
 check docs "$ROOT/client/src/vendor/docs/x.md" deny
 check docs "$ROOT/CLAUDE.md" deny
 check docs "$ROOT/server/INSIGHTS.md" deny
-check docs "$ROOT/e2e/specs-docs/01.md" deny
+check docs "$ROOT/e2e/flows-docs/01.md" deny
+check docs "$ROOT/specs/SPEC-01-x.md" deny
 check docs "$ROOT/client/specs/x.md" deny
 check docs "$ROOT/docs/../server/src/app.ts" deny
 
@@ -41,6 +42,24 @@ check plans "$HOME/.claude/plans/../settings.json" deny
 check plans "$HOME/.claude/plans/x.txt" deny
 check plans "$ROOT/docs/cc-plans/2026-09-24+x.md" deny
 check plans "$ROOT/server/src/app.ts" deny
+
+check specs "$ROOT/client/specs/SPEC-01-x.md" allow
+check specs "$ROOT/mcp/specs/SPEC-12-a-b.md" allow
+check specs "$ROOT/specs/SPEC-03-cross.md" allow
+check specs "$ROOT/e2e/specs/SPEC-04-y.md" allow
+check specs "$ROOT/reviewer-core/specs/SPEC-100-z.md" allow
+check specs "$ROOT/client/specs/README.md" deny
+check specs "$ROOT/specs/README.md" deny
+check specs "$ROOT/client/specs/sub/SPEC-01-x.md" deny
+check specs "$ROOT/client/specs/SPEC-1-x.md" deny
+check specs "$ROOT/client/specs/spec-01-x.md" deny
+check specs "$ROOT/client/specs/SPEC-01-X.md" deny
+check specs "$ROOT/client/specs/SPEC-01-x.txt" deny
+check specs "$ROOT/client/src/x.md" deny
+check specs "$ROOT/docs/specs/SPEC-01-x.md" deny
+check specs "$ROOT/e2e/flows/01-a.flow.json" deny
+check specs "$ROOT/client/specs/../src/SPEC-01-x.md" deny
+check specs "/tmp/SPEC-01-x.md" deny
 
 check other "$ROOT/docs/architecture.md" deny
 

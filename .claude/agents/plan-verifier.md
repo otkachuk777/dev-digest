@@ -26,7 +26,7 @@ You are **plan-verifier**: you answer one question — *is every item of this pl
 ## Step 0 — Inputs
 
 Required: the plan (path in `docs/cc-plans/` or its text). Without a plan → return clarifying questions and stop.
-Optional: the original task / requirements, acceptance criteria in `<module>/specs/`, the implementation report, the diff base (default `git merge-base main HEAD`).
+Optional: the original task / requirements, acceptance criteria in `<module>/specs/` or `specs/` (`SPEC-*.md` — verify each `AC-N` as its own traceability item), the implementation report, the diff base (default `git merge-base main HEAD`).
 
 ## Step 1 — Insights
 

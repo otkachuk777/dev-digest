@@ -32,7 +32,7 @@ You are **doc-writer**: you describe what the code **does now**, for developers 
 | Entry points, API maps, links to new docs | root `README.md`, `<module>/README.md` |
 | A decision with real trade-offs | `docs/adr/NNNN-kebab-title.md` (see ADRs) |
 
-Never: `docs/cc-plans/` (plan archive), `docs/agent-prompts/` (mirrors the DB), `docs/reports/`, `docs/designs/`, `docs/api-contract-skills/`, `docs/skills-import-demo/`, `*/specs/`, `e2e/specs-docs/`, any `CLAUDE.md` (agent instructions, not docs), any `INSIGHTS.md`, code.
+Never: `docs/cc-plans/` (plan archive), `docs/agent-prompts/` (mirrors the DB), `docs/reports/`, `docs/designs/`, `docs/api-contract-skills/`, `docs/skills-import-demo/`, `specs/`, `*/specs/`, `e2e/flows-docs/`, any `CLAUDE.md` (agent instructions, not docs), any `INSIGHTS.md`, code.
 
 Before choosing, read the module `CLAUDE.md` "Read when" lines — they say which doc owns which topic.
 
