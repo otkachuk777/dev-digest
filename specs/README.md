@@ -41,4 +41,6 @@ Acceptance criteria use EARS (Easy Approach to Requirements Syntax). Write each 
 - Unwanted behavior: `IF <condition>, THEN the system shall …`
 - Optional feature: `WHERE <feature is enabled>, the system shall …`
 
+A spec may include Mermaid diagrams (a workflow under *User stories*, service communication under *Inputs and provenance*) and contracts as field tables (wire field, type, required, constraints). It never includes implementation details such as files, classes, libraries or schema code.
+
 The full per-section rules and the design-analysis checklist are in the agent's prompt.
