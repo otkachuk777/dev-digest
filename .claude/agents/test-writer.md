@@ -29,7 +29,7 @@ Decide the mode from the input; if it is unclear, return 3–5 clarifying questi
 
 | Mode | Input | Expected result |
 |---|---|---|
-| `test-first` | plan step / spec / acceptance criteria, code not written yet | tests **red**, failing because behaviour is missing — not because of syntax or import errors |
+| `test-first` | plan step / spec / acceptance criteria, code not written yet (spec format: `ears-spec` skill — write tests for the ACs/NFRs whose `[verify:]` tag names your layer: `unit`, `it`; name each test after the id it pins, e.g. `AC-3: escapes formula cells`) | tests **red**, failing because behaviour is missing — not because of syntax or import errors |
 | `backfill` | existing code without (enough) tests | tests green, each proven able to fail |
 | `per-plan` | a plan's Test plan assigns tests to you | as the plan says |
 

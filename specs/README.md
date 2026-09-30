@@ -12,35 +12,21 @@ Specs are written by the [`spec-creator`](../.claude/agents/spec-creator.md) age
 
 ## Lifecycle
 
-`Status: draft → approved → implemented`. A spec that replaces an earlier decision names it in `Supersedes: SPEC-XX (<path>)`. The earlier spec stays in place as the record.
+`Status: draft → approved → implemented`. `approved` is set only after the user's explicit approval in chat. A spec that replaces an earlier decision names it in `Supersedes: SPEC-XX (<path>)`, and the earlier spec gets `Superseded by: SPEC-YY (<path>)` so readers of either find the other. The earlier spec stays in place as the record.
 
-## Template
+## Format
 
-```markdown
-# Spec: <feature name>
-Spec ID: SPEC-NN
-Status: draft | approved | implemented
-Supersedes: <SPEC-XX (path) — what it replaces> | none
+The format is defined in one place, the [`ears-spec`](../.claude/skills/ears-spec/SKILL.md) skill. `spec-creator` writes specs to it, and `implementation-planner`, `test-writer` and `plan-verifier` read specs through it. It defines:
 
-## Problem and user
-## Goals / Non-goals
-## User stories
-## Acceptance criteria (EARS)
-## Edge cases
-## Non-functional requirements
-## Inputs and provenance
-## Untrusted inputs
-## Open questions
+- the template: 9 sections, with `### Traceability` closing *Acceptance criteria*;
+- EARS acceptance criteria;
+- `US/AC/EC/NFR/OQ` ids and `[verify: unit | it | e2e | manual]` tags on every AC and NFR;
+- module-level Mermaid diagrams and contract field tables.
+
+A spec never includes implementation details.
+
+Check a spec's structure with:
+
+```bash
+.claude/skills/ears-spec/scripts/spec-lint.sh <path/to/SPEC-NN-slug.md>
 ```
-
-Acceptance criteria use EARS (Easy Approach to Requirements Syntax). Write each AC in exactly one of these five forms. `shall` marks a mandatory requirement:
-
-- Ubiquitous: `The system shall …`
-- Event-driven: `WHEN <trigger>, the system shall …`
-- State-driven: `WHILE <state>, the system shall …`
-- Unwanted behavior: `IF <condition>, THEN the system shall …`
-- Optional feature: `WHERE <feature is enabled>, the system shall …`
-
-A spec may include Mermaid diagrams (a workflow under *User stories*, service communication under *Inputs and provenance*) and contracts as field tables (wire field, type, required, constraints). It never includes implementation details such as files, classes, libraries or schema code.
-
-The full per-section rules and the design-analysis checklist are in the agent's prompt.

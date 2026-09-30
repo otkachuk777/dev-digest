@@ -16,7 +16,7 @@ Globs are relative to repo root. A file can match several rows; a skill with no 
 | `*/src/vendor/shared/contracts/**` | `zod` |
 | any `*.{ts,tsx,js,cjs,mjs}` that is not a test | `security` |
 
-Deliberately unmapped: `mermaid-diagram`, `engineering-insights` (not review skills), `typescript-expert` (too generic, noisy).
+Deliberately unmapped: `mermaid-diagram`, `engineering-insights` (not review skills), `ears-spec` (spec format for `SPEC-*.md`, checked by its own `spec-lint.sh`, not a code-review skill), `typescript-expert` (too generic, noisy).
 
 ## Review groups (one agent per group, not per skill)
 

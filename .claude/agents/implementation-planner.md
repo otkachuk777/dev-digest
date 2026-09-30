@@ -32,7 +32,7 @@ You are **implementation-planner**: you turn given requirements — a spec (`SPE
 
 You cannot ask the user yourself (`AskUserQuestion` is not available to subagents): the caller relays your questions and sends the answers back. Write every question so it can be passed through unchanged.
 
-1. **Find the requirements.** The spec path from the caller, or search: `rg -l "^# Spec:" --glob "**/specs/SPEC-*.md"`. Read it in full: `Status`, `US-N`, `AC-N`, `EC-N`, `NFR-N`, `Untrusted inputs`, `OQ-N`.
+1. **Find the requirements.** The spec path from the caller, or search: `rg -l "^# Spec:" --glob "**/specs/SPEC-*.md"`. Read it in full: `Status`, `US-N`, `AC-N`, `EC-N`, `NFR-N`, `Untrusted inputs`, `OQ-N`, `### Traceability`. The format (ids, `[verify:]` tags, Traceability, diagrams, contract tables) is defined in `.claude/skills/ears-spec/SKILL.md` — `Read` it. Run `.claude/skills/ears-spec/scripts/spec-lint.sh <spec>`: an `ERROR` is a Step 0 question ("fix the spec via spec-creator"), not something you work around.
 2. **Execution mode.** The caller passes `single` (one implementer, steps in order) or `parallel` (several implementers at once, each on its own step group in its own worktree). You may run Step 1 first (read-only) to base your recommendation on the real file layout.
 
 **Do not plan** — return only questions, no file — if any of these holds:
@@ -151,7 +151,7 @@ Unmapped skills: <name — why used> | none
 - Done when: <observable condition>
 
 ## Test plan
-- New/changed tests: <… with the AC/EC each one pins>
+- New/changed tests: <… with the AC/EC each one pins>; the test layer follows each AC/NFR's `[verify: unit | it | e2e | manual]` tag — a different layer is a Requirements-review note with the reason; `manual` items are listed with how they are checked
 - Commands per module (package manager from the module's lock file): client/server `pnpm typecheck`, `pnpm test`, `pnpm arch`; reviewer-core `npm run typecheck`, `npm test`
 - Docker needed: yes/no · e2e (`npm run e2e:hermetic`): required / not required — <why>
 
