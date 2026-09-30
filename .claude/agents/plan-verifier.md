@@ -76,6 +76,9 @@ Statuses (a practical traceability convention, one per item):
 ## Summary
 <n> items — Met <a> · Partially met <b> · Not met <c> · Not verifiable <d> → satisfied | gaps
 
+## Spec status
+<only when a SPEC was given> SPEC-NN: ready for `implemented` (every AC-N and NFR-N is Met) | not ready — <ids not Met> | needs user decision — <ids Not verifiable, e.g. `[verify: manual]`>. You never edit the spec.
+
 ## Traceability
 | ID | Item (plan source) | Method | Status | Evidence |
 |---|---|---|---|---|

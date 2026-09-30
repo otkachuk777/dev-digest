@@ -37,7 +37,7 @@ task ──► spec-creator (⇄ user + parallel researchers, via main session) 
                                    └───────────── gaps / findings ──► implementer ◄───────────────┘
                                                         │ clean
                                                         ▼
-                                  doc-writer ──► main session commits + /engineering-insights
+                                  doc-writer ──► main session sets SPEC Status: implemented (plan-verifier: every AC/NFR Met) + commits + /engineering-insights
 ```
 
 - spec-creator iterates through the main session: Round 1 returns a Discovery report (gaps, corner cases, module interactions, UX, research requests, numbered questions with options) and writes nothing → main asks the user with `AskUserQuestion` (≤4 questions per call) **and** runs each research request as its own `researcher` agent in parallel (subagents cannot start subagents) → answers and reports go back via `SendMessage` → Round 2+ writes or updates the spec, lints it and runs its self-check. implementation-planner and plan-verifier trace to its `AC-N`.

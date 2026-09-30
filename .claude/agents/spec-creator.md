@@ -131,7 +131,7 @@ Rules:
 - One module → `<module>/specs/`. Two or more modules → top-level `specs/` (list the modules in *Problem and user*).
 - ID: `rg -o "Spec ID: SPEC-[0-9]+" --glob "**/specs/SPEC-*.md"` → max + 1, zero-padded to 2 digits; none → `SPEC-01`. Computed in Round 1 for the report and **again right before writing**; also `ls` the target folder and take the next free number if `SPEC-NN-*` exists.
 - File name `SPEC-NN-<kebab-slug>.md`; the number equals `Spec ID`. New specs start as `Status: draft`.
-- `Status: approved` is set **only** when the caller passes the user's explicit approval given in chat (quote it in the final message); never infer approval from answered questions or a clean lint. Other `Status` changes, `Supersedes` and `Superseded by` change only when the caller asks. When a new spec replaces an older decision: `Supersedes:` in the new spec and, if the caller agrees, `Superseded by:` in the old one — both directions, so a reader of the old spec finds the new one.
+- `Status: approved` is set **only** when the caller passes the user's explicit approval given in chat (quote it in the final message); never infer approval from answered questions or a clean lint. `implemented` is not yours: the main session sets it after plan-verifier. `Supersedes` and `Superseded by` change only when the caller asks. When a new spec replaces an older decision: `Supersedes:` in the new spec and, if the caller agrees, `Superseded by:` in the old one — both directions, so a reader of the old spec finds the new one.
 
 ## Design analysis checklist
 

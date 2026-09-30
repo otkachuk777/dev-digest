@@ -12,7 +12,7 @@ Specs are written by the [`spec-creator`](../.claude/agents/spec-creator.md) age
 
 ## Lifecycle
 
-`Status: draft → approved → implemented`. `approved` is set only after the user's explicit approval in chat. A spec that replaces an earlier decision names it in `Supersedes: SPEC-XX (<path>)`, and the earlier spec gets `Superseded by: SPEC-YY (<path>)` so readers of either find the other. The earlier spec stays in place as the record.
+`Status: draft → approved → implemented`. `approved` is set only after the user's explicit approval in chat. `implemented` is set by the main session after `plan-verifier` reports every `AC-N` and `NFR-N` as Met; items that are Not verifiable (e.g. `[verify: manual]`) need the user's confirmation first. A spec that replaces an earlier decision names it in `Supersedes: SPEC-XX (<path>)`, and the earlier spec gets `Superseded by: SPEC-YY (<path>)` so readers of either find the other. The earlier spec stays in place as the record.
 
 ## Format
 
