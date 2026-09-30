@@ -96,7 +96,7 @@ fi
 # --- dev servers -------------------------------------------------------------
 SERVER_PID=""
 cleanup() {
-  log "shutting down dev servers (Postgres stays up; stop it with: docker compose down)"
+  log "shutting down dev servers (Postgres stays up; stop it with: ./scripts/stop.sh)"
   [ -n "$SERVER_PID" ] && kill "$SERVER_PID" 2>/dev/null || true
 }
 trap cleanup EXIT INT TERM
