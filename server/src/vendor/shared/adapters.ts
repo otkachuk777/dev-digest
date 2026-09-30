@@ -140,6 +140,14 @@ export interface CommitFilesPayload {
   files: CommitFile[];
 }
 
+/** A merged PR associated with one of the commits touching a given path. */
+export interface MergedPullRef {
+  number: number;
+  title: string;
+  author: string;
+  merged_at: string;
+}
+
 export interface GitHubClient {
   listPullRequests(repo: RepoRef): Promise<PrMeta[]>;
   getPullRequest(repo: RepoRef, n: number): Promise<PrDetail>;
@@ -162,6 +170,15 @@ export interface GitHubClient {
   /** The open PR whose head is `branch`, if any (so re-publish reuses it). */
   findOpenPr(repo: RepoRef, branch: string): Promise<{ url: string } | null>;
   getIssue(repo: RepoRef, n: number): Promise<IssueMeta>;
+  /**
+   * Merged PRs associated with the last `commitLimit` commits touching `path`
+   * (for "prior PRs touching these files").
+   */
+  listMergedPullsForPath(
+    repo: RepoRef,
+    path: string,
+    commitLimit: number,
+  ): Promise<MergedPullRef[]>;
   /**
    * Fetch one file's text content from `repo` at `ref` (a commit SHA). Returns
    * `null` when the path is missing, not a file (e.g. a directory), or the

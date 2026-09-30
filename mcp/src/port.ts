@@ -7,6 +7,8 @@ import type {
   ReviewRunResponse,
   ReviewRecord,
   ConventionScan,
+  PrDetail,
+  BlastRadius,
 } from '@devdigest/shared';
 
 /**
@@ -23,4 +25,7 @@ export interface DevDigestApi {
   runs(prId: string, signal?: AbortSignal): Promise<RunSummary[]>;
   reviews(prId: string, signal?: AbortSignal): Promise<ReviewRecord[]>;
   conventions(repoId: string, signal?: AbortSignal): Promise<ConventionScan>;
+  /** Refreshes `pr_files` (so a PR never opened in the UI still has them). */
+  pullDetail(prId: string, signal?: AbortSignal): Promise<PrDetail>;
+  blast(prId: string, signal?: AbortSignal): Promise<BlastRadius>;
 }

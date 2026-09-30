@@ -10,6 +10,8 @@ import type {
   ReviewRunResponse,
   ReviewRecord,
   ConventionScan,
+  PrDetail,
+  BlastRadius,
 } from '@devdigest/shared';
 import type { DevDigestApi } from '../src/port.js';
 import { createServer } from '../src/server.js';
@@ -41,6 +43,28 @@ class FakeApi implements DevDigestApi {
   async conventions(): Promise<ConventionScan> {
     return { items: [], sample_count: 0, scanned_at: null };
   }
+  async pullDetail(): Promise<PrDetail> {
+    return {
+      id: 'p',
+      number: 1,
+      title: 't',
+      author: 'a',
+      branch: 'b',
+      base: 'main',
+      head_sha: 'sha',
+      additions: 0,
+      deletions: 0,
+      files_count: 0,
+      status: 'open',
+      body: null,
+      files: [],
+      commits: [],
+      linked_issue: null,
+    };
+  }
+  async blast(): Promise<BlastRadius> {
+    return { changed_symbols: [], downstream: [], summary: 'no changes' };
+  }
 }
 
 async function connect(api: DevDigestApi) {
@@ -64,14 +88,15 @@ describe('MCP server', () => {
     api = new FakeApi();
   });
 
-  it('registers exactly the 5 tools with their annotations', async () => {
+  it('registers exactly the 6 tools with their annotations', async () => {
     const { client } = await connect(api);
     const { tools } = await client.listTools();
     expect(tools.map((t) => t.name).sort()).toEqual(
-      ['get_blast_radius', 'get_conventions', 'get_findings', 'list_agents', 'run_agent_on_pr'].sort(),
+      ['get_blast_radius', 'get_conventions', 'get_findings', 'get_pr_findings', 'list_agents', 'run_agent_on_pr'].sort(),
     );
     const listAgents = tools.find((t) => t.name === 'list_agents')!;
     expect(listAgents.annotations?.readOnlyHint).toBe(true);
+    expect(tools.find((t) => t.name === 'get_pr_findings')!.annotations?.readOnlyHint).toBe(true);
     const runAgent = tools.find((t) => t.name === 'run_agent_on_pr')!;
     expect(runAgent.annotations?.readOnlyHint).toBe(false);
     expect(runAgent.annotations?.openWorldHint).toBe(true);
@@ -107,6 +132,7 @@ describe('MCP server', () => {
     const parsed = JSON.parse(text(result));
     expect(parsed.agents).toHaveLength(1);
     expect(parsed.agents[0].name).toBe('Reviewer');
+    expect(parsed.agents[0].model).toBe('gpt-5');
   });
 
   it('run_agent_on_pr maps a not_found error (unknown repo) to isError text', async () => {
@@ -119,14 +145,14 @@ describe('MCP server', () => {
     expect(text(result)).toContain('not found');
   });
 
-  it('get_blast_radius always returns the not-implemented isError', async () => {
+  it('get_blast_radius maps a not_found error (unknown repo) to isError text', async () => {
     const { client } = await connect(api);
     const result = await client.callTool({
       name: 'get_blast_radius',
-      arguments: { repo: 'owner/name', pr: 1 },
+      arguments: { repo: 'owner/missing', pr: 1 },
     });
     expect(result.isError).toBe(true);
-    expect(text(result)).toBe('get_blast_radius is not implemented yet.');
+    expect(text(result)).toContain('not found');
   });
 
   it('rejects run_agent_on_pr input that fails the zod schema (pr must be positive)', async () => {

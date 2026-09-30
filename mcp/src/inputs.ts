@@ -16,10 +16,13 @@ const limit = (min: number, max: number, def: number) =>
 
 export const RunAgentOnPrInput = { repo, pr, agent };
 export const GetFindingsInput = { repo, pr, run_id: runId.optional(), limit: limit(1, 50, 20) };
+export const GetPrFindingsInput = { repo, pr, limit_per_agent: limit(1, 50, 10).describe('Max findings per agent') };
 export const GetConventionsInput = { repo, limit: limit(1, 100, 30) };
 export const GetBlastRadiusInput = { repo, pr };
 
 // z.input: `limit` stays optional for direct callers; the use case applies the default.
 export type RunAgentOnPrInput = z.input<z.ZodObject<typeof RunAgentOnPrInput>>;
 export type GetFindingsInput = z.input<z.ZodObject<typeof GetFindingsInput>>;
+export type GetPrFindingsInput = z.input<z.ZodObject<typeof GetPrFindingsInput>>;
 export type GetConventionsInput = z.input<z.ZodObject<typeof GetConventionsInput>>;
+export type GetBlastRadiusInput = z.input<z.ZodObject<typeof GetBlastRadiusInput>>;

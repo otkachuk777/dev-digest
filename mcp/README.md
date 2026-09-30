@@ -12,8 +12,9 @@ access, no duplicated review logic.
 | `list_agents` | List configured reviewer agents. Call first. |
 | `run_agent_on_pr` | Review a PR with one agent: starts the run, waits up to 120 s, returns verdict + findings. If still running, returns a `run_id` to poll with `get_findings`. |
 | `get_findings` | Get the verdict/findings of a review run (newest run if `run_id` is omitted). |
+| `get_pr_findings` | Whole-PR picture: every agent's latest review with findings plus severity totals. |
 | `get_conventions` | Get a repo's accepted coding conventions with file:line evidence. |
-| `get_blast_radius` | PR impact map. Not implemented yet — always returns an error. |
+| `get_blast_radius` | PR impact map from the prebuilt code index: changed symbols, their callers (`file:line`), affected endpoints and crons. Same data as the Overview block. |
 
 ## Setup from scratch
 

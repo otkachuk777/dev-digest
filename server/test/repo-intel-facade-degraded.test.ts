@@ -123,3 +123,25 @@ describe('RepoIntel facade — degraded contract (flag on, but no data)', () => 
     await expect(svc.getCallerSignatures('r1', [])).resolves.toEqual([]);
   });
 });
+
+describe('RepoIntel facade — ripgrep path', () => {
+  it("never returns a reference from the symbol's own decl file as a caller", async () => {
+    const container = {
+      config: { repoIntelEnabled: false },
+      db: {} as never,
+      codeIndex: {
+        symbols: async () => [{ path: 'a.ts', name: 'alpha', kind: 'function', line: 1 }],
+        references: async () => [
+          { fromPath: 'a.ts', line: 5 },
+          { fromPath: 'c.ts', line: 7 },
+        ],
+      },
+    } as never;
+    const svc = new RepoIntelService(container);
+    (svc as unknown as { repo: Record<string, unknown> }).repo = {
+      getRepoBasics: async () => ({ id: 'r1', owner: 'a', name: 'b', clonePath: '/nonexistent' }),
+    };
+    const blast = await svc.getBlastRadius('r1', ['a.ts']);
+    expect(blast.callers.map((c) => c.file)).toEqual(['c.ts']);
+  });
+});

@@ -11,6 +11,7 @@ import type {
   OpenPrPayload,
   CommitFilesPayload,
   IssueMeta,
+  MergedPullRef,
 } from '@devdigest/shared';
 import { withRetry, withTimeout } from '../../platform/resilience.js';
 
@@ -384,5 +385,55 @@ export class OctokitGitHubClient implements GitHubClient {
       withTimeout(this.octokit.rest.users.getAuthenticated(), TIMEOUT),
     );
     return res.data.login;
+  }
+
+  async listMergedPullsForPath(
+    repo: RepoRef,
+    path: string,
+    commitLimit: number,
+  ): Promise<MergedPullRef[]> {
+    const commits = await withRetry(() =>
+      withTimeout(
+        this.octokit.rest.repos.listCommits({
+          owner: repo.owner,
+          repo: repo.name,
+          path,
+          per_page: commitLimit,
+        }),
+        TIMEOUT,
+      ),
+    );
+
+    const perCommit = await Promise.all(
+      commits.data.map((commit) =>
+        withRetry(() =>
+          withTimeout(
+            this.octokit.rest.repos.listPullRequestsAssociatedWithCommit({
+              owner: repo.owner,
+              repo: repo.name,
+              commit_sha: commit.sha,
+            }),
+            TIMEOUT,
+          ),
+        ),
+      ),
+    );
+
+    const seen = new Set<number>();
+    const out: MergedPullRef[] = [];
+    for (const res of perCommit) {
+      for (const pr of res.data) {
+        if (!pr.merged_at) continue;
+        if (seen.has(pr.number)) continue;
+        seen.add(pr.number);
+        out.push({
+          number: pr.number,
+          title: pr.title,
+          author: pr.user?.login ?? '',
+          merged_at: pr.merged_at,
+        });
+      }
+    }
+    return out;
   }
 }

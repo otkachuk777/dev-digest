@@ -17,6 +17,7 @@ import type {
   OpenPrPayload,
   CommitFilesPayload,
   IssueMeta,
+  MergedPullRef,
   GitClient,
   CloneOptions,
   UnifiedDiff,
@@ -127,6 +128,8 @@ export interface MockGitHubOptions {
   comments?: PrReviewComment[];
   /** File contents keyed by path, served by getFileContent (missing path → null). */
   files?: Record<string, string>;
+  /** Merged PRs keyed by path, served by listMergedPullsForPath (missing path → []). */
+  mergedPulls?: Record<string, MergedPullRef[]>;
 }
 
 export class MockGitHubClient implements GitHubClient {
@@ -242,6 +245,14 @@ export class MockGitHubClient implements GitHubClient {
 
   async currentLogin(): Promise<string> {
     return this.opts.login ?? 'mock-user';
+  }
+
+  async listMergedPullsForPath(
+    _repo: RepoRef,
+    path: string,
+    _commitLimit: number,
+  ): Promise<MergedPullRef[]> {
+    return this.opts.mergedPulls?.[path] ?? [];
   }
 }
 

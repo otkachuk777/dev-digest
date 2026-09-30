@@ -296,7 +296,7 @@ export class RepoIntelService implements RepoIntel {
 
     return {
       changedSymbols,
-      callers: callerRows,
+      callers: capPerSymbol(callerRows, MAX_CALLERS_PER_SYMBOL),
       impactedEndpoints: [...endpoints],
       degraded: true,
       reason: 'no_data',
@@ -339,7 +339,10 @@ export class RepoIntelService implements RepoIntel {
     }
 
     // Resolved cross-file callers.
-    const callerRows = await this.repo.getResolvedCallers(repoId, changedFiles, [...nameSet]);
+    // A decl file is never its own caller (the ripgrep path skips it at the ref loop).
+    const callerRows = (await this.repo.getResolvedCallers(repoId, changedFiles, [...nameSet])).filter(
+      (c) => !seenSym.has(`${c.toSymbol}:${c.fromPath}`),
+    );
     const callerFiles = [...new Set(callerRows.map((c) => c.fromPath))];
 
     // Enclosing caller symbol from the callers' persistent symbol rows.
@@ -383,10 +386,12 @@ export class RepoIntelService implements RepoIntel {
 
     return {
       changedSymbols,
-      callers: callers.slice(0, MAX_CALLERS_PER_SYMBOL),
+      callers: capPerSymbol(callers, MAX_CALLERS_PER_SYMBOL),
       impactedEndpoints: [...endpoints],
       factsByFile,
-      degraded: false,
+      ...(state.status === 'partial'
+        ? { degraded: true, reason: 'index_partial' as const }
+        : { degraded: false }),
     };
   }
 
@@ -738,6 +743,23 @@ function enclosingFromRows(rows: FullSymbolRow[], line: number): string | null {
     .filter((s) => !s.name.includes('.') && (s.line ?? 0) <= line)
     .sort((a, b) => (b.line ?? 0) - (a.line ?? 0))[0];
   return hit?.name ?? null;
+}
+
+/**
+ * Keep the first `max` rows per `viaSymbol`, preserving input order. The cap
+ * applies PER SYMBOL, not to the whole list — a low-rank symbol with few
+ * callers must not be starved by a high-rank symbol with many.
+ */
+function capPerSymbol(callers: BlastCallerRow[], max: number): BlastCallerRow[] {
+  const seenPerSymbol = new Map<string, number>();
+  const out: BlastCallerRow[] = [];
+  for (const c of callers) {
+    const count = seenPerSymbol.get(c.viaSymbol) ?? 0;
+    if (count >= max) continue;
+    seenPerSymbol.set(c.viaSymbol, count + 1);
+    out.push(c);
+  }
+  return out;
 }
 
 // ---------------------------------------------------------------------------

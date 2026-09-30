@@ -5,6 +5,7 @@ import {
   GetBlastRadiusInput,
   GetConventionsInput,
   GetFindingsInput,
+  GetPrFindingsInput,
   RunAgentOnPrInput,
 } from './inputs.js';
 import * as usecases from './usecases.js';
@@ -18,7 +19,7 @@ import type { DevDigestApi } from './port.js';
  */
 
 const INSTRUCTIONS =
-  'DevDigest reviews GitHub PRs with configured agents. Flow: list_agents → run_agent_on_pr(repo "owner/name", pr number, agent name) → if still running, get_findings(repo, pr, run_id). get_conventions returns a repo\'s accepted house rules.';
+  'DevDigest reviews GitHub PRs with configured agents. Flow: list_agents → run_agent_on_pr(repo "owner/name", pr number, agent name) → if still running, get_findings(repo, pr, run_id). get_conventions returns a repo\'s accepted house rules. get_blast_radius(repo, pr) maps a PR\'s downstream callers and endpoints. get_pr_findings(repo, pr) returns all agents\' latest reviews at once.';
 
 function textResult(value: unknown): CallToolResult {
   return { content: [{ type: 'text', text: JSON.stringify(value) }] };
@@ -116,6 +117,23 @@ export function createServer(api: DevDigestApi, opts: CreateServerOpts = {}): Mc
   );
 
   server.registerTool(
+    'get_pr_findings',
+    {
+      description:
+        "Whole-PR review picture: every agent's latest verdict and findings plus severity totals. For one specific run use get_findings.",
+      inputSchema: GetPrFindingsInput,
+      annotations: { readOnlyHint: true },
+    },
+    async (args, extra) => {
+      try {
+        return textResult(await usecases.getPrFindings(api, args, extra.signal));
+      } catch (err) {
+        return handleError(err);
+      }
+    },
+  );
+
+  server.registerTool(
     'get_conventions',
     {
       description: "Get a repo's accepted coding conventions (house rules) with file:line evidence.",
@@ -134,11 +152,18 @@ export function createServer(api: DevDigestApi, opts: CreateServerOpts = {}): Mc
   server.registerTool(
     'get_blast_radius',
     {
-      description: 'PR impact map. Not implemented yet.',
+      description:
+        'What else a PR can break: changed symbols, their callers (file:line), affected HTTP endpoints and crons, from the prebuilt code index. Call before reviewing a PR to judge its risk.',
       inputSchema: GetBlastRadiusInput,
       annotations: { readOnlyHint: true },
     },
-    async () => errorResult('get_blast_radius is not implemented yet.'),
+    async (args, extra) => {
+      try {
+        return textResult(await usecases.getBlastRadius(api, args, extra.signal));
+      } catch (err) {
+        return handleError(err);
+      }
+    },
   );
 
   return server;

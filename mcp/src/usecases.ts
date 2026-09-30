@@ -1,11 +1,17 @@
 import { setTimeout as sleep } from 'node:timers/promises';
-import type { RunSummary, Verdict } from '@devdigest/shared';
+import type { RunSummary, Verdict, BlastRadius } from '@devdigest/shared';
 import { DevDigestError } from './errors.js';
 import { activeRunFor, findAgent, findPr, findRepo } from './match.js';
-import { capOutput, shapeAgents, shapeConventions, shapeReview } from './shape.js';
-import type { ShapedAgent, ShapedConventions, ShapedFinding } from './shape.js';
+import { capOutput, shapeAgents, shapeConventions, shapePrFindings, shapeReview } from './shape.js';
+import type { ShapedAgent, ShapedConventions, ShapedFinding, ShapedPrFindings } from './shape.js';
 import type { DevDigestApi } from './port.js';
-import type { GetConventionsInput, GetFindingsInput, RunAgentOnPrInput } from './inputs.js';
+import type {
+  GetBlastRadiusInput,
+  GetConventionsInput,
+  GetFindingsInput,
+  GetPrFindingsInput,
+  RunAgentOnPrInput,
+} from './inputs.js';
 
 /**
  * APPLICATION — orchestrates the port + domain rules into the outcome each
@@ -219,6 +225,24 @@ export async function getFindings(
   });
 }
 
+export async function getPrFindings(
+  api: DevDigestApi,
+  input: GetPrFindingsInput,
+  signal?: AbortSignal,
+): Promise<ShapedPrFindings> {
+  const repoObj = unwrap(findRepo(await api.listRepos(signal), input.repo));
+  const prObj = unwrap(findPr(await api.listPulls(repoObj.id, signal), input.pr, repoObj.full_name));
+  if (!prObj.id) throw new DevDigestError('server', `PR #${input.pr} has no id — check the server log`);
+
+  const shaped = shapePrFindings(await api.reviews(prObj.id, signal), input.limit_per_agent ?? 10);
+  if (shaped.reviews.length === 0) {
+    throw new DevDigestError('not_found', 'No reviews yet for this PR — call run_agent_on_pr first');
+  }
+  // capOutput only trims a top-level `findings`, so cap each review with an equal share.
+  const share = Math.floor(20_000 / shaped.reviews.length);
+  return { ...shaped, reviews: shaped.reviews.map((r) => capOutput(r, share)) };
+}
+
 export async function getConventions(
   api: DevDigestApi,
   input: GetConventionsInput,
@@ -233,4 +257,23 @@ export async function getConventions(
     );
   }
   return shaped;
+}
+
+/**
+ * PR impact map: what else a PR's diff can affect (callers, HTTP endpoints,
+ * crons), read from the prebuilt repo-intel index. `pullDetail` runs first so
+ * a PR never opened in the UI still has `pr_files` persisted; `blast` is then
+ * returned as-is, so this is the SAME map the Overview tab shows.
+ */
+export async function getBlastRadius(
+  api: DevDigestApi,
+  input: GetBlastRadiusInput,
+  signal?: AbortSignal,
+): Promise<BlastRadius> {
+  const repoObj = unwrap(findRepo(await api.listRepos(signal), input.repo));
+  const prObj = unwrap(findPr(await api.listPulls(repoObj.id, signal), input.pr, repoObj.full_name));
+  if (!prObj.id) throw new DevDigestError('server', `PR #${input.pr} has no id — check the server log`);
+
+  await api.pullDetail(prObj.id, signal);
+  return api.blast(prObj.id, signal);
 }

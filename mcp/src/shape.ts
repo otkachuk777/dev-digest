@@ -1,4 +1,4 @@
-import type { Agent, ConventionCandidate, ConventionScan, Finding, Severity, Verdict } from '@devdigest/shared';
+import type { Agent, ConventionCandidate, ConventionScan, Finding, ReviewRecord, Severity, Verdict } from '@devdigest/shared';
 
 /**
  * DOMAIN — pure. Turns a DTO fetched from the API into the small, capped
@@ -21,6 +21,7 @@ export interface ShapedFinding {
 export interface ShapedAgent {
   id: string;
   name: string;
+  model: string;
   description: string;
   enabled: boolean;
 }
@@ -29,6 +30,7 @@ export function shapeAgents(agents: Agent[]): ShapedAgent[] {
   return agents.map((a) => ({
     id: a.id,
     name: a.name,
+    model: a.model,
     description: truncate(a.description, 120),
     enabled: a.enabled,
   }));
@@ -69,6 +71,46 @@ export function shapeReview(review: ReviewLike, limit = 20): ShapedReview {
     })),
     total,
     truncated: total > kept.length,
+  };
+}
+
+export interface ShapedAgentReview extends ShapedReview {
+  agent: string | null;
+  model: string | null;
+  run_id: string | null;
+}
+
+export interface ShapedPrFindings {
+  total_findings: number;
+  by_severity: Record<Severity, number>;
+  reviews: ShapedAgentReview[];
+}
+
+/** Each agent's LATEST review only (same rule as server pulls/findings-counts.ts:
+ *  group by agent_id, legacy null agent_id = its own group). Counts are taken
+ *  before the per-agent limit. Summary-kind rows are skipped. */
+export function shapePrFindings(reviews: ReviewRecord[], limitPerAgent = 10): ShapedPrFindings {
+  const seen = new Set<string>();
+  const kept = reviews
+    .filter((r) => r.kind === 'review')
+    .sort((a, b) => b.created_at.localeCompare(a.created_at))
+    .filter((r) => {
+      const key = r.agent_id ?? r.id;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  const by_severity: Record<Severity, number> = { CRITICAL: 0, WARNING: 0, SUGGESTION: 0 };
+  for (const r of kept) for (const f of r.findings) by_severity[f.severity] += 1;
+  return {
+    total_findings: by_severity.CRITICAL + by_severity.WARNING + by_severity.SUGGESTION,
+    by_severity,
+    reviews: kept.map((r) => ({
+      agent: r.agent_name ?? null,
+      model: r.model,
+      run_id: r.run_id,
+      ...shapeReview(r, limitPerAgent),
+    })),
   };
 }
 
