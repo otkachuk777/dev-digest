@@ -2,7 +2,7 @@
 
 This folder holds **only** specs for features that touch two or more modules (`client`, `server`, `reviewer-core`, `e2e`, `mcp`). A feature inside one module is specified in that module's own `<module>/specs/`.
 
-Specs are written by the [`spec-creator`](../.claude/agents/spec-creator.md) agent (Spec Driven Development) and read by `planner` and `plan-verifier`, which trace plan steps and checks to the spec's `AC-N`.
+Specs are written by the [`spec-creator`](../.claude/agents/spec-creator.md) agent (Spec Driven Development) and read by `implementation-planner` and `plan-verifier`, which trace plan steps and checks to the spec's `AC-N`.
 
 ## Naming and numbering
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# PreToolUse hook (matcher: Bash) for read-only agents (planner, researcher,
+# PreToolUse hook (matcher: Bash) for read-only agents (implementation-planner, researcher,
 # brainstorm, architecture-reviewer, security-reviewer, plan-verifier). Denies commands that write to the
 # filesystem, git history, or install/run migrations — modeled on path-guard.sh
 # but pattern-matching the COMMAND STRING, not a file_path. This is NOT a

@@ -3,7 +3,7 @@
 # agent's profile. Usage: path-guard.sh <tests|docs|plans|specs>   (hook JSON on stdin)
 #   tests — test-writer: test files and test-only helpers/fixtures
 #   docs  — doc-writer: docs/, <module>/docs/, READMEs; never plans, prompts, specs, CLAUDE.md, INSIGHTS.md
-#   plans — planner: draft plan files ~/.claude/plans/<name>.md only (outside the repo, never docs/cc-plans/)
+#   plans — implementation-planner: draft plan files ~/.claude/plans/<name>.md only (outside the repo, never docs/cc-plans/)
 #   specs — spec-creator: <module>/specs/SPEC-NN-<slug>.md or top-level specs/SPEC-NN-<slug>.md (cross-module)
 # Covers Edit/Write only — Bash writes are limited by the agent prompt, not here.
 set -uo pipefail
