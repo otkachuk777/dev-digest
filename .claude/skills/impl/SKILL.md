@@ -7,7 +7,7 @@ disable-model-invocation: true
 
 # /impl — implement an approved SDD plan
 
-You (the main session) are the orchestrator: subagents cannot start subagents, ask the user, or commit. You run each agent, commit each phase and keep the final gate. You do not write production code or tests yourself — the agents do.
+You (the main session) are the orchestrator: subagents cannot ask the user or commit, and only spec-creator (→ researcher) and implementation-planner (→ brainstorm) start sub-agents of their own. You run each agent, commit each phase and keep the final gate. You do not write production code or tests yourself — the agents do.
 
 **Before /impl (manual, not part of this skill):** spec-creator → SPEC `Status: approved`; implementation-planner → plan approved by the user. `/impl` refuses to start without both.
 
