@@ -13,6 +13,7 @@
 # path filter because server aliases ../reviewer-core/src at type-check time.
 name: server unit
 
+# Negated paths go LAST (GitHub applies them in order): docs-only changes skip.
 on:
   push:
     branches: [main]
@@ -20,11 +21,13 @@ on:
       - 'server/**'
       - 'reviewer-core/**'
       - '.github/workflows/server-unit.yml'
+      - '!**/*.md'
   pull_request:
     paths:
       - 'server/**'
       - 'reviewer-core/**'
       - '.github/workflows/server-unit.yml'
+      - '!**/*.md'
 
 permissions:
   contents: read

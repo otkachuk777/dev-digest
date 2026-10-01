@@ -10,16 +10,19 @@
 # don't provide one).
 name: server integration
 
+# Negated paths go LAST (GitHub applies them in order): docs-only changes skip.
 on:
   push:
     branches: [main]
     paths:
       - 'server/**'
       - '.github/workflows/server-integration.yml'
+      - '!**/*.md'
   pull_request:
     paths:
       - 'server/**'
       - '.github/workflows/server-integration.yml'
+      - '!**/*.md'
 
 permissions:
   contents: read

@@ -1,0 +1,33 @@
+# PR self-review gate — self-check of the PreToolUse hook that blocks
+# `gh pr create` / `gh pr merge` without a fresh PASS verdict
+# (.claude/skills/pr-self-review/). Runs gate.test.sh: allow/deny decisions,
+# the worktree case, and that every skill named in skill-map.md exists.
+name: pr-self-review gate
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.claude/skills/**'
+      - '.github/workflows/pr-self-review.yml'
+  pull_request:
+    paths:
+      - '.claude/skills/**'
+      - '.github/workflows/pr-self-review.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-self-review-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gate:
+    name: gate.test.sh
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # jq and git are preinstalled on ubuntu-latest.
+      - run: bash .claude/skills/pr-self-review/scripts/gate.test.sh
