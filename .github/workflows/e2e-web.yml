@@ -8,6 +8,8 @@
 # serves the seeded read-only data the specs exercise — no LLM is called.
 name: e2e web
 
+# Negated paths go LAST (GitHub applies them in order): docs and test-only
+# changes don't change what the browser flows exercise.
 on:
   push:
     branches: [main]
@@ -16,12 +18,20 @@ on:
       - 'server/**'
       - 'e2e/**'
       - '.github/workflows/e2e-web.yml'
+      - '!**/*.md'
+      - '!server/test/**'
+      - '!client/**/*.test.ts'
+      - '!client/**/*.test.tsx'
   pull_request:
     paths:
       - 'client/**'
       - 'server/**'
       - 'e2e/**'
       - '.github/workflows/e2e-web.yml'
+      - '!**/*.md'
+      - '!server/test/**'
+      - '!client/**/*.test.ts'
+      - '!client/**/*.test.tsx'
 
 permissions:
   contents: read
