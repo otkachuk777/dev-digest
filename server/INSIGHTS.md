@@ -68,6 +68,12 @@ The Intent Layer classifier was planned on `deepseek/deepseek-v4-flash` (the ent
 
 **Rule:** process-boot side effects live in `src/server.ts` (before `listen`), never in `buildApp`, which tests construct freely; `routes-smoke.test.ts` pins it with a db Proxy that throws on any access (`src/server.ts`, `test/routes-smoke.test.ts`)
 
+### Marking a run `done` before its trace is written breaks every poller (2026-10)
+
+`reviews.it.test.ts` failed ~1 in 15 runs under load with `Cannot read properties of undefined (reading 'model')` on `trace.config`. The executor wrote `agent_runs.status = 'done'` and only then `saveRunTrace`; `waitForPrRuns` (and any real client polling the status, e.g. the MCP server) saw `done`, fetched `/runs/:id/trace`, and got nothing. A 300 ms delay injected into `saveRunTrace` made it fail every time.
+
+**Rule:** the terminal status (`done`/`failed`/`cancelled`) is written LAST, after every artifact of the run (review, findings, trace) is persisted — on the success path, the per-run failure path and `failAll` (`src/modules/reviews/run-executor.ts:82`, `:347`)
+
 ## Codebase Patterns
 
 ### Reuse the existing severity tally instead of duplicating it (2026-09-18)
@@ -114,6 +120,12 @@ Once intent derivation ran inside every review, `reviews.it.test.ts` kept passin
 While building the onion-architecture rules, an `exclude` pattern containing `node_modules` (and an unanchored `(^|/)dist(/|$)`, which also matches `node_modules/graphology/dist/...`) removed those modules from the graph entirely, not just from traversal. So every rule targeting an SDK package (`sdk-only-in-adapters`, `no-db-outside-infra` → `drizzle-orm`) reported zero violations, even though real ones existed. No error, just a false green.
 
 **Rule:** stop recursion into npm with `doNotFollow: { path: 'node_modules' }`, never with `exclude`, and anchor `exclude` to the package's own output (`^dist(/|$)`). After you change the rules, prove each one fires with a temporary violating import before you trust a clean `pnpm arch`. (`server/.dependency-cruiser.cjs:180-185`)
+
+### testcontainers 10.x dies on any foreign Ryuk without a mapped port (2026-10)
+
+`pnpm test` sometimes reported `1 failed` file with `0` failed tests and N `skipped`: a `beforeAll` → `startPg()` threw `Expected Reaper to map exposed port 8080`, so vitest skipped that file's tests. `getReaper` reuses ANY running `org.testcontainers.ryuk=true` container on the Docker host, including one from another vitest process, worktree or session that is shutting down, and v10 throws instead of moving on. A re-run "passing" with 12 skipped was the same flake, not a clean run. 11.14.0 tries the next Ryuk and creates its own if none work. A port-less decoy container (`docker run -d --label org.testcontainers.ryuk=true alpine sleep 600`) reproduces it every time: 9 of 9 it-files fail on 10.28, 0 on 11.14.
+
+**Rule:** keep `testcontainers`/`@testcontainers/postgresql` at `>=11.14`; a run where `skipped > 0` while Docker is up is a failure, not a pass (`server/package.json`, `test/helpers/pg.ts:36`)
 
 ## Recurring Errors & Fixes
 
