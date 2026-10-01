@@ -5,7 +5,7 @@
 # but pattern-matching the COMMAND STRING, not a file_path. This is NOT a
 # sandbox: it blocks known write shapes, not every way to mutate state.
 set -uo pipefail
-command -v jq >/dev/null || { echo "readonly-bash-guard: jq not found, tool call blocked" >&2; exit 2; }
+command -v jq >/dev/null || { echo "readonly-bash-guard: jq not found, tool call blocked — install it (macOS: brew install jq; Debian/Ubuntu: sudo apt-get install jq) and retry" >&2; exit 2; }
 deny() { jq -nc --arg r "readonly-bash-guard: $1" '{hookSpecificOutput:{hookEventName:"PreToolUse",permissionDecision:"deny",permissionDecisionReason:$r}}'; exit 0; }
 
 CMD=$(jq -r '.tool_input.command // ""' 2>/dev/null)

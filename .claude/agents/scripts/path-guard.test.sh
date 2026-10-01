@@ -67,4 +67,8 @@ check specs "/tmp/SPEC-01-x.md" deny
 
 check other "$ROOT/docs/architecture.md" deny
 
+# without jq the guard must fail closed (exit 2) and say how to install it
+out=$(printf '{}' | env -i PATH=/nonexistent /bin/bash "$S/path-guard.sh" specs 2>&1); code=$?
+if [ $code -eq 2 ] && [[ "$out" == *"brew install jq"* ]]; then echo "ok   no-jq blocked (exit 2)"; else echo "FAIL no-jq: exit $code, out: $out"; FAIL=1; fi
+
 exit $FAIL

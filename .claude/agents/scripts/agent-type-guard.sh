@@ -6,7 +6,7 @@
 # would bypass the launcher). Fails closed: without jq the call is blocked (exit 2).
 # Usage: agent-type-guard.sh <type> [<type> …]   (hook JSON on stdin)
 set -uo pipefail
-command -v jq >/dev/null || { echo "agent-type-guard: jq not found, Agent call blocked" >&2; exit 2; }
+command -v jq >/dev/null || { echo "agent-type-guard: jq not found, Agent call blocked — install it (macOS: brew install jq; Debian/Ubuntu: sudo apt-get install jq) and retry" >&2; exit 2; }
 deny() { jq -nc --arg r "agent-type-guard: $1" '{hookSpecificOutput:{hookEventName:"PreToolUse",permissionDecision:"deny",permissionDecisionReason:$r}}'; exit 0; }
 
 [ $# -gt 0 ] || deny "no allowed sub-agent types configured"
