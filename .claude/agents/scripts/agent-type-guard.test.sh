@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Self-check for agent-type-guard.sh: allowlisted foreground sub-agents pass, everything else is denied.
+# Self-check for agent-type-guard.sh: allowlisted sub-agents with explicit run_in_background:false pass, everything else
+# is denied (including an omitted flag, which means background by default).
 set -uo pipefail
 S="$(cd "$(dirname "$0")" && pwd)"
 FAIL=0
@@ -10,10 +11,9 @@ check() { # <allow|deny> <tool_input json> <allowed types…>
   if [ "$got" = "$want" ]; then echo "ok   $want $in [$*]"; else echo "FAIL expected $want, got $got: $in [$*]"; FAIL=1; fi
 }
 
-check allow '{"subagent_type":"researcher","prompt":"q"}' researcher
 check allow '{"subagent_type":"researcher","prompt":"q","run_in_background":false}' researcher
-check allow '{"subagent_type":"brainstorm","prompt":"B1"}' brainstorm
-check allow '{"subagent_type":"brainstorm","prompt":"B1"}' researcher brainstorm
+check allow '{"subagent_type":"brainstorm","prompt":"B1","run_in_background":false}' brainstorm
+check allow '{"subagent_type":"brainstorm","prompt":"B1","run_in_background":false}' researcher brainstorm
 
 check deny '{"subagent_type":"general-purpose","prompt":"q"}' researcher
 check deny '{"subagent_type":"claude","prompt":"q"}' researcher
@@ -21,7 +21,10 @@ check deny '{"subagent_type":"Researcher","prompt":"q"}' researcher
 check deny '{"subagent_type":"researcher2","prompt":"q"}' researcher
 check deny '{"prompt":"no type → general-purpose"}' researcher
 check deny '{"subagent_type":"researcher","prompt":"q","run_in_background":true}' researcher
-check deny '{"subagent_type":"brainstorm","prompt":"B1"}' researcher
-check deny '{"subagent_type":"researcher","prompt":"q"}'
+check deny '{"subagent_type":"researcher","prompt":"q","run_in_background":"true"}' researcher
+check deny '{"subagent_type":"researcher","prompt":"q"}' researcher
+check deny '{"subagent_type":"researcher","prompt":"q","run_in_background":null}' researcher
+check deny '{"subagent_type":"brainstorm","prompt":"B1","run_in_background":false}' researcher
+check deny '{"subagent_type":"researcher","prompt":"q","run_in_background":false}'
 
 exit $FAIL
