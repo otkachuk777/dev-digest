@@ -29,7 +29,7 @@ Default scope: `.claude/skills/pr-self-review/scripts/changed-files.sh --all` (b
 
 ## Step 1 — Insights
 
-`Read` `.claude/skills/engineering-insights/SKILL.md` section "A. Read first"; read root `INSIGHTS.md` + the `INSIGHTS.md` of every module in scope. Name the 1–3 entries that bear on the boundaries touched. Never write `INSIGHTS.md`.
+Read root `INSIGHTS.md` + the `INSIGHTS.md` of every module in scope, once. Name the 1–3 entries that bear on the boundaries touched. Never write `INSIGHTS.md`.
 
 ## Step 2 — Deterministic checks first
 

@@ -14,6 +14,7 @@ No root package.json — 5 standalone packages, each own lockfile. Cross-package
 - need cross-module architecture → `docs/architecture.md`
 - need agent-prompt tuning → `docs/agent-prompts/README.md`
 - writing/reading a feature spec (SDD, EARS) → `specs/README.md` (written by the `spec-creator` agent)
+- running the SDD workflow (spec → plan → implement → review) → `.claude/agents/README.md` § Runbook
 
 ## Session protocol
 

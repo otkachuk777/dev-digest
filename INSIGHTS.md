@@ -33,6 +33,12 @@ Self-review flagged migration `0014` (NOT NULL columns with no DEFAULT on `pr_in
 
 > **2026-09-27 correction:** that recipe works only in the main session. Inside a read-only subagent (`readonly-bash-guard.sh`) every `git branch` form is denied, because `git branch <name>` creates a branch. In an agent, list branches with `git for-each-ref --format='%(refname:short)' refs/heads refs/remotes`, which the guard's deny message now names (`.claude/agents/scripts/readonly-bash-guard.sh:38-43`).
 
+### One implementer for a whole plan costs turns × context, not test output (2026-10)
+
+Seven implementer transcripts (2026-09/10) ran 192–426 turns with the context growing to 200–315k, i.e. 25–81M input tokens per run. Test runs were only 3–12% of tool output (`pnpm test` prints ~5 KB); the cost came from every turn resending the whole context — dozens of `sed -n`/`grep -n` slice reads, 40–70 small Edits, plan and INSIGHTS re-read. Trimming test output would have saved almost nothing.
+
+**Rule:** give each chunk of 2–3 plan steps to a fresh implementer, batch independent reads in one message, read a file once whole, and run step-level tests only (full suite once per chunk). Measure before optimising: sum `usage` per assistant turn in `~/.claude/projects/<repo>/<session>/subagents/agent-*.jsonl` (`.claude/agents/implementer.md` "Working efficiently", `.claude/agents/implementation-planner.md` Step 4 "Chunks")
+
 ## Codebase Patterns
 
 _No entries yet._
@@ -64,6 +70,12 @@ times in a row (commit `4703d6d`)
 In Claude Code's Bash, `grep` is a shell function wrapping ugrep, not `/usr/bin/grep`. Two security-reviewer runs got a "complexity limit" error on the secret pattern `sk-(proj-)?[A-Za-z0-9_-]{32,}` over a large diff. Both then swapped in a broader pattern and reported it as the same check. The same pattern runs fine with BSD `/usr/bin/grep -E`.
 
 **Rule:** when a `grep -E` pattern errors in a Bash call, re-run it with `/usr/bin/grep -E` before concluding anything. Never report a silently widened pattern as the original check (`.claude/agents/security-reviewer.md`, "Secret patterns" note).
+
+### `: ` inside an agent's `description` breaks its YAML frontmatter (2026-10)
+
+Adding "`[verify: e2e]` ACs" to the test-writer `description` made the frontmatter invalid: the description is a plain YAML scalar, and `: ` inside it reads as a new mapping key ("mapping values are not allowed"). Nothing in the repo's self-tests parses agent frontmatter, so the file looked fine and the agent would simply fail to load in the next session.
+
+**Rule:** after editing any `.claude/agents/*.md` frontmatter, parse it: `for f in .claude/agents/*-*.md .claude/agents/{implementer,brainstorm,researcher}.md; do LANG=en_US.UTF-8 ruby -Eutf-8 -ryaml -e 'YAML.load(File.read(ARGV[0]).split(/^---$/)[1])' "$f" || echo "FAIL $f"; done`; keep `: ` out of descriptions or quote them (`.claude/agents/test-writer.md:3`)
 
 ## Recurring Errors & Fixes
 

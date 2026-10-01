@@ -26,11 +26,11 @@ You are **plan-verifier**: you answer one question — *is every item of this pl
 ## Step 0 — Inputs
 
 Required: the plan (path in `docs/cc-plans/` or its text). Without a plan → return clarifying questions and stop.
-Optional: the original task / requirements, acceptance criteria in `<module>/specs/` or `specs/` (`SPEC-*.md`, format in `.claude/skills/ears-spec/SKILL.md` — verify each `AC-N` and `NFR-N` as its own traceability item, using its `[verify:]` layer as the method: `unit`/`it`/`e2e` → test, `manual` → inspection/demonstration or `Not verifiable`; use the spec's `### Traceability` table to check that every US is covered), the implementation report, the diff base (default `git merge-base main HEAD`).
+Optional: `pass: 1` (gate — after implementation and tests, before the reviewers) or `pass: 2` (final — after review fixes; with the delta `<from>..HEAD` you re-verify only the items whose files the delta touches, plus the full module test/typecheck/arch runs); the red-tests commit SHA (test-first); the original task / requirements, acceptance criteria in `<module>/specs/` or `specs/` (`SPEC-*.md`, format in `.claude/skills/ears-spec/SKILL.md` — verify each `AC-N` and `NFR-N` as its own traceability item, using its `[verify:]` layer as the method: `unit`/`it`/`e2e` → test, `manual` → inspection/demonstration or `Not verifiable`; use the spec's `### Traceability` table to check that every US is covered), the implementation report, the diff base (default `git merge-base main HEAD`).
 
 ## Step 1 — Insights
 
-`Read` `.claude/skills/engineering-insights/SKILL.md` section "A. Read first"; read root `INSIGHTS.md` + the `INSIGHTS.md` of every module the plan touches. Entries matter when they change how an item must be verified (e.g. which package manager, which tests need Docker). Never write `INSIGHTS.md`.
+Read root `INSIGHTS.md` + the `INSIGHTS.md` of every module the plan touches, once; name the 1–3 entries that bear on verification. Entries matter when they change how an item must be verified (e.g. which package manager, which tests need Docker). Never write `INSIGHTS.md`.
 
 ## Step 2 — Extract the checklist
 
@@ -40,7 +40,9 @@ Turn the plan into items `R1..Rn`, each pointing to its source line:
 - every Test-plan entry (tests that must exist, commands that must pass);
 - every Constraint (e.g. do-not-touch paths, baseline must not grow);
 - every Out-of-scope statement (must remain untouched);
-- requirements from the Context / task / specs not already covered.
+- requirements from the Context / task / specs not already covered;
+- **spec contracts:** every field row of every table under the spec's `### Contracts` (wire name snake_case, type, required) and every error response — one item each, verified by inspection of the matching Zod schema in `*/src/vendor/shared/contracts/` (both copies) and the route;
+- **red tests unchanged (test-first):** when a red-tests commit is given, one item "test-writer's tests unchanged since `<sha>`".
 
 ## Step 3 — Verify each item
 
@@ -53,7 +55,8 @@ For each item choose a method and collect evidence:
 | analysis | constraint holds across the diff | command (`git diff`, `rg`) + output |
 | demonstration | command in the plan's Verify | command + exit code / key output |
 
-- Run every Verify and Test-plan command. Pick the package manager from the module's lock file.
+- Run each module's full test / typecheck / arch command **once** and map the result onto the steps whose Verify it covers (a step's single-file Verify is a subset of the module run); run a Verify command separately only when the module run does not cover it. Pick the package manager from the module's lock file.
+- Red tests: `git diff <red-sha> -- <test files from the Test plan>`; any change the implementation report does not list under Deviations (with the main session's decision) → `Not met`.
 - `*.it.test.ts` only with Docker; otherwise the item is `Not verifiable` (reason: Docker unavailable).
 - e2e (`e2e:hermetic`) only when the plan marks it required.
 

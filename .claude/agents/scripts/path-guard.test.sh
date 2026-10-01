@@ -18,6 +18,10 @@ check tests "$ROOT/server/src/modules/skills/service.ts" deny
 check tests "$ROOT/client/package.json" deny
 check tests "$ROOT/server/test/../src/app.ts" deny
 check tests "/tmp/x.test.ts" deny
+check tests "$ROOT/e2e/flows/08-new-flow.flow.json" allow
+check tests "$ROOT/e2e/flows/x.json" deny
+check tests "$ROOT/e2e/run.ts" deny
+check tests "$ROOT/e2e/flows/../run.ts" deny
 
 check docs "$ROOT/docs/architecture.md" allow
 check docs "$ROOT/docs/adr/0001-use-onion.md" allow

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # PreToolUse hook (matcher: Write|Edit) declared in an agent's frontmatter. Denies writes outside the
 # agent's profile. Usage: path-guard.sh <tests|docs|plans|specs>   (hook JSON on stdin)
-#   tests — test-writer: test files and test-only helpers/fixtures
+#   tests — test-writer: test files, test-only helpers/fixtures and e2e flows (e2e/flows/NN-name.flow.json)
 #   docs  — doc-writer: docs/, <module>/docs/, READMEs; never plans, prompts, specs, CLAUDE.md, INSIGHTS.md
 #   plans — implementation-planner: draft plan files ~/.claude/plans/<name>.md only (outside the repo, never docs/cc-plans/)
 #   specs — spec-creator: <module>/specs/SPEC-NN-<slug>.md or top-level specs/SPEC-NN-<slug>.md (cross-module)
@@ -31,7 +31,8 @@ case "$PROFILE" in
     case "$REL" in
       *.test.ts|*.test.tsx|*/test/helpers/*|*/test/fixtures/*) exit 0;;
     esac
-    deny "$REL is not a test file. test-writer may only write *.test.ts(x), *.it.test.ts and test/helpers|fixtures; prove fail-ability with mutation-probe.sh instead of editing production code."
+    [[ "$REL" =~ ^e2e/flows/[0-9][0-9]-[a-z0-9-]+\.flow\.json$ ]] && exit 0
+    deny "$REL is not a test file. test-writer may only write *.test.ts(x), *.it.test.ts, test/helpers|fixtures and e2e/flows/NN-name.flow.json; prove fail-ability with mutation-probe.sh instead of editing production code."
     ;;
   docs)
     case "$REL" in
