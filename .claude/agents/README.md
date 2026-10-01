@@ -11,9 +11,9 @@ Project subagents for Claude Code. Each file here is the source of truth for its
 | [brainstorm](brainstorm.md) | opus | Compares at least three options for one technical decision before planning; recommendation with evidence and confidence | nothing |
 | [implementation-planner](implementation-planner.md) | opus | Turns an approved SPEC (or a purely technical task) into a Development Plan that follows module rules, INSIGHTS.md and project skills; reviews the requirements, asks what is unclear and single vs parallel execution, requests brainstorm reports for technical forks; plans Test seams, Step 0 Skeleton and chunks; never writes specs | draft plan file only (`~/.claude/plans/*.md`) |
 | [implementer](implementer.md) | sonnet | Executes one chunk of an approved plan in client / server / reviewer-core (Skeleton, or making red tests green) and verifies its own changes | code |
-| [test-writer](test-writer.md) | sonnet | Writes UI and backend tests (test-first, backfill) and e2e flows, and proves each one can fail | tests + `e2e/flows/*.flow.json` |
-| [architecture-reviewer](architecture-reviewer.md) | opus | Checks architectural boundaries of a change: deterministic checks first, then judgement; findings with evidence | nothing |
-| [security-reviewer](security-reviewer.md) | opus | Finds exploitable vulnerabilities in a change: audit + secret scan first, then source → sink → attack path per finding | nothing |
+| [test-writer](test-writer.md) | sonnet | Optional — test-first plans and manual backfill only; `/impl` uses inline tests by default. Writes UI and backend tests and e2e flows, and proves each one can fail | tests + `e2e/flows/*.flow.json` |
+| [architecture-reviewer](architecture-reviewer.md) | sonnet | Checks architectural boundaries of a change: deterministic checks first, then judgement; findings with evidence | nothing |
+| [security-reviewer](security-reviewer.md) | opus (`/impl` re-review rounds: sonnet) | Finds exploitable vulnerabilities in a change: audit + secret scan first, then source → sink → attack path per finding | nothing |
 | [plan-verifier](plan-verifier.md) | sonnet | Checks finished code against every plan item and requirement; status + evidence per item | nothing |
 | [doc-writer](doc-writer.md) | sonnet | Documents implemented functionality with Mermaid diagrams and ADRs, verified against code | docs only |
 
@@ -22,37 +22,22 @@ Out of scope for every agent: git commits, writing `INSIGHTS.md`.
 ## Workflow
 
 ```
-task ──► spec-creator (⇄ user + parallel researchers, via main session) ──► SPEC-NN draft ──► user approves ──► approved
-      ──► implementation-planner (⇄ brainstorm per B<n> request, via main session) ──► Development Plan
-                                                        │  ~/.claude/plans/ → docs/cc-plans/ after approval
-                                                        ▼
-          implementer: Step 0 Skeleton ──► test-writer: test-first (red) ──► WIP commit "red tests"
-          ──► implementer × chunk (fresh agent per 2–3 steps; parallel: per group, worktree) ──► green ──► WIP commit
-          ──► plan-verifier pass 1 (gate) ── Not met ──► implementer (SendMessage)
-                                   │ all Met
-                 ┌─────────────────┼──────────────────────────┐
-                 ▼                 ▼                          ▼
-      architecture-reviewer   security-reviewer (+ SPEC)   feature-dev:code-reviewer (correctness bugs)
-                 └──────── findings ──► implementer (SendMessage) ──► WIP commit
-                                   ▼
-          [test-writer: e2e flows for [verify: e2e]] · [test-writer: backfill on committed code]
-          ──► plan-verifier pass 2 (delta) ──► SPEC Status: implemented ──► doc-writer
-          ──► /pr-self-review (reuses reviewer findings) ──► commit + /engineering-insights
+manual:  task ──► spec-creator (⇄ user + parallel researchers, via main session) ──► SPEC-NN ──► user approves
+         ──► implementation-planner (⇄ brainstorm per B<n> request) ──► plan ──► user approves
+/impl SPEC-NN:
+         setup: worktree from origin/main, SPEC + plan committed (docs/cc-plans/)
+         ──► implementer × chunk (fresh agent per 2–3 steps, AC tests inline: red → green; parallel: per group, worktree)
+             [Test mode test-first: Skeleton ──► test-writer red ──► chunks]
+         ──► plan-verifier pass 1 (gate) ── Not met ──► implementer
+         ──► review rounds ≤3: architecture-reviewer ∥ security-reviewer (opus r1) ∥ feature-dev:code-reviewer
+             ──► triage ──► implementer fix mode ──► re-review delta (sonnet)
+         ──► plan-verifier pass 2 (delta) ──► ⛔ user ──► SPEC implemented ──► [doc-writer --docs]
+         ──► squash ──► /pr-self-review ──► PR ──► /engineering-insights
 ```
 
 ### Runbook (main session)
 
-1. **Spec.** Run spec-creator rounds (questions via `AskUserQuestion`, research requests as parallel `researcher` agents). Plan nothing until the user explicitly approves the spec (`Status: approved`).
-2. **Plan.** Run implementation-planner with the SPEC and execution mode. `## Brainstorm requests` → one `brainstorm` agent per `B<n>` in parallel, reports back via `SendMessage`; the planner puts the outcome under `## Decisions`. After the user approves the plan, `mv` it to `docs/cc-plans/`.
-3. **Skeleton.** One implementer for chunk 0 (Step 0 Skeleton: stubs + shared seams, typecheck green).
-4. **Red tests.** test-writer `test-first` with the plan; then commit the red tests with explicit paths and note the SHA (plan-verifier checks they stay unchanged).
-5. **Implement in chunks.** One **fresh** implementer per chunk, in order (parallel mode: one per group in its own worktree, merged in the plan's order). Give each the plan path, its chunk and the previous chunk's report. A whole plan in one implementer ran 200–400 turns at 200–300k context — chunks keep each run small. Commit when the chunks are green.
-6. **Gate.** plan-verifier `pass: 1` with the plan, SPEC, red-tests SHA and reports. Not met → back to the implementer of that chunk via `SendMessage` (a fresh one with the findings if its context is already large).
-7. **Review in parallel.** architecture-reviewer, security-reviewer (pass the SPEC — its Untrusted inputs are required sources) and `feature-dev:code-reviewer` (correctness bugs — architecture-reviewer does not look for them) in one message. Fixes as in step 6; re-run only the reviewer whose findings were fixed, on the delta.
-8. **Late tests.** test-writer `e2e` for `[verify: e2e]` items; `backfill` for gaps — only on committed code (`mutation-probe.sh` refuses uncommitted files).
-9. **Final.** plan-verifier `pass: 2` with the delta since step 6. Every AC/NFR Met (manual ones confirmed by the user) → set the SPEC to `implemented`. doc-writer, `/pr-self-review`, commit (explicit paths — no `git add -A` while an agent runs), `/engineering-insights`.
-
-A purely technical change (no SPEC, no behavior change) skips steps 1, 3 and 4: existing tests are the net, new ones come from backfill.
+Spec and plan are made manually: run spec-creator, approve the spec; run implementation-planner, approve the plan. Then **`/impl <SPEC-NN | plan path> [--docs]`** — the [`impl` skill](../skills/impl/SKILL.md) is the single source of the build order, the model per agent, the `SDD(SPEC-NN): <phase>` commits that make it resumable (`/impl SPEC-NN` in a new session), the final user gate, and the review-and-fix loop ([review-loop.md](../skills/impl/references/review-loop.md): ≤3 rounds, delta re-review, triage fix / fix-along / defer / dispute / replan). The reviewers' re-review mode, the implementer's fix mode and the planner's fix-plan addendum exist for that loop. test-writer is used only for plans with `## Test mode: test-first`.
 
 - spec-creator iterates through the main session: Round 1 returns a Discovery report (gaps, corner cases, module interactions, UX, research requests, numbered questions with options) and writes nothing → main asks the user with `AskUserQuestion` (≤4 questions per call) **and** runs each research request as its own `researcher` agent in parallel (subagents cannot start subagents) → answers and reports go back via `SendMessage` → Round 2+ writes or updates the spec, lints it and runs its self-check. implementation-planner and plan-verifier trace to its `AC-N`.
 - implementation-planner never writes or changes a spec: a new feature without an approved SPEC, a blocking `OQ-N`, a blocking brainstorm request or a missing execution mode (`single` | `parallel`) comes back as questions, not a plan. In `parallel` mode the plan splits steps into groups with disjoint file ownership; the main session runs one implementer per group (`isolation: "worktree"`) and merges in the plan's order.
@@ -175,7 +160,7 @@ Option comparison and security review (checked 2026-09-27):
 | [OWASP Top 10 for Agentic Applications 2026](https://genai.owasp.org/resource/owasp-top-10-for-agentic-applications-for-2026/) · [OWASP MCP Top 10 (beta)](https://owasp.org/www-project-mcp-top-10/) | Agent / tool and MCP-layer risks | security-reviewer (agent paths, `mcp/**`) |
 | [CVSS v4](https://www.first.org/cvss/v4.0/user-guide) · [OWASP Risk Rating](https://owasp.org/www-community/OWASP_Risk_Rating_Methodology) | Considered, rejected: built for catalogued CVEs, too heavy for a 3-level diff review | — |
 
-Project sources: root / module `CLAUDE.md` (commands, naming, do-not-touch), module `INSIGHTS.md` ([engineering-insights](../skills/engineering-insights/SKILL.md)), [skill-map.md](../skills/pr-self-review/references/skill-map.md), [severity.md](../skills/pr-self-review/references/severity.md), root `INSIGHTS.md` (no `git add -A` while a subagent runs). Design records: [planner + implementer](../../docs/cc-plans/2026-09-22+planner-implementer-agents.md) · [test / review / doc agents](../../docs/cc-plans/2026-09-23+review-test-doc-agents.md) · [brainstorm + security-reviewer](../../docs/cc-plans/2026-09-27+brainstorm-security-reviewer-agents.md) · [spec-creator](../../docs/cc-plans/2026-10-01+spec-creator-agent.md) · [implementation-planner](../../docs/cc-plans/2026-10-01+implementation-planner-agent.md) · [SDD workflow: test-first, chunks](../../docs/cc-plans/2026-10-01+sdd-workflow-test-first.md).
+Project sources: root / module `CLAUDE.md` (commands, naming, do-not-touch), module `INSIGHTS.md` ([engineering-insights](../skills/engineering-insights/SKILL.md)), [skill-map.md](../skills/pr-self-review/references/skill-map.md), [severity.md](../skills/pr-self-review/references/severity.md), root `INSIGHTS.md` (no `git add -A` while a subagent runs). Design records: [planner + implementer](../../docs/cc-plans/2026-09-22+planner-implementer-agents.md) · [test / review / doc agents](../../docs/cc-plans/2026-09-23+review-test-doc-agents.md) · [brainstorm + security-reviewer](../../docs/cc-plans/2026-09-27+brainstorm-security-reviewer-agents.md) · [spec-creator](../../docs/cc-plans/2026-10-01+spec-creator-agent.md) · [implementation-planner](../../docs/cc-plans/2026-10-01+implementation-planner-agent.md) · [SDD workflow: test-first, chunks](../../docs/cc-plans/2026-10-01+sdd-workflow-test-first.md) · [/impl command](../../docs/cc-plans/2026-10-01+impl-command.md).
 
 ## Adding an agent
 

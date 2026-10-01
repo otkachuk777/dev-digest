@@ -16,7 +16,7 @@ Specs are written by the [`spec-creator`](../.claude/agents/spec-creator.md) age
 
 ## Format
 
-The format is defined in one place, the [`ears-spec`](../.claude/skills/ears-spec/SKILL.md) skill. `spec-creator` writes specs to it, and `implementation-planner`, `test-writer` and `plan-verifier` read specs through it. It defines:
+The format is defined in one place, the [`ears-spec`](../.claude/skills/ears-spec/SKILL.md) skill. `spec-creator` writes specs to it, and `implementation-planner`, `implementer` (inline tests), `test-writer` (test-first plans) and `plan-verifier` read specs through it. It defines:
 
 - the template: 9 sections, with `### Traceability` closing *Acceptance criteria*;
 - EARS acceptance criteria;

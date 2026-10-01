@@ -91,7 +91,7 @@ Banned without a number: fast, quickly, slow, properly, correctly, user-friendly
 | US-1 | AC-1, AC-2 | EC-1 | NFR-1 | e2e, unit |
 ```
 
-Consumers: `implementation-planner` plans only from an `approved` spec and maps every AC to a plan step's "Done when" or the Test plan; `test-writer` writes `[verify: unit | it]` tests test-first, before the behavior, and `[verify: e2e]` flows after it, naming each after the AC it pins (`AC-3: escapes formula cells`); `plan-verifier` gives every AC its own Met / Not met line using the `[verify:]` layer as the method.
+Consumers: `implementation-planner` plans only from an `approved` spec and maps every AC to a plan step's "Done when" or the Test plan; tests for `[verify: unit | it | e2e]` items are written by the `implementer` inline (test first, red, then code) or, in a plan with `Test mode: test-first`, by `test-writer` before the behavior — each named after the AC it pins (`AC-3: escapes formula cells`); `plan-verifier` gives every AC its own Met / Not met line using the `[verify:]` layer as the method.
 
 ## Diagrams and contracts
 

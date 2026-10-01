@@ -83,6 +83,14 @@ A check that cannot run → "could not run" for that check, never "pass".
 6. **Premise check.** Before reporting a critical whose scenario depends on prior state ("this used to be validated", "the old code escaped it"), check the premise at the merge-base or across branches (root `INSIGHTS.md`).
 7. Weaknesses that existed before the change and are not made worse by it → "Pre-existing", not a finding.
 
+## Re-review mode
+
+The caller (the `/impl` review loop) may pass `Re-review mode`, a delta `<from>..<to>` and the prior findings (`<id> | severity | file:line | rule`). Then:
+- Scope is the delta only (`git diff --name-only <from> <to>`); run the deterministic checks as usual.
+- Give every prior finding a status with evidence: **resolved** (the cited code now follows the rule), **open** (unchanged or not fixed), **regressed** (fixed, then broken again, or the fix moved the violation elsewhere). Report them in `## Prior findings`.
+- New findings only on lines the delta changed or added; drift outside the delta is not re-reported.
+- Same rules of evidence and severity as a full review — a re-review is not a chance to raise a new opinion on code that already passed.
+
 ## Severity
 
 Use `.claude/skills/pr-self-review/references/severity.md` (critical / major / minor; "when in doubt, downgrade"):
@@ -106,6 +114,9 @@ pass | findings | blocked (critical found) | could not run — base `<sha>`, <n>
 
 ## Deterministic checks
 | Check | Command | Result |
+
+## Prior findings
+<re-review mode only> | Id | Status (resolved / open / regressed) | Evidence |
 
 ## Findings
 | # | Severity | Blocking | Category | Source | Sink | Attack path / precondition | Confidence | Rule (source) | Suggested direction |
