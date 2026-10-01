@@ -53,7 +53,7 @@ flowchart TD
     B -- no: AC-35 --> Z[Prompt without Project context section]
     B -- yes: AC-28 --> C[Merge agent docs then skill docs\nin order, drop duplicate paths AC-29]
     C --> D{Doc readable inside the clone?}
-    D -- no: AC-33 --> E[Skip doc, Live Log warning,\ntrace status missing]
+    D -- no: AC-33 --> E[Skip doc, Live Log warn line,\ntrace status missing]
     D -- yes --> F{Cumulative tokens over 8,000?}
     F -- yes: AC-32 --> G[Cut doc, mark truncated]
     F -- no --> H[Inject doc as untrusted block AC-31]
@@ -68,7 +68,7 @@ flowchart TD
 
 ### US-1 — Browse docs
 
-- **AC-1:** The server shall list for a repo every file in that repo's default-branch clone whose repo-relative path matches the configured search glob, defaulting to `**/{specs,docs,insights}/**/*.md` and including dot-folders such as `.devdigest/specs/`. [verify: it]
+- **AC-1:** The server shall list for a repo every file in that repo's default-branch clone whose repo-relative path matches the configured search glob, defaulting to `**/{specs,docs,insights}/**/*.md`, including dot-folders such as `.devdigest/specs/`, matching only file names that end in exactly lowercase `.md`, and skipping `.git` and the same directories the repo index excludes (`node_modules`, `dist`, `build`, `coverage`, `.next`, `out`, `vendor`). [verify: it]
 - **AC-2:** The server shall leave out of the listing every matching file larger than 400 KB, every symbolic link and every path that contains a control character, a double quote, a backtick, `<` or `>`. [verify: unit]
 - **AC-3:** The server shall report for each listed doc its repo-relative path, its type (`specs`, `docs` or `insights`, taken from the first path segment that equals a root name), its size in bytes, its token count and the number of agents and of skills that attach it for that repo. [verify: it]
 - **AC-4:** WHEN the user opens the Project Context page for the repo selected in the sidebar, the client shall show the repo's docs grouped by type with path and token count per doc. [verify: unit]
@@ -110,7 +110,8 @@ flowchart TD
 - **AC-28:** WHEN a review run starts for a PR in repo X, the server shall take the agent's docs attached for repo X followed by the docs attached for repo X to each enabled linked skill in skill link order. [verify: it]
 - **AC-29:** The server shall inject each doc path at most once per run, keeping its first occurrence and that occurrence's origin. [verify: unit]
 - **AC-32:** IF the cumulative tokens of a run's docs exceed 8000, THEN the server shall cut the doc that crosses the limit to the remaining budget followed by a `[truncated]` marker and inject every later doc as its path heading followed by `[truncated]` only. [verify: unit]
-- **AC-33:** IF an attached doc is missing or unreadable when the run reads it, THEN the server shall skip the doc and write a Live Log warning naming its path and continue the run. [verify: it]
+- **AC-33:** IF an attached doc is missing or unreadable when the run reads it, THEN the server shall skip the doc, write a Live Log line of kind `warn` naming its path, and continue the run. [verify: it]
+- **AC-48:** The client shall render a Live Log line of kind `warn` with a style distinct from the `info`, `tool`, `result` and `error` kinds. [verify: unit]
 - **AC-34:** WHERE the agent's strategy makes more than one LLM call for a run, the system shall include the same `## Project context` section in every call. [verify: unit]
 - **AC-35:** IF no doc is attached for the PR's repo to the agent or its enabled linked skills, THEN the system shall leave the `## Project context` section out of the prompt. [verify: unit]
 - **AC-37:** The server shall never inject into a run a doc that is attached only for a repo other than the PR's repo. [verify: it]
@@ -137,11 +138,11 @@ Manual check for AC-47: attach the invariant doc on the default branch, open a P
 
 | US | AC | EC | NFR | Verify |
 |---|---|---|---|---|
-| US-1 | AC-1, AC-2, AC-3, AC-4, AC-5, AC-6, AC-7, AC-8, AC-9, AC-10, AC-11, AC-12, AC-13, AC-14 | EC-1, EC-2, EC-8, EC-9, EC-12 | NFR-3, NFR-5, NFR-6 | unit, it |
+| US-1 | AC-1, AC-2, AC-3, AC-4, AC-5, AC-6, AC-7, AC-8, AC-9, AC-10, AC-11, AC-12, AC-13, AC-14 | EC-1, EC-2, EC-8, EC-9, EC-12, EC-16, EC-17 | NFR-3, NFR-5, NFR-6 | unit, it |
 | US-2 | AC-15, AC-16, AC-17, AC-18, AC-19, AC-20, AC-21, AC-22, AC-23, AC-24, AC-25, AC-26, AC-27, AC-36 | EC-2, EC-3, EC-4, EC-5, EC-6, EC-7, EC-10, EC-11, EC-15 | NFR-5, NFR-6 | unit, it |
 | US-3 | AC-30, AC-31, AC-36 | EC-4, EC-5, EC-11 | NFR-5, NFR-6 | unit, it |
 | US-4 | AC-28, AC-29, AC-32, AC-33, AC-34, AC-35, AC-37, AC-39, AC-40 | EC-8, EC-10, EC-13, EC-14 | NFR-1, NFR-2, NFR-4 | unit, it |
-| US-5 | AC-38, AC-41, AC-42, AC-43, AC-44, AC-45 | EC-13 | NFR-4, NFR-7 | unit, it |
+| US-5 | AC-38, AC-41, AC-42, AC-43, AC-44, AC-45, AC-48 | EC-13 | NFR-4, NFR-7 | unit, it |
 | US-6 | AC-46, AC-47 | — | NFR-1 | e2e, manual |
 
 ## Edge cases
@@ -161,12 +162,14 @@ Manual check for AC-47: attach the invariant doc on the default branch, open a P
 - **EC-13:** A single attached doc alone exceeds 8,000 tokens → it is cut at the budget and recorded as `truncated` (AC-32, AC-38).
 - **EC-14:** A resync runs while a review run is reading docs → the run reads each doc as it is on disk at the moment of reading; a doc that cannot be read is handled per AC-33.
 - **EC-15:** The selected repo has no doc matching the search glob → both Context tabs show an empty state with a link to the Project Context page (AC-15, AC-30).
+- **EC-16:** A file under a search root is named `README.MD` or `x.Md` → it is not a doc and is not listed; only an exact lowercase `.md` ending matches (AC-1).
+- **EC-17:** The resync started by Refresh has not finished after 60 s → the client stops waiting and re-lists the docs anyway, with no new error message (AC-9).
 
 ## Non-functional requirements
 
 - **NFR-1:** The `## Project context` section shall add at most 8,000 tokens of doc content to each LLM call of a run, plus the delimiter and heading lines per doc. [verify: unit]
 - **NFR-2:** Attaching and injecting docs shall add 0 LLM calls to a run and 0 LLM calls to any listing or editor request. [verify: unit]
-- **NFR-3:** The doc listing of a repo with up to 500 matching docs shall respond within 2 s at p95 on the developer host. [verify: manual]
+- **NFR-3:** The doc listing of a repo with up to 500 matching docs shall respond within 2 s at p95 on the developer host for repeated (warm) listings; the first listing after a server start is excluded from this target. [verify: manual]
 - **NFR-4:** The server log record of each run's prompt assembly shall include the project-context doc count, token total and the number of truncated and missing docs, and shall never include doc text. [verify: unit]
 - **NFR-5:** The Project Context page, both Context tabs and the preview drawer shall meet WCAG 2.2 AA: every checkbox has an accessible name containing the doc path, reordering works by keyboard alone (2.1.1, 2.5.7), focus moves into the drawer on open and returns to the Preview button on close, and text contrast is at least 4.5:1. [verify: unit, manual]
 - **NFR-6:** All new user-facing copy shall come from the `context`, `agents`, `skills` and `runs` message namespaces, with plural forms for "N files", "N of M attached", "N agents" and "N skills". [verify: unit]
@@ -221,7 +224,7 @@ sequenceDiagram
     server->>DB: docs attached for repo X (agent, then enabled skills) (AC-28)
     server->>Clone: read each doc inside the clone
     opt doc missing or unreadable
-        server->>server: skip, Live Log warning (AC-33)
+        server->>server: skip, Live Log line kind warn (AC-33)
     end
     server->>core: assemble prompt with docs (budget 8,000) (AC-32, AC-39)
     core->>LLM: every call includes Project context (AC-34)
@@ -290,7 +293,7 @@ Response (GET and PUT):
 | `total_tokens` | int ≥ 0 | yes | attached + inherited, once per path (AC-23) |
 | `truncated_paths` | array of string | yes | paths the run would truncate under the budget (AC-24) |
 
-Errors: 404 `not_found` → agent, skill or repo outside the workspace (AC-17); 400 `unknown_path` → a new path not in the listing (AC-18); 400 `validation_error` → duplicate paths. The client shows an inline error and reverts the toggle.
+Errors: 404 `not_found` → agent, skill or repo outside the workspace (AC-17); 400 `unknown_path` → a new path not in the listing (AC-18); 422 `validation_error` → duplicate paths (house convention for validation failures). The client shows an inline error and reverts the toggle.
 
 **`GET /skills/:id/context?repo_id=<id>`** and **`PUT /skills/:id/context`** — server ↔ client — new. Same body, response and errors as the agent endpoints without `inherited`.
 
@@ -304,6 +307,12 @@ Errors: 404 `not_found` → agent, skill or repo outside the workspace (AC-17); 
 | `context_docs[].origin` | enum `agent` \| `skill` | yes | |
 | `context_docs[].origin_name` | string | yes | agent or skill name |
 | `context_docs[].status` | enum `read` \| `truncated` \| `missing` | yes | |
+
+**Run event kind** (`GET /runs/:id/events` live stream, and `log[].kind` in `GET /runs/:id/trace`) — server → client — changed (existing: `RunEventKind`). Non-breaking addition: the enum gains the value `warn` alongside `info`, `tool`, `result` and `error`; no existing value changes meaning. Used for skipped docs (AC-33) and rendered distinctly (AC-48). The client and server vendor copies change together; mcp does not read the run log.
+
+| Field (wire, snake_case) | Type | Required | Meaning / constraints |
+|---|---|---|---|
+| `kind` | enum `info` \| `tool` \| `result` \| `error` \| `warn` | yes | `warn` = the run continues but something was skipped |
 
 Unchanged contracts used: `POST /repos/:id/resync` (Refresh, AC-9), the agent and skill endpoints, `PromptAssembly`.
 
