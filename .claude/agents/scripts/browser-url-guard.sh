@@ -3,6 +3,7 @@
 # design sources: allowlisted tools only, navigation only to localhost / 127.0.0.1 / *.figma.com, screenshot
 # filenames a single path segment. Usage: browser-url-guard.sh   (hook JSON on stdin)
 set -uo pipefail
+command -v jq >/dev/null || { echo "browser-url-guard: jq not found, tool call blocked" >&2; exit 2; }
 deny() { jq -nc --arg r "browser-url-guard: $1" '{hookSpecificOutput:{hookEventName:"PreToolUse",permissionDecision:"deny",permissionDecisionReason:$r}}'; exit 0; }
 
 INPUT=$(cat)  # stdin is read once; every field below comes from this copy

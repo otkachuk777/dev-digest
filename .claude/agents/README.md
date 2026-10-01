@@ -61,7 +61,7 @@ Spec and plan are made manually: run spec-creator, approve the spec; run impleme
 | plan-verifier | Read, Grep, Glob, Bash | Write, Edit, NotebookEdit, Agent, Skill, WebSearch, WebFetch | **Hook** `readonly-bash-guard.sh` (also allows the plan's own Verify commands) |
 | doc-writer | Read, Grep, Glob, Edit, Write, Bash, Skill | Agent, NotebookEdit, WebSearch, WebFetch | **Hook** `path-guard.sh docs`: Edit/Write only in `docs/`, `<module>/docs/`, READMEs; never plans, prompts, specs, `CLAUDE.md`, `INSIGHTS.md` |
 
-- "By prompt" = instruction, not a technical block. Hooks are declared in the agent's frontmatter and run only while that agent is active.
+- "By prompt" = instruction, not a technical block. Hooks are declared in the agent's frontmatter and run only while that agent is active. Every guard script needs `jq` and fails closed without it (exit 2 blocks the tool call).
 - Hooks cover Edit/Write (`path-guard.sh`) and now Bash (`readonly-bash-guard.sh`, pattern-matched — not a sandbox) for the read-only agents; session-wide `permissions.deny` would also block the main session and implementer, so it is not used.
 
 ### Scripts ([scripts/](scripts/))

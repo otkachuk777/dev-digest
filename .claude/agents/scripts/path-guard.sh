@@ -7,6 +7,7 @@
 #   specs — spec-creator: <module>/specs/SPEC-NN-<slug>.md or top-level specs/SPEC-NN-<slug>.md (cross-module)
 # Covers Edit/Write only — Bash writes are limited by the agent prompt, not here.
 set -uo pipefail
+command -v jq >/dev/null || { echo "path-guard: jq not found, tool call blocked" >&2; exit 2; }
 PROFILE="${1:-}"
 deny() { jq -nc --arg r "path-guard($PROFILE): $1" '{hookSpecificOutput:{hookEventName:"PreToolUse",permissionDecision:"deny",permissionDecisionReason:$r}}'; exit 0; }
 
