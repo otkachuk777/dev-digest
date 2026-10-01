@@ -2,8 +2,12 @@
 # PreToolUse hook (matcher: Bash). Denies `gh pr create` / `gh pr merge` without a fresh PASS verdict.
 set -uo pipefail
 S="$(cd "$(dirname "$0")" && pwd)"
-CMD=$(jq -r '.tool_input.command // ""' 2>/dev/null)
+INPUT=$(cat)
+CMD=$(jq -r '.tool_input.command // ""' <<<"$INPUT" 2>/dev/null)
 echo "$CMD" | grep -Eq '(^|;|&&|\|\|?|\()[[:space:]]*gh[[:space:]]+pr[[:space:]]+(create|merge)\b' || exit 0
+# The hook process starts in the main checkout; judge the checkout the command runs in (a worktree).
+CWD=$(jq -r '.cwd // ""' <<<"$INPUT" 2>/dev/null)
+[ -n "$CWD" ] && cd "$CWD" 2>/dev/null
 ROOT=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
 V="${PR_SELF_REVIEW_DIR:-$ROOT/.claude/.pr-self-review}/verdict.json"
 deny() { jq -nc --arg r "$1" '{hookSpecificOutput:{hookEventName:"PreToolUse",permissionDecision:"deny",permissionDecisionReason:$r}}'; exit 0; }

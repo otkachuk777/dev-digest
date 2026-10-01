@@ -18,6 +18,12 @@ echo "{\"status\":\"BLOCKED\",\"fingerprint\":\"$FP\",\"critical_count\":2}" > "
 expect "BLOCKED"            deny  "$(run 'cd x && gh pr merge 3')"
 echo "{\"status\":\"PASS\",\"fingerprint\":\"$FP\",\"critical_count\":0}" > "$T/verdict.json"
 expect "PASS + fresh"       allow "$(run 'gh pr create')"
+# Worktree: verdict fresh for the checkout in .cwd, not for the hook's own cwd.
+W=$(mktemp -d); git -C "$W" init -q && git -C "$W" -c user.name=t -c user.email=t@t commit -q --allow-empty -m init
+echo "{\"status\":\"PASS\",\"fingerprint\":\"$(cd "$W" && "$S/fingerprint.sh")\",\"critical_count\":0}" > "$T/verdict.json"
+expect "worktree cwd fresh" allow "$(jq -nc --arg w "$W" '{cwd:$w,tool_input:{command:"gh pr create"}}' | "$S/gate.sh")"
+expect "other checkout"     deny  "$(run 'gh pr create')"
+rm -rf "$W"
 for s in $(grep -oE '\b(frontend-ui-architecture|react-best-practices|next-best-practices|react-testing-library|onion-architecture|fastify-best-practices|drizzle-orm-patterns|postgresql-table-design|zod|security)\b' "$ROOT/.claude/skills/pr-self-review/references/skill-map.md" | sort -u); do
   [ -f "$ROOT/.claude/skills/$s/SKILL.md" ] && echo "ok   skill exists: $s" || { echo "FAIL missing skill: $s"; fail=1; }
 done
