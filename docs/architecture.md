@@ -93,6 +93,12 @@ consumer.
    filter purely client-side from the findings it already has
    (`.../_components/FindingsPanel/helpers.ts`) — no extra request, no LLM
    call.
+6. **Project context** — an agent or skill can attach repo `specs|docs|insights`
+   markdown files; at run time `server` reads them from the clone, budgets them
+   to 8000 tokens and injects them as untrusted prompt blocks, recording them in
+   the run trace. See
+   [`server/docs/project-context.md`](../server/docs/project-context.md) and
+   [ADR 0001](adr/0001-project-context-storage-glob-budget.md).
 
 Each package has its own README with deeper diagrams:
 [`client`](../client/README.md) (UI route map) ·

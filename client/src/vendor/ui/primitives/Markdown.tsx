@@ -19,7 +19,14 @@ const cell: React.CSSProperties = {
 };
 
 /** Markdown renderer (replaces prototype mdLite). Inline + GFM. */
-export function Markdown({ children }: { children?: string | null }) {
+export function Markdown({
+  children,
+  noRemoteImages,
+}: {
+  children?: string | null;
+  /** Untrusted content: never emit an <img> (no request to a remote host); show alt text / a link. */
+  noRemoteImages?: boolean;
+}) {
   if (!children) return null;
   return (
     <div className="dd-md" style={{ fontSize: "inherit", lineHeight: 1.55 }}>
@@ -99,6 +106,16 @@ export function Markdown({ children }: { children?: string | null }) {
                 {children}
               </code>
             ),
+          ...(noRemoteImages && {
+            img: ({ src, alt }) =>
+              alt ? (
+                <span>{alt}</span>
+              ) : typeof src === "string" ? (
+                <a href={src} style={{ color: "var(--accent-text)", textDecoration: "underline" }}>
+                  {src}
+                </a>
+              ) : null,
+          }),
           a: ({ children, href }) => (
             <a href={href} style={{ color: "var(--accent-text)", textDecoration: "underline" }}>
               {children}

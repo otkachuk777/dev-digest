@@ -15,6 +15,8 @@ import { getEncoding, type Tiktoken } from 'js-tiktoken';
 
 export interface Tokenizer {
   count(text: string): number;
+  /** Longest prefix of `text` within `maxTokens` tokens. */
+  truncate(text: string, maxTokens: number): string;
 }
 
 /** Heuristic fallback used before/instead of a real encoder. */
@@ -23,6 +25,7 @@ export function approxTokens(text: string): number {
 }
 
 export class TiktokenTokenizer implements Tokenizer {
+  // encode(text, [], []): special-token text (e.g. `<|endoftext|>` in untrusted docs) is ordinary text, never throws.
   private enc?: Tiktoken;
   private broken = false;
 
@@ -30,11 +33,30 @@ export class TiktokenTokenizer implements Tokenizer {
     if (this.broken) return approxTokens(text);
     try {
       this.enc ??= getEncoding('cl100k_base');
-      return this.enc.encode(text).length;
+      return this.enc.encode(text, [], []).length;
     } catch {
       // BPE load failed once — don't retry per call; stick to the heuristic.
       this.broken = true;
       return approxTokens(text);
     }
+  }
+
+  /** Longest prefix of `text` that fits `maxTokens` (never splits a multibyte char). */
+  truncate(text: string, maxTokens: number): string {
+    if (maxTokens <= 0) return '';
+    if (!this.broken) {
+      try {
+        this.enc ??= getEncoding('cl100k_base');
+        const ids = this.enc.encode(text, [], []);
+        if (ids.length <= maxTokens) return text;
+        // A cut inside a multibyte sequence decodes to trailing U+FFFD — drop it.
+        let cut = this.enc.decode(ids.slice(0, maxTokens)).replace(/�+$/, '');
+        while (cut.length > 0 && this.count(cut) > maxTokens) cut = cut.slice(0, -1);
+        return cut;
+      } catch {
+        this.broken = true;
+      }
+    }
+    return text.slice(0, maxTokens * 4);
   }
 }

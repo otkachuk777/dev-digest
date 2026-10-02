@@ -31,6 +31,7 @@ const LEVEL: Record<RunEventKind, keyof PinoLike> = {
   tool: 'debug',
   result: 'info',
   error: 'error',
+  warn: 'warn',
 };
 
 export class RunLogger {
@@ -67,6 +68,9 @@ export class RunLogger {
   /** External I/O (LLM / embedding / git) — shown amber in the Live Log. */
   tool(msg: string, data?: unknown): void {
     this.event('tool', msg, data);
+  }
+  warn(msg: string, data?: unknown): void {
+    this.event('warn', msg, data);
   }
   result(msg: string, data?: unknown): void {
     this.event('result', msg, data);

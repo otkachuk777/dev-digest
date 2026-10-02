@@ -13,7 +13,7 @@ if sys.version_info < (3, 9):
     sys.exit("collect.py: Python 3.9+ required (found %d.%d); see scripts/doctor.sh" % sys.version_info[:2])
 
 READONLY_TYPES = {"researcher", "brainstorm", "architecture-reviewer", "security-reviewer", "plan-verifier",
-                  "feature-dev:code-reviewer", "Explore"}
+                  "code-reviewer", "feature-dev:code-reviewer", "Explore"}
 SDD_TYPES = READONLY_TYPES | {"spec-creator", "implementation-planner", "implementer", "test-writer", "doc-writer"}
 READ_CMDS = {"cat", "sed", "head", "tail", "nl", "less", "wc", "grep", "rg", "awk", "jq"}
 PHASES = [("spec", {"spec-creator"}), ("plan", {"implementation-planner"}), ("impl", {"implementer", "test-writer"})]

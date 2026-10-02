@@ -6,11 +6,14 @@ import messages from "../../../../../../messages/en/skills.json";
 
 const deleteMutate = vi.fn();
 
+let selectedId: string | undefined;
+let tabParam = "";
 vi.mock("next/navigation", () => ({
-  useParams: () => ({}),
+  useParams: () => (selectedId ? { id: selectedId } : {}),
   useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
-  useSearchParams: () => new URLSearchParams(),
+  useSearchParams: () => new URLSearchParams(tabParam ? `tab=${tabParam}` : ""),
 }));
+vi.mock("./_components/SkillEditor", () => ({ SkillEditor: (p: { tab: string }) => <div>active-tab:{p.tab}</div> }));
 
 const SKILLS: Skill[] = [
   {
@@ -31,7 +34,7 @@ const SKILLS: Skill[] = [
 // Mock the data hooks so the view renders without a network/query client.
 vi.mock("@/lib/api/skills", () => ({
   useSkills: () => ({ data: SKILLS, isLoading: false, isError: false, refetch: vi.fn() }),
-  useSkill: () => ({ data: undefined, isLoading: false, isError: false, error: undefined, refetch: vi.fn() }),
+  useSkill: () => ({ data: selectedId ? SKILLS[0] : undefined, isLoading: false, isError: false, error: undefined, refetch: vi.fn() }),
   useUpdateSkill: () => ({ mutate: vi.fn() }),
   useCreateSkill: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useDeleteSkill: () => ({ mutate: deleteMutate, isPending: false }),
@@ -42,6 +45,8 @@ import { SkillsView } from "./SkillsView";
 afterEach(() => {
   cleanup();
   deleteMutate.mockClear();
+  selectedId = undefined;
+  tabParam = "";
 });
 
 function renderWithIntl(ui: React.ReactElement) {
@@ -57,6 +62,17 @@ describe("SkillsView (smoke)", () => {
     renderWithIntl(<SkillsView />);
     expect(screen.getByText("pr-quality-rubric")).toBeInTheDocument();
     expect(screen.getByText("Select a skill")).toBeInTheDocument();
+  });
+
+  it("?tab=context selects the Context tab; an unknown tab falls back to config", () => {
+    selectedId = "sk1";
+    tabParam = "context";
+    renderWithIntl(<SkillsView />);
+    expect(screen.getByText("active-tab:context")).toBeInTheDocument();
+    cleanup();
+    tabParam = "nope";
+    renderWithIntl(<SkillsView />);
+    expect(screen.getByText("active-tab:config")).toBeInTheDocument();
   });
 
   it("Delete asks for confirmation first, then deletes; Cancel does not", () => {

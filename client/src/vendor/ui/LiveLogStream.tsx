@@ -6,7 +6,7 @@ import { IconBtn } from "./primitives";
 
 export interface LogLine {
   t: string;
-  k: "info" | "result" | "tool" | "error";
+  k: "info" | "result" | "tool" | "error" | "warn";
   m: string;
 }
 
@@ -15,6 +15,7 @@ const LOG_COLOR: Record<LogLine["k"], string> = {
   result: "var(--ok)",
   tool: "var(--warn)",
   error: "var(--crit)",
+  warn: "var(--warn)",
 };
 
 export function LiveLogStream({
@@ -111,7 +112,14 @@ export function LiveLogStream({
           <div
             key={i}
             className="mono"
-            style={{ fontSize: 12, lineHeight: 1.5, display: "flex", gap: 10, animation: "ddfadein .2s ease" }}
+            style={{
+              fontSize: 12,
+              lineHeight: 1.5,
+              display: "flex",
+              gap: 10,
+              animation: "ddfadein .2s ease",
+              ...(l.k === "warn" ? { background: "var(--warn-bg)", borderRadius: 4, padding: "0 4px" } : null),
+            }}
           >
             <span style={{ color: "var(--text-muted)", flexShrink: 0 }}>[{l.t}]</span>
             <span style={{ color: LOG_COLOR[l.k], flexShrink: 0, fontWeight: 600 }}>[{l.k}]</span>

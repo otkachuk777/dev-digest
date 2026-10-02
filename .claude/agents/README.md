@@ -13,6 +13,7 @@ Project subagents for Claude Code. Each file here is the source of truth for its
 | [implementer](implementer.md) | sonnet | Executes one chunk of an approved plan in client / server / reviewer-core (Skeleton, or making red tests green) and verifies its own changes | code |
 | [test-writer](test-writer.md) | sonnet | Optional — test-first plans and manual backfill only; `/impl` uses inline tests by default. Writes UI and backend tests and e2e flows, and proves each one can fail | tests + `e2e/flows/*.flow.json` |
 | [architecture-reviewer](architecture-reviewer.md) | sonnet | Checks architectural boundaries of a change: deterministic checks first, then judgement; findings with evidence | nothing |
+| [code-reviewer](code-reviewer.md) | sonnet | Finds bugs and logic errors in a change (spec ACs, edge cases, state/order, contracts); every finding has a failure scenario; re-review mode | nothing |
 | [security-reviewer](security-reviewer.md) | opus (`/impl` re-review rounds: sonnet) | Finds exploitable vulnerabilities in a change: audit + secret scan first, then source → sink → attack path per finding | nothing |
 | [plan-verifier](plan-verifier.md) | sonnet | Checks finished code against every plan item and requirement; status + evidence per item | nothing |
 | [doc-writer](doc-writer.md) | sonnet | Documents implemented functionality with Mermaid diagrams and ADRs, verified against code | docs only |
@@ -33,7 +34,7 @@ manual:  task ──► spec-creator (⇄ user via main session; runs parallel r
          ──► implementer × chunk (fresh agent per 2–3 steps, AC tests inline: red → green; parallel: per group, worktree)
              [Test mode test-first: Skeleton ──► test-writer red ──► chunks]
          ──► plan-verifier pass 1 (gate) ── Not met ──► implementer
-         ──► review rounds ≤3: architecture-reviewer ∥ security-reviewer (opus r1) ∥ feature-dev:code-reviewer
+         ──► review rounds ≤3: architecture-reviewer ∥ security-reviewer (opus r1) ∥ code-reviewer
              ──► triage ──► implementer fix mode ──► re-review delta (sonnet)
          ──► plan-verifier pass 2 (delta) ──► ⛔ user ──► SPEC implemented ──► [doc-writer --docs]
          ──► squash ──► /pr-self-review ──► PR ──► /workflow-retro ──► /engineering-insights
@@ -61,6 +62,7 @@ Spec and plan are made manually: run spec-creator, approve the spec, commit it (
 | implementer | Read, Grep, Glob, Edit, Write, Bash, Skill | Agent, NotebookEdit, WebSearch, WebFetch | No git writes, no do-not-touch files, never regenerates the dependency-cruiser baseline, never edits test-writer's tests (by prompt) |
 | test-writer | Read, Grep, Glob, Edit, Write, Bash, Skill | Agent, NotebookEdit, WebSearch, WebFetch | **Hook** `path-guard.sh tests`: Edit/Write only on test files and `e2e/flows/NN-name.flow.json`; production code only via `mutation-probe.sh` |
 | architecture-reviewer | Read, Grep, Glob, Bash | Write, Edit, NotebookEdit, Agent, Skill, WebSearch, WebFetch | **Hook** `readonly-bash-guard.sh`; no `permissionMode: plan` because it must run checks |
+| code-reviewer | Read, Grep, Glob, Bash | Write, Edit, NotebookEdit, Agent, Skill, WebSearch, WebFetch | **Hook** `readonly-bash-guard.sh`; reads the diff itself with git |
 | security-reviewer | Read, Grep, Glob, Bash | Write, Edit, NotebookEdit, Agent, Skill, WebSearch, WebFetch | **Hook** `readonly-bash-guard.sh` (allows `pnpm/npm audit`, denies `audit fix`) |
 | plan-verifier | Read, Grep, Glob, Bash | Write, Edit, NotebookEdit, Agent, Skill, WebSearch, WebFetch | **Hook** `readonly-bash-guard.sh` (also allows the plan's own Verify commands) |
 | doc-writer | Read, Grep, Glob, Edit, Write, Bash, Skill | Agent, NotebookEdit, WebSearch, WebFetch | **Hook** `path-guard.sh docs`: Edit/Write only in `docs/`, `<module>/docs/`, READMEs; never plans, prompts, specs, `CLAUDE.md`, `INSIGHTS.md` |
@@ -79,7 +81,7 @@ Spec and plan are made manually: run spec-creator, approve the spec, commit it (
 | `agent-type-guard.test.sh` | maintainers | Self-check: allowlisted types with `run_in_background: false` pass; other types, a missing type and a `true` / omitted / null flag are denied |
 | `browser-url-guard.sh` | spec-creator (PreToolUse hook, matcher `mcp__plugin_playwright_playwright__.*`) | Denies Playwright tools outside the view-only allowlist, navigation outside localhost / 127.0.0.1 / *.figma.com, and screenshot filenames with a path |
 | `browser-url-guard.test.sh` | maintainers | Self-check: allowed tools/URLs pass, others (evil hosts, `localhost@evil`, `file:`, form filling, evaluate) are denied |
-| `readonly-bash-guard.sh` | researcher, brainstorm, implementation-planner, spec-creator, architecture-reviewer, security-reviewer, plan-verifier (PreToolUse hook, matcher `Bash`) | Denies write-shaped Bash commands (redirection to a file, `rm`/`mv`/`cp`/`touch`/`mkdir`/`chmod`, `sed -i`, mutating `git` subcommands, `npm/pnpm install` (also with global flags before it, e.g. `--prefix`, `-C`), `npm/pnpm audit fix`, `db:migrate`/`db:generate`; `git branch` is denied with a `git for-each-ref` hint); still allows `grep`, `cat`, `git diff/log/show/status`, `pnpm typecheck/test/arch`, `npm test`/`run typecheck`, `diff -r`, `ls`, `find` without `-delete`/`-exec rm` |
+| `readonly-bash-guard.sh` | researcher, brainstorm, implementation-planner, spec-creator, architecture-reviewer, code-reviewer, security-reviewer, plan-verifier (PreToolUse hook, matcher `Bash`) | Denies write-shaped Bash commands (redirection to a file, `rm`/`mv`/`cp`/`touch`/`mkdir`/`chmod`, `sed -i`, mutating `git` subcommands, `npm/pnpm install` (also with global flags before it, e.g. `--prefix`, `-C`), `npm/pnpm audit fix`, `db:migrate`/`db:generate`; `git branch` is denied with a `git for-each-ref` hint); still allows `grep`, `cat`, `git diff/log/show/status`, `pnpm typecheck/test/arch`, `npm test`/`run typecheck`, `diff -r`, `ls`, `find` without `-delete`/`-exec rm` |
 | `readonly-bash-guard.test.sh` | maintainers | Self-check: read-only commands pass, write-shaped commands are denied |
 | `mutation-probe.sh <file> <line> <replacement> -- <cmd>` | test-writer | Mutates one line of a committed file, expects red, restores from git, verifies the hash, expects green. Refuses files with uncommitted changes |
 

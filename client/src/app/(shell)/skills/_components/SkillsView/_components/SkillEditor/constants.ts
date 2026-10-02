@@ -12,4 +12,5 @@ export const TABS: readonly EditorTab[] = [
   { key: "config", labelKey: "detail.tabs.config", icon: "Settings" },
   { key: "preview", labelKey: "detail.tabs.preview", icon: "Eye" },
   { key: "versions", labelKey: "detail.tabs.versions", icon: "History" },
+  { key: "context", labelKey: "detail.tabs.context", icon: "FileText" },
 ];

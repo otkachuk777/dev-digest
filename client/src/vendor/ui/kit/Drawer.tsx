@@ -16,6 +16,17 @@ export function Drawer({
   children?: React.ReactNode;
   footer?: React.ReactNode;
 }) {
+  const titleId = React.useId();
+  const dialogRef = React.useRef<HTMLDivElement>(null);
+  // Move focus into the dialog on open, give it back to the opener on close.
+  React.useEffect(() => {
+    const active = document.activeElement as HTMLElement | null;
+    // Children's autoFocus runs first; don't steal it (and it is no opener to restore).
+    const inside = !!dialogRef.current?.contains(active);
+    const opener = inside ? null : active;
+    if (!inside) dialogRef.current?.focus();
+    return () => opener?.focus?.();
+  }, []);
   return (
     <div style={{ position: "fixed", inset: 0, display: "flex", justifyContent: "flex-end", zIndex: 50 }}>
       <div
@@ -23,9 +34,16 @@ export function Drawer({
         style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.45)", animation: "ddfadein .15s ease" }}
       />
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
+        onKeyDown={(e) => {
+          if (e.key === "Escape") onClose?.();
+        }}
         style={{
+          outline: "none",
           position: "relative",
           width,
           maxWidth: "94%",
@@ -47,7 +65,7 @@ export function Drawer({
           }}
         >
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 16, fontWeight: 700, letterSpacing: "-0.01em" }}>{title}</div>
+            <div id={titleId} style={{ fontSize: 16, fontWeight: 700, letterSpacing: "-0.01em" }}>{title}</div>
             {subtitle && (
               <div style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 2 }}>{subtitle}</div>
             )}

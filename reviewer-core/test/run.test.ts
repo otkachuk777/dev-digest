@@ -144,6 +144,51 @@ describe('reviewPullRequest (engine)', () => {
     expect(seen.every((s) => s === 'sess-abc')).toBe(true);
   });
 
+  it('AC-34: map-reduce — every chunk call carries the same ## Project context section', async () => {
+    const users: string[] = [];
+    const recorder: LLMProvider = {
+      id: 'openai',
+      async completeStructured<T>(req): Promise<StructuredResult<T>> {
+        users.push(req.messages.map((m) => m.content).join('\n'));
+        return {
+          data: { verdict: 'approve', summary: 's', score: 100, findings: [] } as unknown as T,
+          model: req.model,
+          tokensIn: 0,
+          tokensOut: 0,
+          costUsd: 0,
+          raw: '',
+          attempts: 1,
+        };
+      },
+      async listModels() {
+        return [];
+      },
+      async complete() {
+        throw new Error('not used');
+      },
+      async embed() {
+        return [];
+      },
+    };
+    const base = await new MockGitClient().diff();
+    const f0 = base.files[0]!;
+    const diff = { ...base, files: [f0, { ...f0, path: 'src/other.ts' }] };
+    const outcome = await reviewPullRequest({
+      systemPrompt: 's',
+      model: 'm',
+      diff,
+      llm: recorder,
+      strategy: 'map-reduce',
+      specs: [{ path: 'docs/ctx.md', text: 'CTX-BODY' }],
+    });
+    expect(outcome.mode).toBe('map-reduce');
+    expect(users.length).toBeGreaterThanOrEqual(2);
+    for (const u of users) {
+      expect(u).toContain('## Project context');
+      expect(u).toContain('### docs/ctx.md\nCTX-BODY');
+    }
+  });
+
   it('with intent: scope-filters findings — WARNING out-of-scope dropped, CRITICAL kept as signal', async () => {
     const scoped = {
       verdict: 'request_changes',

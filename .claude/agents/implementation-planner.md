@@ -191,7 +191,7 @@ Unmapped skills: <name — why used> | none
 ## Steps
 ### Step 1 — <name>
 - Covers: AC-1, EC-2, NFR-1
-- Files: create `…` / modify `…`
+- Files: create `…` / modify `…` — a step that adds a tab, route, query-param value or enum value also lists every allowlist of its sibling values (`grep -rnE '"<sibling>"' <module>/src` — e.g. a `VALID_TABS` array, a `switch`, an `includes(` check), or the new value is silently dropped
 - Skills: <name> — <rule> (`<skill>/<file>` §<exact heading> — the implementer reads only this section)
 - Change: <what and how, concrete enough to implement without guessing>
 - Verify: `cd <module> && pnpm test -- <file>` (npm in reviewer-core / e2e) → <expected>

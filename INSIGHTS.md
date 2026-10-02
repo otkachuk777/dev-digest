@@ -103,6 +103,19 @@ A hook's missing-dependency branch is only tested if X is really unreachable. `P
 
 **Rule:** build the PATH from a temp dir of symlinks to every file in `/usr/bin` and `/bin` except the tool under test (see the `NOPERL` / `NJ` / `NP` blocks in `readonly-bash-guard.test.sh`, `gate.test.sh`, `spec-lint.test.sh`). Then mutate the check away once to prove the test goes red. For Linux runs of a worktree: `docker run -v "$REPO":"$REPO" -w "$WORKTREE" ubuntu:24.04 …`, mounting the main repo at the same absolute path (commit `7b52ea3`).
 
+### A session isolated in a worktree cannot run `git` through RTK, and its subagents cannot write to other worktrees (2026-10)
+
+During the SPEC-01 `/impl`, the session sat in `.claude/worktrees/spec-01-project-context-folder` (EnterWorktree). Every plain `git …` was refused with "runs rtk with a git command among its operands". The RTK hook rewrites the command to `rtk git …`, and the isolation check can't prove that stays in the worktree. Compound forms (`cmd && git …`, `cd <dir> && git …`, a `for` loop calling a tool with a computed argument) were refused too.
+
+The plan's parallel layout, one worktree per group, also failed. Implementers spawned from the isolated session were refused writes under `.claude/worktrees/spec-01-group-a` ("Edit the worktree copy of this file instead"), so 2 spawns came back `blocked`. `isolation: "worktree"` doesn't help: by default (`worktree.baseRef: "fresh"`) it branches from `origin/main` and loses the earlier groups' commits.
+
+**Rule:** in an isolated session, call `/usr/bin/git` directly, one git command per Bash call, and pass the commit message with `-F <scratchpad file>`. Tell every agent prompt the same. Run parallel groups with disjoint modules in the session's own worktree and commit each with explicit paths. Per-agent worktrees branched from the session would need `worktree.baseRef: "head"` and implementers that commit; that design was discussed and not adopted yet (`docs/workflow-retros/2026-10-02+spec-01.md` P1/P2).
+
+> **2026-10-02 correction:** use `/opt/homebrew/bin/git`, not `/usr/bin/git`.
+> - `/usr/bin/git` is Apple git (Xcode). Its credential helper is a different `git-credential-osxkeychain` binary from the Homebrew one that created the GitHub Keychain item.
+> - So macOS asked for Keychain access on every push or fetch.
+> - The Homebrew absolute path is not rewritten by RTK either, and the isolation guard accepts it (verified with `status` and `commit` in the isolated worktree).
+
 ## Recurring Errors & Fixes
 
 _No entries yet._
