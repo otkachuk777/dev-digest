@@ -77,6 +77,32 @@ Adding "`[verify: e2e]` ACs" to the test-writer `description` made the frontmatt
 
 **Rule:** after editing any `.claude/agents/*.md` frontmatter, parse it: `for f in .claude/agents/*-*.md .claude/agents/{implementer,brainstorm,researcher}.md; do LANG=en_US.UTF-8 ruby -Eutf-8 -ryaml -e 'YAML.load(File.read(ARGV[0]).split(/^---$/)[1])' "$f" || echo "FAIL $f"; done`; keep `: ` out of descriptions or quote them (`.claude/agents/test-writer.md:3`)
 
+### `rg` in the agent shell becomes a non-recursive BSD `grep` (2026-10)
+
+`rg` exists only as a Claude Code shell function, and the RTK command hook rewrites it to `rtk grep`, which runs BSD `grep`. So `rg … -g '*.md'` / `--glob` fail with "grep: invalid option -- g", `rg pattern <dir>` fails with "Is a directory", and `rtk proxy rg` fails because no `rg` binary exists. A plain `rg pattern file` still works, which hides the problem. Eight agent prompts recommended `rg`; the planner's spec search and spec-creator's SPEC-ID lookup used `--glob` and were broken on every run. Separate from the ugrep-shim entry above.
+
+**Rule:** in commands and in agent prompts, search with `grep -rnE` / `grep -rl --include='SPEC-*.md' … specs */specs`, never `rg`. (`.claude/agents/implementation-planner.md` Step 1, `.claude/agents/spec-creator.md` ID rule, commit `e62533a`)
+
+> **2026-10-02 correction:** the cause was rtk ≤ 0.39 plus a missing ripgrep binary. On rtk 0.50.0 + `brew install ripgrep` (15.2.0), `rg` is rewritten to `rtk rg` and runs real ripgrep, so `-g`/`--glob` and directory search work (verified). On a machine with older rtk or no ripgrep the old failure comes back, so agent prompts keep `grep -rnE`. Also note that rtk 0.50 `rewrite` returns exit 3 (ask) for every command with no explicit allow rule, so the RTK hook no longer auto-approves rewritten commands and Claude Code's own permission rules decide (`src/hooks/decision.rs` upstream).
+
+### `toolUseResult.totalTokens` is an agent's last API call, not its total (2026-10)
+
+The `Agent` tool result in the parent transcript carries `totalTokens`, which looks like the agent's cost. It is the input + cache + output of the agent's **last** call only (59 291 = 2 + 412 + 50 428 + 8 449). Adding these up undercounts a 46-turn planner (4.4M processed) by about 25×. A second trap when summing `usage` yourself: one assistant message spans several jsonl lines with the same `message.id` and a repeated `usage`, so a naive sum overcounts.
+
+**Rule:** measure agent cost from `subagents/agent-<id>.jsonl`. Sum `usage` once per `message.id` and track the largest single call as peak context. Or run `.claude/skills/workflow-retro/scripts/collect.py`, which does both (`usage()` in `collect.py`, commit `ffb2db1`).
+
+### `brew bundle check` answers "installed by brew?", not "is the tool here?" (2026-10)
+
+On this Mac every tool worked (`node` from the nodejs.org installer, `pnpm` from its own script, Docker Desktop, `jq` in `/usr/bin`), yet `brew bundle check --no-upgrade` reported 6 unmet Brewfile entries. A `--fix` built on `brew bundle` would have installed a second node, pnpm and Docker on top of the working ones.
+
+**Rule:** check tools with `command -v` plus a version, as `scripts/doctor.sh` does. Use the Brewfile only to install on a fresh machine, and let `doctor.sh --fix` brew-install only the rows it reports MISSING/OLD (`scripts/doctor.sh`, commit `7b52ea3`).
+
+### Testing "tool X is missing": strip PATH properly, and mount worktrees at their real path (2026-10)
+
+A hook's missing-dependency branch is only tested if X is really unreachable. `PATH=$(dirname $(command -v jq))` looked like a "jq only" PATH, but on macOS `jq` lives in `/usr/bin` next to `perl`, so the no-perl test passed while perl was still there. Running the self-tests in Docker from a worktree also failed with `fatal: not a git repository`, because the worktree's `.git` file points at the host path of the main repo.
+
+**Rule:** build the PATH from a temp dir of symlinks to every file in `/usr/bin` and `/bin` except the tool under test (see the `NOPERL` / `NJ` / `NP` blocks in `readonly-bash-guard.test.sh`, `gate.test.sh`, `spec-lint.test.sh`). Then mutate the check away once to prove the test goes red. For Linux runs of a worktree: `docker run -v "$REPO":"$REPO" -w "$WORKTREE" ubuntu:24.04 …`, mounting the main repo at the same absolute path (commit `7b52ea3`).
+
 ## Recurring Errors & Fixes
 
 _No entries yet._

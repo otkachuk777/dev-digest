@@ -1,6 +1,7 @@
 ---
 name: impl
 description: Implements an approved Spec Driven Development plan end to end — build in chunks with fresh implementers, verification gate, review-and-fix rounds, final verification, squash and PR — orchestrating the project agents with one human gate before the PR. Spec and plan are made beforehand, manually, with spec-creator and implementation-planner. Use only when the user invokes /impl or explicitly asks to implement an approved plan this way.
+compatibility: "Requires git, gh and jq, plus the repo agents and their guard hooks (scripts/doctor.sh checks the tools)"
 argument-hint: <SPEC-NN | plan path> [--docs]
 disable-model-invocation: true
 ---
@@ -9,7 +10,7 @@ disable-model-invocation: true
 
 You (the main session) are the orchestrator: subagents cannot ask the user or commit, and only spec-creator (→ researcher) and implementation-planner (→ brainstorm) start sub-agents of their own. You run each agent, commit each phase and keep the final gate. You do not write production code or tests yourself — the agents do.
 
-**Before /impl (manual, not part of this skill):** spec-creator → SPEC `Status: approved`; implementation-planner → plan approved by the user. `/impl` refuses to start without both.
+**Before /impl (manual, not part of this skill):** spec-creator → SPEC `Status: approved` → commit the spec (`docs(specs): SPEC-NN <title> (approved)`); implementation-planner (given that sha) → plan approved by the user. `/impl` refuses to start without both.
 
 ## Inputs
 
@@ -66,7 +67,8 @@ Follow [references/review-loop.md](references/review-loop.md): round 1 = archite
 2. **⛔ G3** — show: AC/NFR table, `[verify: manual]` items to confirm, Follow-ups (deferred findings), Review log summary; ask about docs if `--docs` was not passed. Only on the user's confirmation in chat: SPEC `Status: implemented` (main session edit); doc-writer if asked.
 3. Squash: `git reset --soft $(git merge-base origin/main HEAD)` then one commit `feat(<scope>): <spec title> (SPEC-NN)` with explicit paths; body: AC coverage and the plan path.
 4. `/pr-self-review` → PASS → `gh pr create` against `otkachuk777/dev-digest`, base `main`; body: summary, spec + plan links, Review log, Follow-ups, `## Self-review`. Then bind the PR with the ccd_pr tools.
-5. `/engineering-insights`.
+5. `/workflow-retro SPEC-NN` — retro of this run (agents, tokens, friction) and proposed agent edits; apply only what the user approves.
+6. `/engineering-insights`.
 
 ## Rules
 

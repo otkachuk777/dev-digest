@@ -1,6 +1,7 @@
 ---
 name: pr-self-review
 description: Use before opening a pull request (before `gh pr create`), when the user says "self-review", "review my changes before PR", "перед PR", or invokes /pr-self-review. Reviews all local changes (branch vs main + uncommitted) by mapping changed files to the project's skills (UI skills on client files, backend architecture skills on server/reviewer-core files), runs deterministic guards, and BLOCKS the PR when a confirmed critical finding exists.
+compatibility: "Requires git, jq, gh and pnpm (scripts/doctor.sh checks them)"
 ---
 
 # PR Self Review

@@ -24,6 +24,13 @@ echo "{\"status\":\"PASS\",\"fingerprint\":\"$(cd "$W" && "$S/fingerprint.sh")\"
 expect "worktree cwd fresh" allow "$(jq -nc --arg w "$W" '{cwd:$w,tool_input:{command:"gh pr create"}}' | "$S/gate.sh")"
 expect "other checkout"     deny  "$(run 'gh pr create')"
 rm -rf "$W"
+# Without jq the gate cannot parse the call: a `gh pr create/merge` must be denied, not waved through.
+NJ=$(mktemp -d); for f in /usr/bin/* /bin/*; do [ "$(basename "$f")" = jq ] || ln -sf "$f" "$NJ/$(basename "$f")"; done
+nojq() { printf '{"tool_input":{"command":"%s"}}' "$1" | env PATH="$NJ" /bin/bash "$S/gate.sh"; }
+expect "no jq + gh pr create" deny  "$(nojq 'gh pr create --fill')"
+expect "no jq + git status"   allow "$(nojq 'git status')"
+nojq 'gh pr merge 1' | grep -q 'jq' && echo "ok   no-jq deny names jq" || { echo "FAIL no-jq deny reason"; fail=1; }
+rm -rf "$NJ"
 for s in $(grep -oE '\b(frontend-ui-architecture|react-best-practices|next-best-practices|react-testing-library|onion-architecture|fastify-best-practices|drizzle-orm-patterns|postgresql-table-design|zod|security)\b' "$ROOT/.claude/skills/pr-self-review/references/skill-map.md" | sort -u); do
   [ -f "$ROOT/.claude/skills/$s/SKILL.md" ] && echo "ok   skill exists: $s" || { echo "FAIL missing skill: $s"; fail=1; }
 done

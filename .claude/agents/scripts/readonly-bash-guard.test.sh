@@ -80,10 +80,30 @@ check "git branch -a" deny
 check "git branch -d old" deny
 check "git for-each-ref --format='%(refname:short)' refs/heads refs/remotes" allow
 
+# ---- `>` inside quotes / a quoted-delimiter heredoc is code, not redirection --
+check "node -e 'console.log(a>b)'" allow
+check "grep -v '=>' src/a.ts" allow
+check 'python3 -c "print(1>0)"' allow
+check $'python3 - <<\'EOF\'\nprint(1>0)\nEOF' allow
+check $'python3 - <<"EOF" | head\nprint(1>0)\nEOF' allow
+check 'echo "x" > f.txt' deny
+check "echo 'x' >> f.txt" deny
+check 'echo "$(date > f.txt)"' deny
+check 'echo "`date > f.txt`"' deny
+check $'cat <<\'EOF\' > f.txt\nx\nEOF' deny
+check $'cat <<EOF\n$(date > f.txt)\nEOF' deny
+check $'python3 - <<\'EOF\' > out.txt\nprint(1)\nEOF' deny
+
 # the git branch deny names the read-only alternative
 jq -nc '{tool_input:{command:"git branch -a"}}' | "$S/readonly-bash-guard.sh" | grep -q 'for-each-ref' \
   && echo "ok   git branch deny reason names for-each-ref" \
   || { echo "FAIL git branch deny reason lacks for-each-ref hint"; FAIL=1; }
+
+# without perl the quote stripper can't run → fail closed, not "no > left, allow"
+NOPERL=$(mktemp -d); for t in jq sed grep; do ln -s "$(command -v $t)" "$NOPERL/$t"; done
+out=$(jq -nc '{tool_input:{command:"echo x > f.txt"}}' | env PATH="$NOPERL" /bin/bash "$S/readonly-bash-guard.sh")
+rm -rf "$NOPERL"
+[[ "$out" == *'perl not found'* ]] && echo "ok   no-perl → deny" || { echo "FAIL no-perl: $out"; FAIL=1; }
 
 # without jq the guard must fail closed (exit 2) and say how to install it
 out=$(printf '{}' | env -i PATH=/nonexistent /bin/bash "$S/readonly-bash-guard.sh" 2>&1); code=$?

@@ -26,3 +26,6 @@ test-results/
 
 # pr-self-review verdict/report/cache
 .claude/.pr-self-review/
+
+# Python bytecode (collect.py imported by its self-test)
+__pycache__/

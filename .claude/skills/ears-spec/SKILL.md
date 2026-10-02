@@ -1,6 +1,7 @@
 ---
 name: ears-spec
 description: Use when writing, reading, planning from, testing against or verifying a feature spec (SPEC-NN-<slug>.md in <module>/specs/ or specs/) — the Spec Driven Development template, EARS acceptance criteria, US/AC/EC/NFR/OQ ids, [verify:] tags, the Traceability table, workflow/communication diagrams and contract tables. Also use to lint a spec with scripts/spec-lint.sh. Single source of the spec format for spec-creator, implementation-planner, test-writer and plan-verifier.
+compatibility: "Requires python3 3.9+ for scripts/spec-lint.sh (scripts/doctor.sh checks it)"
 ---
 
 # EARS spec format (DevDigest SDD)

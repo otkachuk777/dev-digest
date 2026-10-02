@@ -52,7 +52,7 @@ For each item choose a method and collect evidence:
 |---|---|---|
 | inspection | file exists, code does X, config set | `file:line` |
 | test | behaviour covered by a test | test name + command result |
-| analysis | constraint holds across the diff | command (`git diff`, `rg`) + output |
+| analysis | constraint holds across the diff | command (`git diff`, `grep -rnE`) + output |
 | demonstration | command in the plan's Verify | command + exit code / key output |
 
 - Run each module's full test / typecheck / arch command **once** and map the result onto the steps whose Verify it covers (a step's single-file Verify is a subset of the module run); run a Verify command separately only when the module run does not cover it. Pick the package manager from the module's lock file.

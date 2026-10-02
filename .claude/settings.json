@@ -6,6 +6,11 @@
           {
             "type": "command",
             "command": "echo \"{\\\"hookSpecificOutput\\\":{\\\"hookEventName\\\":\\\"SessionStart\\\",\\\"additionalContext\\\":\\\"engineering-insights: before doing other work, read the INSIGHTS.md of the module you are about to touch (client/server/reviewer-core/e2e), or run .claude/skills/engineering-insights/scripts/detect-module.sh to find it. See .claude/skills/engineering-insights/SKILL.md.\\\"}}\" 2>/dev/null || true"
+          },
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/scripts/doctor.sh --quiet || true",
+            "timeout": 10
           }
         ]
       }
@@ -27,12 +32,15 @@
         "hooks": [
           {
             "type": "command",
-            "command": "f=$(jq -r \".tool_input.file_path // .tool_response.filePath // empty\"); case \"$f\" in */mcp/src/*.ts) cd \"$CLAUDE_PROJECT_DIR/mcp\" && npm run build --silent >/dev/null 2>&1 || echo \"{\\\"systemMessage\\\":\\\"devdigest MCP rebuild failed — run: cd mcp && npm run build\\\"}\";; esac",
+            "command": "command -v jq >/dev/null || { grep -q '/mcp/src/' && echo '{\"systemMessage\":\"jq not found: devdigest MCP auto-rebuild skipped. Run scripts/doctor.sh\"}'; exit 0; }; f=$(jq -r \".tool_input.file_path // .tool_response.filePath // empty\"); case \"$f\" in */mcp/src/*.ts) cd \"$CLAUDE_PROJECT_DIR/mcp\" && npm run build --silent >/dev/null 2>&1 || echo \"{\\\"systemMessage\\\":\\\"devdigest MCP rebuild failed — run: cd mcp && npm run build\\\"}\";; esac",
             "timeout": 60,
             "statusMessage": "Rebuilding devdigest MCP…"
           }
         ]
       }
     ]
+  },
+  "enabledPlugins": {
+    "playwright@claude-plugins-official": true
   }
 }

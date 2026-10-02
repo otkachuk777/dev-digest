@@ -91,7 +91,22 @@ These are intentionally **not** in the starter — each lesson adds one back:
 
 ## Prerequisites
 
-- **Node** ≥ 22 · **pnpm** ≥ 10 (`npm i -g pnpm`) · **Docker** (for Postgres)
+- **Node** ≥ 22 (`.nvmrc`) · **pnpm** ≥ 10 (`npm i -g pnpm`) · **Docker** (for Postgres)
+- For the Claude Code tooling (agents, skills, hooks): **git**, **jq**, **perl**, **python3** ≥ 3.9, **gh**. The full list with versions and who needs each tool lives in `scripts/doctor.sh`.
+
+### New machine
+
+```sh
+brew bundle                 # Homebrew on macOS, Linux or WSL2 — installs the Brewfile
+scripts/doctor.sh           # checks tools and versions, docker daemon, gh auth, the Playwright plugin
+scripts/doctor.sh --fix     # optional: brew-installs only what doctor reports MISSING/OLD
+gh auth login
+```
+
+- The Claude Code session runs `scripts/doctor.sh --quiet` on start and only speaks up when something is missing.
+- Agent guard hooks and the PR gate **block** (fail closed) when `jq`/`perl` are missing, so a missing tool shows up as a denied call that names it.
+- Claude Code plugins: the repo declares `playwright@claude-plugins-official` in `.claude/settings.json` (spec-creator needs it); Claude Code offers to install it. User-level setup (other plugins, the rtk hook, a global `CLAUDE.md`) lives in `~/.claude` and is not part of the repo; if you use the rtk hook, run `brew install rtk ripgrep` (rtk ≥ 0.50, otherwise `rg` runs as BSD grep).
+- **Windows:** use WSL2 (same Brewfile). Native Git Bash is not supported: hooks run through `cmd.exe` unless `settings.json` `env.CLAUDE_CODE_GIT_BASH_PATH` points at Git Bash, `jq` must come from `winget install jqlang.jq`, and `scripts/dev.sh`/`stop.sh` need `lsof`. `scripts/doctor.sh` prints the winget commands there. `.gitattributes` keeps scripts LF.
 
 ## Quick start (from zero)
 

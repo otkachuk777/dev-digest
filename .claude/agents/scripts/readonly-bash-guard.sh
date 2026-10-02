@@ -12,9 +12,17 @@ CMD=$(jq -r '.tool_input.command // ""' 2>/dev/null)
 [ -n "$CMD" ] || exit 0
 
 # ---- redirection -----------------------------------------------------------
-# Strip the allowed no-op redirections (discard to /dev/null, dup an existing
-# fd like 2>&1), then anything left with a bare `>`/`>>` writes a real file.
-STRIPPED=$(printf '%s' "$CMD" | sed -E 's/[0-9]*>&[0-9]+//g; s/&>[[:space:]]*\/dev\/null//g; s/[0-9]*>>?[[:space:]]*\/dev\/null//g')
+# A `>` that is code, not redirection, is dropped first: the body of a heredoc
+# with a QUOTED delimiter (<<'EOF' — no expansion inside), single-quoted strings,
+# and double-quoted strings without $( or backticks (those still run commands).
+# Then strip the allowed no-op redirections (discard to /dev/null, dup an existing
+# fd like 2>&1); anything left with a bare `>`/`>>` writes a real file.
+command -v perl >/dev/null || deny "perl not found, cannot parse quotes — command blocked: $CMD"
+UNQUOTED=$(printf '%s' "$CMD" | perl -0777 -pe '
+  s/<<-?[ \t]*([\x27"])(\w+)\1([^\n]*)\n.*?(?:\n[ \t]*\2[ \t]*(?=\n|\z)|\z)/<<$3/gs;
+  s/(\x27[^\x27]*\x27)|"((?:[^"\\]|\\.)*)"/my $d = $2; defined $1 ? "" : ($d =~ m{\$\(|`} ? "\"$d\"" : "")/ge;
+')
+STRIPPED=$(printf '%s' "$UNQUOTED" | sed -E 's/[0-9]*>&[0-9]+//g; s/&>[[:space:]]*\/dev\/null//g; s/[0-9]*>>?[[:space:]]*\/dev\/null//g')
 if printf '%s' "$STRIPPED" | grep -q '>'; then
   deny "redirection to a file is not allowed: $CMD"
 fi

@@ -11,6 +11,7 @@
 #   - every ```mermaid block starts with a known diagram type
 set -uo pipefail
 [ $# -eq 1 ] && [ -f "$1" ] || { echo "usage: spec-lint.sh <SPEC-NN-slug.md>" >&2; exit 2; }
+command -v python3 >/dev/null || { echo "spec-lint: python3 not found — install it (brew install python@3.13; see scripts/doctor.sh)" >&2; exit 2; }
 ROOT=$(cd "$(dirname "$1")" && git rev-parse --show-toplevel 2>/dev/null || true)
 exec python3 - "$1" "$ROOT" <<'PY'
 import re, sys, pathlib

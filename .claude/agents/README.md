@@ -19,10 +19,14 @@ Project subagents for Claude Code. Each file here is the source of truth for its
 
 Out of scope for every agent: git commits, writing `INSIGHTS.md`.
 
+## Requires
+
+Guard hooks of every agent with a `hooks:` block (all but implementer) need `jq`; `readonly-bash-guard.sh` also needs `perl`. Without them the guard **blocks** the tool call (fail closed) and says what to install. spec-creator needs the Playwright MCP plugin (`playwright@claude-plugins-official`, declared in `.claude/settings.json` `enabledPlugins`). Check a machine with `scripts/doctor.sh`.
+
 ## Workflow
 
 ```
-manual:  task ──► spec-creator (⇄ user via main session; runs parallel researchers itself) ──► SPEC-NN ──► user approves
+manual:  task ──► spec-creator (⇄ user via main session; runs parallel researchers itself) ──► SPEC-NN ──► user approves ──► commit spec
          ──► implementation-planner (runs brainstorm per B<n> itself) ──► plan ──► user approves
 /impl SPEC-NN:
          setup: worktree from origin/main, SPEC + plan committed (docs/cc-plans/)
@@ -32,12 +36,12 @@ manual:  task ──► spec-creator (⇄ user via main session; runs parallel r
          ──► review rounds ≤3: architecture-reviewer ∥ security-reviewer (opus r1) ∥ feature-dev:code-reviewer
              ──► triage ──► implementer fix mode ──► re-review delta (sonnet)
          ──► plan-verifier pass 2 (delta) ──► ⛔ user ──► SPEC implemented ──► [doc-writer --docs]
-         ──► squash ──► /pr-self-review ──► PR ──► /engineering-insights
+         ──► squash ──► /pr-self-review ──► PR ──► /workflow-retro ──► /engineering-insights
 ```
 
 ### Runbook (main session)
 
-Spec and plan are made manually: run spec-creator, approve the spec; run implementation-planner, approve the plan. Then **`/impl <SPEC-NN | plan path> [--docs]`** — the [`impl` skill](../skills/impl/SKILL.md) is the single source of the build order, the model per agent, the `SDD(SPEC-NN): <phase>` commits that make it resumable (`/impl SPEC-NN` in a new session), the final user gate, and the review-and-fix loop ([review-loop.md](../skills/impl/references/review-loop.md): ≤3 rounds, delta re-review, triage fix / fix-along / defer / dispute / replan). The reviewers' re-review mode, the implementer's fix mode and the planner's fix-plan addendum exist for that loop. test-writer is used only for plans with `## Test mode: test-first`.
+Spec and plan are made manually: run spec-creator, approve the spec, commit it (`docs(specs): SPEC-NN <title> (approved)`) and give the planner that sha; run implementation-planner, approve the plan. Then **`/impl <SPEC-NN | plan path> [--docs]`** — the [`impl` skill](../skills/impl/SKILL.md) is the single source of the build order, the model per agent, the `SDD(SPEC-NN): <phase>` commits that make it resumable (`/impl SPEC-NN` in a new session), the final user gate, and the review-and-fix loop ([review-loop.md](../skills/impl/references/review-loop.md): ≤3 rounds, delta re-review, triage fix / fix-along / defer / dispute / replan). The reviewers' re-review mode, the implementer's fix mode and the planner's fix-plan addendum exist for that loop. test-writer is used only for plans with `## Test mode: test-first`.
 
 - spec-creator iterates through the main session: Round 1 runs its research requests itself as parallel `researcher` agents (nested subagents, foreground) and returns a Discovery report (gaps, corner cases, module interactions, UX, research done, numbered questions with options) and writes nothing → main asks the user with `AskUserQuestion` (≤4 questions per call; subagents cannot use it) → answers go back via `SendMessage` → Round 2+ writes or updates the spec, lints it and runs its self-check. implementation-planner and plan-verifier trace to its `AC-N`.
 - implementation-planner never writes or changes a spec: a new feature without an approved SPEC, a blocking `OQ-N`, a blocking technical fork its own brainstorm could not settle (low confidence / needs the user) or a missing execution mode (`single` | `parallel`) comes back as questions, not a plan. In `parallel` mode the plan splits steps into groups with disjoint file ownership; the main session runs one implementer per group (`isolation: "worktree"`) and merges in the plan's order.

@@ -99,4 +99,10 @@ printf 'Spec ID: SPEC-97\n' > "$TMP/sub/specs/SPEC-97-copy.md"; printf 'gitdir: 
 printf 'Spec ID: SPEC-97\n' > "$TMP/node_modules/x/specs/SPEC-97-copy.md"
 check "duplicate in worktree/nested checkout/node_modules ignored" ok - -
 
+# no python3 → exit 2 with an install hint, never a silent pass
+NP=$(mktemp -d); for f in /usr/bin/* /bin/*; do case "$(basename "$f")" in python3*) ;; *) ln -sf "$f" "$NP/";; esac; done
+touch "$TMP/specs/SPEC-97-other.md"; out=$(env PATH="$NP" /bin/bash "$(dirname "$0")/spec-lint.sh" "$TMP/specs/SPEC-97-other.md" 2>&1); code=$?
+rm -f "$TMP/specs/SPEC-97-other.md"; rm -rf "$NP"
+[ $code -eq 2 ] && [[ "$out" == *"python3 not found"* ]] && echo "ok   no python3 → exit 2 + hint" || { echo "FAIL no python3: exit $code: $out"; FAIL=1; }
+
 exit $FAIL

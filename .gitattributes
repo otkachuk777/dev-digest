@@ -1,0 +1,4 @@
+# Scripts keep LF everywhere: a CRLF checkout (Windows core.autocrlf=true) breaks bash with "$'\r': command not found".
+*.sh     text eol=lf
+*.py     text eol=lf
+Brewfile text eol=lf
