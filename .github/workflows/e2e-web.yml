@@ -69,18 +69,18 @@ jobs:
           BEFORE: ${{ github.event.before }}
           AFTER: ${{ github.event.pull_request.head.sha }}
         run: |
-          run() { echo "run=true" >> "$GITHUB_OUTPUT"; echo "e2e runs: $1"; exit 0; }
-          [ "$EVENT" = pull_request ] && [ "$ACTION" = synchronize ] || run "$EVENT/$ACTION is not a PR push"
-          case "$BEFORE" in ''|0000000000000000000000000000000000000000) run "no previous head";; esac
+          full_run() { echo "run=true" >> "$GITHUB_OUTPUT"; echo "e2e runs: $1"; exit 0; }
+          [ "$EVENT" = pull_request ] && [ "$ACTION" = synchronize ] || full_run "$EVENT/$ACTION is not a PR push"
+          case "$BEFORE" in ''|0000000000000000000000000000000000000000) full_run "no previous head";; esac
           # Two-dot diff compares trees, so depth 1 of each commit is enough.
-          git fetch --no-tags --depth=1 origin "$BEFORE" "$AFTER" || run "cannot fetch $BEFORE (force-push?)"
-          files=$(git diff --name-only "$BEFORE" "$AFTER") || run "cannot diff $BEFORE..$AFTER"
-          [ -n "$files" ] || run "empty delta"
+          git fetch --no-tags --depth=1 origin "$BEFORE" "$AFTER" || full_run "cannot fetch $BEFORE (force-push?)"
+          files=$(git diff --name-only "$BEFORE" "$AFTER") || full_run "cannot diff $BEFORE..$AFTER"
+          [ -n "$files" ] || full_run "empty delta"
           # Keep in sync with the negated `paths` above.
           while IFS= read -r f; do
             case "$f" in
               *.md|server/test/*|client/*.test.ts|client/*.test.tsx) ;;
-              *) run "pushed delta changes $f" ;;
+              *) full_run "pushed delta changes $f" ;;
             esac
           done <<< "$files"
           echo "run=false" >> "$GITHUB_OUTPUT"
