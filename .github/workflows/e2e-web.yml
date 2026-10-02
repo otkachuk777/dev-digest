@@ -52,16 +52,30 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Skip the steps below when this push only changes files the negated
+      # `paths` above exclude; see .github/scripts/pushed-delta.sh.
+      - name: Check pushed delta
+        id: delta
+        env:
+          EVENT: ${{ github.event_name }}
+          ACTION: ${{ github.event.action }}
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.event.pull_request.head.sha }}
+        run: .github/scripts/pushed-delta.sh '*.md' 'server/test/*' 'client/*.test.ts' 'client/*.test.tsx'
+
       - uses: pnpm/action-setup@v4
+        if: steps.delta.outputs.run == 'true'
         with:
           version: 10
 
       - uses: actions/setup-node@v4
+        if: steps.delta.outputs.run == 'true'
         with:
           node-version: 22
 
       # --- Postgres (pgvector) via the repo's compose file ---
       - name: Start Postgres
+        if: steps.delta.outputs.run == 'true'
         run: |
           docker compose up -d
           echo "waiting for Postgres health…"
@@ -74,6 +88,7 @@ jobs:
 
       # --- API: install, migrate, seed, then start in the background ---
       - name: Install + migrate + seed (server)
+        if: steps.delta.outputs.run == 'true'
         working-directory: server
         run: |
           pnpm install --frozen-lockfile
@@ -86,10 +101,12 @@ jobs:
       # boot with ERR_MODULE_NOT_FOUND and never becomes healthy. reviewer-core
       # uses npm (see reviewer-core.yml).
       - name: Install reviewer-core deps
+        if: steps.delta.outputs.run == 'true'
         working-directory: reviewer-core
         run: npm ci
 
       - name: Start API (:3001)
+        if: steps.delta.outputs.run == 'true'
         working-directory: server
         run: |
           # Project-context fixture (flow 08): the API lists docs from
@@ -111,6 +128,7 @@ jobs:
 
       # --- Web: build against the API, then serve in the background ---
       - name: Build + start web (:3000)
+        if: steps.delta.outputs.run == 'true'
         working-directory: client
         run: |
           pnpm install --frozen-lockfile
@@ -125,11 +143,13 @@ jobs:
 
       # --- agent-browser CLI (Rust + CDP) + Chrome for Testing ---
       - name: Install agent-browser
+        if: steps.delta.outputs.run == 'true'
         run: |
           npm i -g agent-browser
           agent-browser install --with-deps
 
       - name: Run e2e flows
+        if: steps.delta.outputs.run == 'true'
         working-directory: e2e
         run: |
           npm ci

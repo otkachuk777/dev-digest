@@ -39,6 +39,14 @@ Seven implementer transcripts (2026-09/10) ran 192–426 turns with the context 
 
 **Rule:** give each chunk of 2–3 plan steps to a fresh implementer, batch independent reads in one message, read a file once whole, and run step-level tests only (full suite once per chunk). Measure before optimising: sum `usage` per assistant turn in `~/.claude/projects/<repo>/<session>/subagents/agent-*.jsonl` (`.claude/agents/implementer.md` "Working efficiently", `.claude/agents/implementation-planner.md` Step 4 "Chunks")
 
+### `pull_request` path filters (negations too) match the whole PR diff, not the push (2026-10)
+
+On otkachuk777/dev-digest#15, pushes that changed only `INSIGHTS.md` still re-ran the ~2-minute e2e suite, even though `e2e-web.yml` negates `!**/*.md`. For `pull_request` events GitHub evaluates `paths` against base...head of the whole PR. Once any earlier commit in the PR touched `client/**` or `server/**`, every later push matches, whatever it changed. Tightening the negations can't fix this; they only ever see the full PR diff.
+
+**Rule:** to skip work per push, diff the pushed delta inside the job. On `synchronize`, `git fetch --depth=1 origin $before $head` then `git diff --name-only $before $head` (a two-dot diff compares trees, so no `fetch-depth: 0` is needed). Use `github.event.pull_request.head.sha`, not `github.sha`, which is the merge commit. Gate the expensive steps with `if:` rather than skipping the job, so the check stays green. Fall back to a full run when `before` is empty, all zeros, or unfetchable (force-push). (`.github/workflows/e2e-web.yml`, step `Check pushed delta`)
+
+> **2026-10-02 correction:** the logic moved from the inline step into `.github/scripts/pushed-delta.sh`, which takes the skip globs as arguments. `e2e-web.yml`, both `server-unit.yml` jobs and `server-integration.yml` call it. Pass each workflow's own `paths` negations, not e2e's: the server suites skip only `'*.md'`, because `server/test/**` is what they run. In a job with `defaults.run.working-directory`, give the step `working-directory: .`.
+
 ## Codebase Patterns
 
 _No entries yet._
