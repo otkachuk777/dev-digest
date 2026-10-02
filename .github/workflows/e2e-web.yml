@@ -52,16 +52,54 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # `paths` on pull_request matches the WHOLE PR diff (base...head), so once
+      # a PR touches client/** or server/**, every later push re-runs this suite —
+      # even a push that only edits markdown. On `synchronize`, diff just the
+      # pushed delta (event.before → PR head; not github.sha, which is the
+      # merge commit and would drag in base-branch changes) and skip the
+      # expensive steps when every changed file is one the negations above
+      # exclude. The job still finishes green, so a required check is satisfied.
+      # Anything we can't prove is docs/test-only runs: opened/reopened, push
+      # to main, a missing `before`, or a `before` GitHub no longer serves.
+      - name: Check pushed delta
+        id: delta
+        env:
+          EVENT: ${{ github.event_name }}
+          ACTION: ${{ github.event.action }}
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.event.pull_request.head.sha }}
+        run: |
+          full_run() { echo "run=true" >> "$GITHUB_OUTPUT"; echo "e2e runs: $1"; exit 0; }
+          [ "$EVENT" = pull_request ] && [ "$ACTION" = synchronize ] || full_run "$EVENT/$ACTION is not a PR push"
+          case "$BEFORE" in ''|0000000000000000000000000000000000000000) full_run "no previous head";; esac
+          # Two-dot diff compares trees, so depth 1 of each commit is enough.
+          git fetch --no-tags --depth=1 origin "$BEFORE" "$AFTER" || full_run "cannot fetch $BEFORE (force-push?)"
+          files=$(git diff --name-only "$BEFORE" "$AFTER") || full_run "cannot diff $BEFORE..$AFTER"
+          [ -n "$files" ] || full_run "empty delta"
+          # Keep in sync with the negated `paths` above.
+          while IFS= read -r f; do
+            case "$f" in
+              *.md|server/test/*|client/*.test.ts|client/*.test.tsx) ;;
+              *) full_run "pushed delta changes $f" ;;
+            esac
+          done <<< "$files"
+          echo "run=false" >> "$GITHUB_OUTPUT"
+          { echo "### e2e skipped: pushed delta is docs/test-only"; echo; echo '```'; echo "$files"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          echo "e2e skipped; pushed delta is docs/test-only:"; echo "$files"
+
       - uses: pnpm/action-setup@v4
+        if: steps.delta.outputs.run == 'true'
         with:
           version: 10
 
       - uses: actions/setup-node@v4
+        if: steps.delta.outputs.run == 'true'
         with:
           node-version: 22
 
       # --- Postgres (pgvector) via the repo's compose file ---
       - name: Start Postgres
+        if: steps.delta.outputs.run == 'true'
         run: |
           docker compose up -d
           echo "waiting for Postgres health…"
@@ -74,6 +112,7 @@ jobs:
 
       # --- API: install, migrate, seed, then start in the background ---
       - name: Install + migrate + seed (server)
+        if: steps.delta.outputs.run == 'true'
         working-directory: server
         run: |
           pnpm install --frozen-lockfile
@@ -86,10 +125,12 @@ jobs:
       # boot with ERR_MODULE_NOT_FOUND and never becomes healthy. reviewer-core
       # uses npm (see reviewer-core.yml).
       - name: Install reviewer-core deps
+        if: steps.delta.outputs.run == 'true'
         working-directory: reviewer-core
         run: npm ci
 
       - name: Start API (:3001)
+        if: steps.delta.outputs.run == 'true'
         working-directory: server
         run: |
           # tsx directly (not `pnpm start`): the committed package.json's start
@@ -105,6 +146,7 @@ jobs:
 
       # --- Web: build against the API, then serve in the background ---
       - name: Build + start web (:3000)
+        if: steps.delta.outputs.run == 'true'
         working-directory: client
         run: |
           pnpm install --frozen-lockfile
@@ -119,11 +161,13 @@ jobs:
 
       # --- agent-browser CLI (Rust + CDP) + Chrome for Testing ---
       - name: Install agent-browser
+        if: steps.delta.outputs.run == 'true'
         run: |
           npm i -g agent-browser
           agent-browser install --with-deps
 
       - name: Run e2e flows
+        if: steps.delta.outputs.run == 'true'
         working-directory: e2e
         run: |
           npm ci

@@ -33,6 +33,12 @@ Self-review flagged migration `0014` (NOT NULL columns with no DEFAULT on `pr_in
 
 > **2026-09-27 correction:** that recipe works only in the main session. Inside a read-only subagent (`readonly-bash-guard.sh`) every `git branch` form is denied, because `git branch <name>` creates a branch. In an agent, list branches with `git for-each-ref --format='%(refname:short)' refs/heads refs/remotes`, which the guard's deny message now names (`.claude/agents/scripts/readonly-bash-guard.sh:38-43`).
 
+### `pull_request` path filters (negations too) match the whole PR diff, not the push (2026-10)
+
+On otkachuk777/dev-digest#15, pushes that changed only `INSIGHTS.md` still re-ran the ~2-minute e2e suite, even though `e2e-web.yml` negates `!**/*.md`. For `pull_request` events GitHub evaluates `paths` against base...head of the whole PR. Once any earlier commit in the PR touched `client/**` or `server/**`, every later push matches, whatever it changed. Tightening the negations can't fix this; they only ever see the full PR diff.
+
+**Rule:** to skip work per push, diff the pushed delta inside the job. On `synchronize`, `git fetch --depth=1 origin $before $head` then `git diff --name-only $before $head` (a two-dot diff compares trees, so no `fetch-depth: 0` is needed). Use `github.event.pull_request.head.sha`, not `github.sha`, which is the merge commit. Gate the expensive steps with `if:` rather than skipping the job, so the check stays green. Fall back to a full run when `before` is empty, all zeros, or unfetchable (force-push). (`.github/workflows/e2e-web.yml`, step `Check pushed delta`)
+
 ## Codebase Patterns
 
 _No entries yet._
