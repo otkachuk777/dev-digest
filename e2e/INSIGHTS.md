@@ -31,6 +31,8 @@ Writing flow 08 took the implementer about 100 turns.
 - Click kit checkboxes by their label text (`find text "<path>" click`).
 - Write assertions that hold whether the run succeeds or fails, e.g. wait for text unique to the new run (`e2e/flows/08-project-context.flow.json`, `e2e/flows-docs/08-project-context.md`).
 
+> **2026-10-02 correction:** "assertions that hold either way" was not enough. Flow 08 was developed on the with-key path and failed in CI, which is keyless. `scripts/e2e.sh` now starts the API with a temp `HOME` (secrets are read from `$HOME/.devdigest/secrets.json`) and with `*_API_KEY` unset. Local runs take the same keyless path as CI and make no paid call. Write a flow for the keyless outcome only (commit `3945583`).
+
 ## Recurring Errors & Fixes
 
 _No entries yet._
