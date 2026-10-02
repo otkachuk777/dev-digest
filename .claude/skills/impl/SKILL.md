@@ -32,7 +32,7 @@ Pass `model` in the Agent call; it overrides the agent's frontmatter.
 
 | Agent | Model |
 |---|---|
-| implementer, plan-verifier, architecture-reviewer, `feature-dev:code-reviewer` | sonnet |
+| implementer, plan-verifier, architecture-reviewer, code-reviewer | sonnet |
 | security-reviewer | opus in review round 1, sonnet in re-review rounds |
 | test-writer (test-first plans only), doc-writer (`--docs`) | sonnet |
 
@@ -55,11 +55,13 @@ Every phase ends with `git commit -m "SDD(SPEC-NN): <phase>" -- <explicit paths>
 
 ## Phase 2 — Gate
 
+0. Change touches `client/` → the main session runs the app from the worktree on spare ports (`preview_start` with a launch entry for API/web ports not used by the user's dev server; never `pnpm build` over a running `next dev`) and clicks through every new screen and state at 1024 px (`read_page` / `javascript_tool` for overflow: `scrollWidth > clientWidth`). Layout or behavior bugs → implementer fix mode before plan-verifier; commit `chunk-<k>-fix`.
+
 plan-verifier `pass: 1` with plan, SPEC, reports (and `red_sha` in test-first). `Not met` / `Partially met` → implementer for those items (SendMessage to the chunk's implementer if its context is small, else fresh). At most 2 attempts, then escalate to the user. Done → commit `gate`.
 
 ## Phase 3 — Review and fix rounds
 
-Follow [references/review-loop.md](references/review-loop.md): round 1 = architecture-reviewer ∥ security-reviewer ∥ `feature-dev:code-reviewer` on the whole change; triage (`fix` / `fix-along` / `defer` / `dispute` / `replan`); fix chunks via implementer fix mode; commit `review-<n>`; later rounds re-review the delta only. Exit at 0 blocking. Escalate after round 3, on an oscillating finding, or on two `can't` for the same id.
+Follow [references/review-loop.md](references/review-loop.md): round 1 = architecture-reviewer ∥ security-reviewer ∥ code-reviewer on the whole change; triage (`fix` / `fix-along` / `defer` / `dispute` / `replan`); fix chunks via implementer fix mode; commit `review-<n>`; later rounds re-review the delta only. Exit at 0 blocking. Escalate after round 3, on an oscillating finding, or on two `can't` for the same id.
 
 ## Phase 4 — Final
 
