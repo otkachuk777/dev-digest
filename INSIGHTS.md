@@ -39,6 +39,8 @@ On otkachuk777/dev-digest#15, pushes that changed only `INSIGHTS.md` still re-ra
 
 **Rule:** to skip work per push, diff the pushed delta inside the job. On `synchronize`, `git fetch --depth=1 origin $before $head` then `git diff --name-only $before $head` (a two-dot diff compares trees, so no `fetch-depth: 0` is needed). Use `github.event.pull_request.head.sha`, not `github.sha`, which is the merge commit. Gate the expensive steps with `if:` rather than skipping the job, so the check stays green. Fall back to a full run when `before` is empty, all zeros, or unfetchable (force-push). (`.github/workflows/e2e-web.yml`, step `Check pushed delta`)
 
+> **2026-10-02 correction:** the logic moved from the inline step into `.github/scripts/pushed-delta.sh`, which takes the skip globs as arguments. `e2e-web.yml`, both `server-unit.yml` jobs and `server-integration.yml` call it. Pass each workflow's own `paths` negations, not e2e's: the server suites skip only `'*.md'`, because `server/test/**` is what they run. In a job with `defaults.run.working-directory`, give the step `working-directory: .`.
+
 ## Codebase Patterns
 
 _No entries yet._
