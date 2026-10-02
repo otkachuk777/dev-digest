@@ -223,6 +223,7 @@ export class RepoIntelRepository {
         filesSkipped: row.filesSkipped,
         durationMs,
         reason,
+        stats,
         lastIndexedSha: row.lastIndexedSha,
         indexerVersion: row.indexerVersion,
         updatedAt: row.updatedAt,
@@ -434,6 +435,30 @@ export class RepoIntelRepository {
       .select({ fromFile: t.fileEdges.fromFile, toFile: t.fileEdges.toFile })
       .from(t.fileEdges)
       .where(eq(t.fileEdges.repoId, repoId));
+  }
+
+  /** Every `file_rank` row (onboarding facts graph), rank DESC then path ASC. */
+  async getRankRows(
+    repoId: string,
+  ): Promise<Array<{ path: string; pagerank: number; percentile: number }>> {
+    return this.db
+      .select({
+        path: t.fileRank.filePath,
+        pagerank: t.fileRank.rank,
+        percentile: t.fileRank.percentile,
+      })
+      .from(t.fileRank)
+      .where(eq(t.fileRank.repoId, repoId))
+      .orderBy(desc(t.fileRank.rank), asc(t.fileRank.filePath));
+  }
+
+  /** Union of every indexed file's HTTP endpoints ("METHOD /path"). */
+  async getAllEndpoints(repoId: string): Promise<string[]> {
+    const rows = await this.db
+      .select({ endpoints: t.fileFacts.endpoints })
+      .from(t.fileFacts)
+      .where(eq(t.fileFacts.repoId, repoId));
+    return rows.flatMap((r) => (Array.isArray(r.endpoints) ? (r.endpoints as string[]) : []));
   }
 
   /** `{path, percentile}` for the given paths (smart-diff / run-executor). */

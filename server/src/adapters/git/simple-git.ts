@@ -129,6 +129,39 @@ export class SimpleGitClient implements GitClient {
   async readFile(repo: RepoRef, path: string): Promise<string> {
     return readFile(join(this.clonePathFor(repo), path), 'utf8');
   }
+
+  async recentCommitPaths(
+    repo: RepoRef,
+    branch: string,
+    opts: { maxCommits: number; sinceDays: number; timeoutMs: number },
+  ): Promise<string[][]> {
+    // Fresh instance per call: `abort` bounds every git subprocess it spawns.
+    const g = simpleGit({
+      baseDir: this.clonePathFor(repo),
+      abort: AbortSignal.timeout(opts.timeoutMs),
+    });
+    // Deepen the shallow clone (offline -> throws), then read the history.
+    await g.fetch(['origin', branch, '--depth', String(opts.maxCommits)]);
+    const raw = await g.raw([
+      'log',
+      'FETCH_HEAD',
+      '-n',
+      String(opts.maxCommits),
+      `--since=${opts.sinceDays} days ago`,
+      '--name-only',
+      '--format=%x00%H',
+    ]);
+    return raw
+      .split('\0')
+      .slice(1)
+      .map((block) =>
+        block
+          .split('\n')
+          .slice(1)
+          .map((l) => l.trim())
+          .filter(Boolean),
+      );
+  }
 }
 
 function parseBlamePorcelain(raw: string): BlameLine[] {

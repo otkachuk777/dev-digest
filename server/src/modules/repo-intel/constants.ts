@@ -51,3 +51,8 @@ export const HOTNESS_WINDOW_DAYS = 180;
 export const DEFAULT_REPO_MAP_TOKEN_BUDGET = 1500;
 /** Signatures are trimmed to this many chars in the parse phase (cache stability). */
 export const MAX_SIGNATURE_CHARS = 120;
+
+// --- Onboarding hotness (git history window) --------------------------------
+export const HOTNESS_MAX_COMMITS = 200;
+export const HOTNESS_RECENT_DAYS = 90;
+export const HOTNESS_TIMEOUT_MS = 15_000;

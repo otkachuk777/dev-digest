@@ -36,7 +36,9 @@ import type {
   FileRankRow,
   IndexResult,
   IndexState,
+  HotnessResult,
   RefRow,
+  RepoFacts,
   RepoIntel,
   RepoMapResult,
   SignatureRow,
@@ -45,6 +47,9 @@ import type {
 import {
   BFS_DEPTH,
   DEFAULT_REPO_MAP_TOKEN_BUDGET,
+  HOTNESS_MAX_COMMITS,
+  HOTNESS_RECENT_DAYS,
+  HOTNESS_TIMEOUT_MS,
   INDEX_JOB_KIND,
   INDEXER_VERSION,
   MAX_CALLERS_PER_SYMBOL,
@@ -52,6 +57,9 @@ import {
   RESYNC_JOB_KIND,
   SUPPORTED_EXT,
 } from './constants.js';
+import { hotnessFromCommits, isJunkPath } from './helpers.js';
+import { collectCloneFacts, emptyCloneFacts } from './facts.js';
+import { withTimeout } from '../../platform/resilience.js';
 import { runFullIndex, type IndexPayload } from './pipeline/full.js';
 import { runIncremental } from './pipeline/incremental.js';
 
@@ -665,6 +673,75 @@ export class RepoIntelService implements RepoIntel {
    * For each of the top roots, greedily follow the highest-ranked import target
    * up to BFS_DEPTH hops. Pure read over `file_edges` + `file_rank`.
    */
+  async collectFacts(repoId: string): Promise<RepoFacts> {
+    const state = await this.repo.tryGetIndexState(repoId).catch(() => null);
+    const facts: RepoFacts = {
+      commitSha: state?.lastIndexedSha ?? '',
+      indexStatus: state?.status ?? 'missing',
+      filesIndexed: state?.filesIndexed ?? 0,
+      filesBounded: Number(state?.stats?.bounded) > 0,
+      ...emptyCloneFacts(),
+      routes: [],
+      graph: { files: [], edges: [] },
+      repoMap: '',
+    };
+    try {
+      const basics = await this.repo.getRepoBasics(repoId);
+      if (!basics) return facts;
+      const ref: RepoRef = { owner: basics.owner, name: basics.name };
+      Object.assign(facts, await collectCloneFacts(this.container.git.clonePathFor(ref)));
+      facts.commitSha = await this.container.git.currentHead(ref).catch(() => facts.commitSha);
+      if (state) {
+        const [ranks, edges, endpoints, map] = await Promise.all([
+          this.repo.getRankRows(repoId),
+          this.repo.getEdges(repoId),
+          this.repo.getAllEndpoints(repoId),
+          this.getRepoMap(repoId),
+        ]);
+        const inDegree = new Map<string, number>();
+        for (const e of edges) inDegree.set(e.toFile, (inDegree.get(e.toFile) ?? 0) + 1);
+        facts.graph = {
+          files: ranks.map((r) => ({ ...r, importedBy: inDegree.get(r.path) ?? 0 })),
+          edges: edges
+            .map((e) => ({ from: e.fromFile, to: e.toFile }))
+            .sort((a, b) => (a.from + '\0' + a.to < b.from + '\0' + b.to ? -1 : 1)),
+        };
+        facts.routes = [...new Set(endpoints)].sort();
+        facts.repoMap = map.text;
+      }
+    } catch {
+      // never throws: whatever was gathered so far is returned
+    }
+    return facts;
+  }
+
+  async getHotness(
+    repoId: string,
+    opts?: { timeoutMs?: number; now?: Date },
+  ): Promise<HotnessResult> {
+    const none = (paths: string[] = []): HotnessResult => ({
+      byPath: Object.fromEntries(paths.map((p) => [p, 0])),
+      available: false,
+    });
+    const basics = await this.repo.getRepoBasics(repoId).catch(() => null);
+    if (!basics) return none();
+    const indexed = (await this.repo.getRankRows(repoId).catch(() => [])).map((r) => r.path);
+    const timeoutMs = opts?.timeoutMs ?? HOTNESS_TIMEOUT_MS;
+    try {
+      const commits = await withTimeout(
+        this.container.git.recentCommitPaths(
+          { owner: basics.owner, name: basics.name },
+          basics.defaultBranch,
+          { maxCommits: HOTNESS_MAX_COMMITS, sinceDays: HOTNESS_RECENT_DAYS, timeoutMs },
+        ),
+        timeoutMs,
+      );
+      return { byPath: hotnessFromCommits(commits, indexed), available: true };
+    } catch {
+      return none(indexed);
+    }
+  }
+
   async getCriticalPaths(repoId: string): Promise<string[][]> {
     if (!this.container.config.repoIntelEnabled) return [];
     const edges = await this.repo.getEdges(repoId);
@@ -709,33 +786,6 @@ export class RepoIntelService implements RepoIntel {
 
 /** How many top-ranked files seed `getCriticalPaths` dependency chains. */
 const CRITICAL_PATH_ROOTS = 5;
-
-/**
- * Path kinds excluded from rank-driven file samples (conventions/onboarding):
- * tests, configs, declaration files, migrations, generated dirs. Substring
- * match on the repo-relative path (kept deliberately simple + deterministic).
- */
-const JUNK_PATH_PATTERNS = [
-  '.test.',
-  '.spec.',
-  '.d.ts',
-  '__tests__/',
-  '__mocks__/',
-  '/test/',
-  '/tests/',
-  '/migrations/',
-  '/__fixtures__/',
-  '.config.',
-  'vitest.',
-  'jest.',
-  'eslint',
-  'prettier',
-] as const;
-
-function isJunkPath(path: string): boolean {
-  const lower = path.toLowerCase();
-  return JUNK_PATH_PATTERNS.some((p) => lower.includes(p));
-}
 
 /** Enclosing top-level (bare-name) symbol for a line, from persistent rows. */
 function enclosingFromRows(rows: FullSymbolRow[], line: number): string | null {

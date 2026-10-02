@@ -266,6 +266,8 @@ export interface MockGitOptions {
   head?: string;
   /** Head `currentHead()` returns AFTER `sync()` runs — simulates fetch+reset advancing HEAD. */
   syncedHead?: string;
+  /** `recentCommitPaths()` result: one path list per commit. An Error makes it reject. */
+  commitPaths?: string[][] | Error;
 }
 
 export class MockGitClient implements GitClient {
@@ -309,6 +311,11 @@ export class MockGitClient implements GitClient {
   }
   async readFile(_repo: RepoRef, path: string): Promise<string> {
     return this.opts.files?.[path] ?? '';
+  }
+  async recentCommitPaths(): Promise<string[][]> {
+    const r = this.opts.commitPaths ?? [];
+    if (r instanceof Error) throw r;
+    return r;
   }
 }
 
