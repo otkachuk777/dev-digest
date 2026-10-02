@@ -41,6 +41,12 @@ See `.claude/skills/engineering-insights/`.
 
 **Rule:** when building severity-keyed UI (pill rows, filters, counters), iterate the wire contract's `Severity` (3 values), not the UI kit's `Severity` token type (4 values) — the extra `INFO` case in the UI type has no producer. (`client/src/vendor/ui/primitives/tokens.ts:3`, `client/src/vendor/shared/contracts/findings.ts:11-12`)
 
+### Editor tabs are allow-listed twice: `TABS` in the editor and `VALID_TABS` in the route view (2026-10)
+
+SPEC-01 added a `context` tab to `AgentEditor`'s and `SkillEditor`'s `TABS`. The unit tests rendered the editor with `tab="context"` and passed, and plan-verifier marked the step Met. In the real app, clicking the tab set `?tab=context`, but `AgentEditorView` and `SkillsView` filter the param through their own `VALID_TABS` array and fell back to `config`, so the tab body never rendered. Only the e2e flow caught it.
+
+**Rule:** a new editor tab goes into both the editor's `TABS` constant and the route view's `VALID_TABS`. Test the view with `?tab=<new>`, not only the editor with a `tab` prop (`app/(shell)/agents/[id]/_components/AgentEditorView/AgentEditorView.tsx:16`, `app/(shell)/skills/_components/SkillsView/SkillsView.tsx`, regression tests `AgentEditorView.test.tsx`, `SkillsView.test.tsx`).
+
 ## Tool & Library Notes
 
 ### `@testing-library/user-event` is not installed — use `fireEvent` (2026-09-18)

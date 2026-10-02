@@ -127,6 +127,12 @@ While building the onion-architecture rules, an `exclude` pattern containing `no
 
 **Rule:** keep `testcontainers`/`@testcontainers/postgresql` at `>=11.14`; a run where `skipped > 0` while Docker is up is a failure, not a pass (`server/package.json`, `test/helpers/pg.ts:36`)
 
+### js-tiktoken `encode(text)` throws on special-token text, and the adapter then degrades for the whole process (2026-10)
+
+Project-context docs are untrusted repo markdown. A doc that mentions `<|endoftext|>`, which is common in LLM-related docs, made `encode(text)` throw, because special tokens are disallowed by default. The adapter's `catch` set `this.broken = true` and never reset it. From then on every count in the process, including the repo map and all other docs, used the `chars/4` heuristic. Counts cached before the flip kept their real values, so editor totals, trace tokens and the 8000-token budget disagreed with each other. Unit tests never fed a special token, so they didn't catch it; code review did.
+
+**Rule:** for text you don't control, call `encode(text, [], [])` (no allowed and no disallowed specials), so special-token strings are counted as plain text. Keep `broken` for a genuinely failing encoder only (`src/adapters/tokenizer/index.ts:36,50`, test `test/tokenizer.test.ts` "special tokens").
+
 ## Recurring Errors & Fixes
 
 ### Migration journal corruption (2026-08)
