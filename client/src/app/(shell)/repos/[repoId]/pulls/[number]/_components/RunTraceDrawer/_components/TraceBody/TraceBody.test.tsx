@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import { RunTrace } from "@devdigest/shared";
 import messages from "../../../../../../../../../../../messages/en/runs.json";
@@ -41,5 +41,65 @@ describe("TraceBody — skills block", () => {
     setup(null);
     expect(screen.queryByText("Skills (dynamic)")).toBeNull();
     expect(screen.queryByText(/^~\d+ tokens$/)).toBeNull();
+  });
+});
+
+const traceWith = (extra: Record<string, unknown>, specs: string | null = null) =>
+  RunTrace.parse({
+    config: { agent: "A", model: "m", provider: "openrouter" },
+    stats: { duration_ms: 1, tokens_in: 1, tokens_out: 1, cost_usd: 0, findings: 0, grounding: "0/0" },
+    prompt_assembly: { system: "S", specs, user: "U" },
+    tool_calls: [],
+    raw_output: "{}",
+    memory_pulled: [],
+    specs_read: [],
+    log: [],
+    ...extra,
+  });
+
+const renderTrace = (tr: RunTrace) =>
+  render(
+    <NextIntlClientProvider locale="en" messages={{ runs: messages }}>
+      <TraceBody trace={tr} findings={[]} />
+    </NextIntlClientProvider>,
+  );
+
+describe("TraceBody — project context", () => {
+  it("AC-42/43: specs block is labelled, token-badged, and its fullscreen has search + copy", () => {
+    renderTrace(traceWith({}, "x".repeat(800)));
+    fireEvent.click(screen.getByText("Prompt assembly"));
+    expect(screen.getByText("Project context — attached specs (untrusted)")).toBeInTheDocument();
+    expect(screen.getByText("~200 tokens")).toBeInTheDocument();
+    const head = screen.getByText("Project context — attached specs (untrusted)").parentElement!;
+    fireEvent.click(within(head).getByRole("button", { name: /fullscreen/i }));
+    expect(screen.getByPlaceholderText("Search in this block…")).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Copy" }).length).toBeGreaterThan(0);
+  });
+
+  it("AC-44: Specs read lists each context doc with tokens and a truncated/missing marker", () => {
+    renderTrace(
+      traceWith({
+        specs_read: ["legacy.md"],
+        context_docs: [
+          { path: "docs/a.md", tokens: 12, origin: "agent", origin_name: "A", status: "read" },
+          { path: "docs/b.md", tokens: 34, origin: "skill", origin_name: "S", status: "truncated" },
+          { path: "docs/c.md", tokens: 0, origin: "agent", origin_name: "A", status: "missing" },
+        ],
+      }),
+    );
+    expect(screen.getByText("docs/a.md")).toBeInTheDocument();
+    expect(screen.getByText("12 tokens")).toBeInTheDocument();
+    expect(screen.getByText("34 tokens")).toBeInTheDocument();
+    expect(screen.getByText("truncated")).toBeInTheDocument();
+    expect(screen.getByText("missing")).toBeInTheDocument();
+    expect(screen.queryByText("legacy.md")).toBeNull();
+  });
+
+  it("AC-45/NFR-7: without context_docs falls back to specs_read, and an empty old trace shows none", () => {
+    renderTrace(traceWith({ specs_read: ["old/spec.md"] }));
+    expect(screen.getByText("old/spec.md")).toBeInTheDocument();
+    cleanup();
+    renderTrace(traceWith({}));
+    expect(screen.getByText("none")).toBeInTheDocument();
   });
 });

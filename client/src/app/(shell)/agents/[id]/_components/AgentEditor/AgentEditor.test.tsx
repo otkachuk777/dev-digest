@@ -11,6 +11,17 @@ vi.mock("@/lib/api/agents", () => ({
   useProviderModels: () => ({ data: [{ id: "gpt-4.1", provider: "openai" }] }),
 }));
 
+vi.mock("@/lib/repo-context", () => ({
+  useActiveRepo: () => ({ activeRepo: { id: "r1", full_name: "acme/api" } }),
+}));
+vi.mock("@/components/context/ContextTab", () => ({
+  ContextTab: (p: any) => (
+    <div>
+      ctx:{p.owner.kind}:{p.owner.id}:{p.repoId}:{p.repoName}
+    </div>
+  ),
+}));
+
 import { AgentEditor } from "./AgentEditor";
 
 afterEach(cleanup);
@@ -45,5 +56,11 @@ describe("A2 Agent Editor (smoke)", () => {
     expect(screen.getByText("Config")).toBeInTheDocument();
     expect(screen.getByText("Configuration")).toBeInTheDocument();
     expect(screen.getByText("Save agent")).toBeInTheDocument();
+  });
+
+  it("AC-15: has a Context tab that renders the Context tab body for the active repo", () => {
+    renderWithIntl(<AgentEditor agent={AGENT} tab="context" onTab={() => {}} />);
+    expect(screen.getByText("Context")).toBeInTheDocument();
+    expect(screen.getByText("ctx:agent:ag1:r1:acme/api")).toBeInTheDocument();
   });
 });

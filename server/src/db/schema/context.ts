@@ -9,9 +9,14 @@ import {
   vector,
   index,
   uniqueIndex,
+  primaryKey,
+  check,
 } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
 import { workspaces } from './core';
 import { repos } from './repos';
+import { agents } from './agents';
+import { skills } from './skills';
 
 // ============================================================ Context & codebase
 
@@ -115,6 +120,48 @@ export const references = pgTable(
     ),
     byFile: index('references_repo_from_idx').on(t.repoId, t.fromPath),
   }),
+);
+
+/**
+ * Project Context attachments: one row per (owner, repo) holding the ordered
+ * doc paths. A write is a single upsert (last-write-wins, no transaction).
+ */
+export const agentContextDocs = pgTable(
+  'agent_context_docs',
+  {
+    agentId: uuid('agent_id')
+      .notNull()
+      .references(() => agents.id, { onDelete: 'cascade' }),
+    repoId: uuid('repo_id')
+      .notNull()
+      .references(() => repos.id, { onDelete: 'cascade' }),
+    paths: jsonb('paths').$type<string[]>().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.agentId, t.repoId] }),
+    index('agent_context_docs_repo_idx').on(t.repoId),
+    check('agent_context_docs_paths_array', sql`jsonb_typeof(${t.paths}) = 'array'`),
+  ],
+);
+
+export const skillContextDocs = pgTable(
+  'skill_context_docs',
+  {
+    skillId: uuid('skill_id')
+      .notNull()
+      .references(() => skills.id, { onDelete: 'cascade' }),
+    repoId: uuid('repo_id')
+      .notNull()
+      .references(() => repos.id, { onDelete: 'cascade' }),
+    paths: jsonb('paths').$type<string[]>().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.skillId, t.repoId] }),
+    index('skill_context_docs_repo_idx').on(t.repoId),
+    check('skill_context_docs_paths_array', sql`jsonb_typeof(${t.paths}) = 'array'`),
+  ],
 );
 
 export const onboarding = pgTable('onboarding', {

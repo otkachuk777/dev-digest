@@ -92,6 +92,12 @@ jobs:
       - name: Start API (:3001)
         working-directory: server
         run: |
+          # Project-context fixture (flow 08): the API lists docs from
+          # <clone dir>/<owner>/<name>; give the seeded repo one doc.
+          export DEVDIGEST_CLONE_DIR="$RUNNER_TEMP/clones"
+          mkdir -p "$DEVDIGEST_CLONE_DIR/acme/payments-api/docs"
+          printf '# E2E invariant\n\nE2E-INVARIANT-7f3a: handlers never import from the db layer.\n' \
+            > "$DEVDIGEST_CLONE_DIR/acme/payments-api/docs/e2e-invariant.md"
           # tsx directly (not `pnpm start`): the committed package.json's start
           # is `node dist/server.js`, which would need a build first. tsx runs
           # the TS entrypoint as dev does. (server/package.json is skip-worktree.)

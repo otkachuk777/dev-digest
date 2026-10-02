@@ -20,7 +20,7 @@ import { SkillEditor } from "./_components/SkillEditor";
 import { filterSkills } from "./helpers";
 import { s } from "./styles";
 
-const VALID_TABS = ["config", "preview", "versions"];
+const VALID_TABS = ["config", "preview", "versions", "context"];
 
 export function SkillsView() {
   const params = useParams<{ id?: string }>();

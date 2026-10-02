@@ -93,6 +93,17 @@ describe('buildPromptLogRecord', () => {
     }
   });
 
+  it('NFR-4: carries project_context counts and no doc text', () => {
+    const rec = buildPromptLogRecord({
+      ...base,
+      verbose: true,
+      projectContext: { docs: 2, tokens: 120, truncated: 1, missing: 1 },
+    });
+    expect(rec.project_context).toEqual({ docs: 2, tokens: 120, truncated: 1, missing: 1 });
+    expect(JSON.stringify(rec)).not.toContain('CONFIDENTIAL');
+    expect(buildPromptLogRecord({ ...base, verbose: false }).project_context).toBeUndefined();
+  });
+
   it('summary line names sections, total and model', () => {
     const line = promptSummaryLine(buildPromptLogRecord({ ...base, verbose: false }));
     expect(line).toMatch(/^review prompt: ~\d+ tok — system ~\d+, guard ~\d+, .*diff ~\d+ \(openrouter\/deepseek\/deepseek-v4-flash\)$/);

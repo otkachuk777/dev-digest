@@ -39,7 +39,14 @@ export function TraceBody({ trace, findings }: { trace: RunTrace; findings: Find
           </Row>
           <Row label={t("trace.config.specsRead")}>
             <div style={s.specsWrap}>
-              {trace.specs_read.length === 0 ? (
+              {trace.context_docs?.length ? (
+                trace.context_docs.map((d) => (
+                  <span key={`${d.origin}:${d.path}`} style={s.spec}>
+                    <span className="mono">{d.path}</span> <span>{t("trace.config.docTokens", { count: d.tokens })}</span>
+                    {d.status !== "read" && <Badge color="var(--warn)">{t(`trace.config.${d.status}`)}</Badge>}
+                  </span>
+                ))
+              ) : trace.specs_read.length === 0 ? (
                 <span style={s.specsNone}>{t("trace.config.none")}</span>
               ) : (
                 trace.specs_read.map((sp, i) => (
@@ -89,7 +96,7 @@ export function TraceBody({ trace, findings }: { trace: RunTrace; findings: Find
           <PromptBlock label={t("trace.prompt.repoMap")} text={trace.prompt_assembly.repo_map} color={PROMPT_COLORS.repoMap} />
         )}
         {trace.prompt_assembly.specs != null && (
-          <PromptBlock label={t("trace.prompt.specs")} text={trace.prompt_assembly.specs} color={PROMPT_COLORS.specs} />
+          <PromptBlock label={t("trace.prompt.specs")} text={trace.prompt_assembly.specs} color={PROMPT_COLORS.specs} tokens={estimateTokens(trace.prompt_assembly.specs)} />
         )}
         {trace.prompt_assembly.callers != null && (
           <PromptBlock label={t("trace.prompt.callers")} text={trace.prompt_assembly.callers} color={PROMPT_COLORS.callers} />

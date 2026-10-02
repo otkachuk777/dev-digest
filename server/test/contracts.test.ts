@@ -18,6 +18,9 @@ import {
   Skill,
   CreateSkillInput,
   AgentAttachedSkill,
+  ContextDocTrace,
+  RunEventKind,
+  SetContextAttachmentsInput,
 } from '@devdigest/shared';
 
 /**
@@ -209,6 +212,41 @@ describe('AI contracts parse fixtures', () => {
     });
     expect(attached.enabled).toBe(true);
     expect(attached.skill_enabled).toBe(false);
+  });
+});
+
+describe('Project Context contracts (SPEC-01)', () => {
+  it('NFR-7: a pre-feature trace (no context_docs) still parses', () => {
+    const trace = RunTrace.parse({
+      config: { agent: 'a', model: 'm' },
+      stats: { duration_ms: 1, tokens_in: 1, tokens_out: 1, cost_usd: null, findings: 0, grounding: '0/0' },
+      prompt_assembly: { system: 's', user: 'u' },
+      tool_calls: [],
+      raw_output: '{}',
+      memory_pulled: [],
+      specs_read: [],
+      log: [],
+    });
+    expect(trace.context_docs).toBeUndefined();
+  });
+
+  it('AC-38: context_docs entries parse with all three statuses', () => {
+    const doc = { path: 'specs/a.md', tokens: 3, origin: 'agent', origin_name: 'A' } as const;
+    for (const status of ['read', 'truncated', 'missing'] as const) {
+      expect(ContextDocTrace.parse({ ...doc, status }).status).toBe(status);
+    }
+  });
+
+  it('AC-48: RunEventKind accepts warn', () => {
+    expect(RunEventKind.parse('warn')).toBe('warn');
+  });
+
+  it('AC-18: SetContextAttachmentsInput rejects duplicate paths at the duplicate index', () => {
+    const repo_id = '11111111-1111-4111-8111-111111111111';
+    expect(SetContextAttachmentsInput.safeParse({ repo_id, paths: ['a.md', 'b.md'] }).success).toBe(true);
+    const bad = SetContextAttachmentsInput.safeParse({ repo_id, paths: ['a.md', 'b.md', 'a.md'] });
+    expect(bad.success).toBe(false);
+    expect(!bad.success && bad.error.issues[0]?.path).toEqual(['paths', 2]);
   });
 });
 

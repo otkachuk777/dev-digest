@@ -77,6 +77,7 @@ cleanup() {
     [ -n "$pids" ] && kill $pids 2>/dev/null || true
   done
   docker rm -f "$PG_CONTAINER" >/dev/null 2>&1 || true
+  [ -n "${DEVDIGEST_CLONE_DIR:-}" ] && rm -rf "$DEVDIGEST_CLONE_DIR"
   exit "$code"
 }
 trap cleanup EXIT INT TERM
@@ -126,6 +127,14 @@ log "applying migrations (isolated db)"
 (cd server && pnpm db:migrate)
 log "seeding demo data (isolated db)"
 (cd server && pnpm db:seed)
+
+# --- project-context fixture (flow 08) ---------------------------------------
+# The API lists docs from <clone dir>/<owner>/<name>; point it at a fresh temp dir
+# holding ONE doc for the seeded repo (clone = directory exists). Removed on exit.
+export DEVDIGEST_CLONE_DIR="$(mktemp -d)"
+mkdir -p "$DEVDIGEST_CLONE_DIR/acme/payments-api/docs"
+printf '# E2E invariant\n\nE2E-INVARIANT-7f3a: handlers never import from the db layer.\n' \
+  > "$DEVDIGEST_CLONE_DIR/acme/payments-api/docs/e2e-invariant.md"
 
 # --- API on :$API_PORT -------------------------------------------------------
 # tsx directly (not `pnpm start`, which needs a build; not `tsx watch`, to avoid

@@ -36,6 +36,9 @@ const EnvSchema = z.object({
   // Local-only: adds per-file / per-item sizes and content hashes to the
   // `prompt.assembled` log record. Never content. Ignored in production.
   PROMPT_LOG_VERBOSE: z.string().optional(),
+  // Project Context doc discovery. Only the shape `**/{a,b}/**/*.md` (or one
+  // root without braces) is accepted — see parseContextGlob.
+  CONTEXT_DOCS_GLOB: z.string().optional(),
   // `.env` (and .env.example) ship `LOG_LEVEL=` empty; an empty string is not a
   // valid enum member, so coerce '' → undefined to fall through to the default.
   LOG_LEVEL: z.preprocess(
@@ -72,7 +75,25 @@ export type AppConfig = {
    * NODE_ENV=production so a stray env var can't turn it on in a deployment.
    */
   promptLogVerbose: boolean;
+  /** Project Context doc discovery: the glob shown in the UI + its parsed roots. */
+  contextDocs: { glob: string; roots: ContextDocRoot[] };
 };
+
+const CONTEXT_DOC_ROOTS = ['specs', 'docs', 'insights'] as const;
+export type ContextDocRoot = (typeof CONTEXT_DOC_ROOTS)[number];
+const DEFAULT_CONTEXT_GLOB = '**/{specs,docs,insights}/**/*.md';
+const CONTEXT_GLOB_SHAPE = /^\*\*\/(?:\{([a-z]+(?:,[a-z]+)*)\}|([a-z]+))\/\*\*\/\*\.md$/;
+
+function parseContextGlob(glob: string): { glob: string; roots: ContextDocRoot[] } {
+  const m = CONTEXT_GLOB_SHAPE.exec(glob);
+  const roots = (m?.[1] ?? m?.[2])?.split(',');
+  if (!roots || !roots.every((r): r is ContextDocRoot => (CONTEXT_DOC_ROOTS as readonly string[]).includes(r))) {
+    throw new Error(
+      `Invalid CONTEXT_DOCS_GLOB "${glob}": expected **/{specs,docs,insights}/**/*.md (any non-empty subset of roots)`,
+    );
+  }
+  return { glob, roots };
+}
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   const parsed = EnvSchema.parse(env);
@@ -92,5 +113,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     embeddingsEnabled: parsed.EMBEDDINGS_ENABLED === 'true',
     repoIntelEnabled: parsed.REPO_INTEL_ENABLED !== 'false',
     promptLogVerbose: parsed.PROMPT_LOG_VERBOSE === 'true' && parsed.NODE_ENV !== 'production',
+    contextDocs: parseContextGlob(parsed.CONTEXT_DOCS_GLOB || DEFAULT_CONTEXT_GLOB),
   };
 }

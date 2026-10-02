@@ -253,24 +253,91 @@ export const PrCommentInput = z.object({
 export type PrCommentInput = z.infer<typeof PrCommentInput>;
 
 // ---- Project Context ----
-export const SpecFile = z.object({
-  path: z.string(),
-  content: z.string().nullish(),
-  size: z.number().int().nullish(),
-  updated_at: z.string().nullish(),
-});
-export type SpecFile = z.infer<typeof SpecFile>;
+export const ContextDocType = z.enum(['specs', 'docs', 'insights']);
+export type ContextDocType = z.infer<typeof ContextDocType>;
 
-export const IndexStatus = z.object({
-  status: z.enum(['idle', 'cloning', 'parsing', 'embedding', 'done', 'error']),
-  pct: z.number().min(0).max(100),
-  message: z.string().nullish(),
-  chunks_indexed: z.number().int().nullish(),
+export const ContextDoc = z.object({
+  path: z.string(),
+  type: ContextDocType,
+  size: z.number().int().nonnegative(),
+  tokens: z.number().int().nonnegative(),
+  used_by_agents: z.number().int().nonnegative(),
+  used_by_skills: z.number().int().nonnegative(),
 });
-export type IndexStatus = z.infer<typeof IndexStatus>;
+export type ContextDoc = z.infer<typeof ContextDoc>;
+
+/** `GET /repos/:id/context`. `synced_at` = last repo-intel resync, null when never. */
+export const ContextListing = z.object({
+  status: z.enum(['ok', 'no_clone']),
+  glob: z.string(),
+  synced_at: z.string().nullable(),
+  total_tokens: z.number().int().nonnegative(),
+  docs: z.array(ContextDoc),
+});
+export type ContextListing = z.infer<typeof ContextListing>;
+
+/** `GET /repos/:id/context/file`. */
+export const ContextDocFile = z.object({
+  path: z.string(),
+  type: ContextDocType,
+  tokens: z.number().int().nonnegative(),
+  used_by_agents: z.number().int().nonnegative(),
+  used_by_skills: z.number().int().nonnegative(),
+  content: z.string(),
+});
+export type ContextDocFile = z.infer<typeof ContextDocFile>;
+
+export const ContextAttachmentRow = z.object({
+  path: z.string(),
+  type: ContextDocType.nullable(),
+  tokens: z.number().int().nonnegative(),
+  status: z.enum(['present', 'not_found']),
+});
+export type ContextAttachmentRow = z.infer<typeof ContextAttachmentRow>;
+
+export const ContextInheritedRow = ContextAttachmentRow.extend({
+  skill_id: z.string().uuid(),
+  skill_name: z.string(),
+});
+export type ContextInheritedRow = z.infer<typeof ContextInheritedRow>;
+
+/** `GET|PUT /agents/:id/context`. */
+export const AgentContext = z.object({
+  repo_id: z.string().uuid(),
+  budget_tokens: z.number().int().nonnegative(),
+  attached: z.array(ContextAttachmentRow),
+  inherited: z.array(ContextInheritedRow),
+  total_tokens: z.number().int().nonnegative(),
+  truncated_paths: z.array(z.string()),
+});
+export type AgentContext = z.infer<typeof AgentContext>;
+
+/** `GET|PUT /skills/:id/context` — no inherited rows. */
+export const SkillContext = AgentContext.omit({ inherited: true });
+export type SkillContext = z.infer<typeof SkillContext>;
+
+export const SetContextAttachmentsInput = z
+  .object({
+    repo_id: z.string().uuid(),
+    paths: z.array(z.string().min(1)).max(500),
+  })
+  .superRefine((v, ctx) => {
+    const seen = new Set<string>();
+    v.paths.forEach((p, i) => {
+      if (seen.has(p)) ctx.addIssue({ code: 'custom', message: 'duplicate path', path: ['paths', i] });
+      seen.add(p);
+    });
+  });
+export type SetContextAttachmentsInput = z.infer<typeof SetContextAttachmentsInput>;
+
+export const ContextQuery = z.object({ repo_id: z.string().uuid() });
+export type ContextQuery = z.infer<typeof ContextQuery>;
+
+export const ContextFileQuery = z.object({ path: z.string().min(1) });
+export type ContextFileQuery = z.infer<typeof ContextFileQuery>;
 
 /** `GET /repos/:id/index-state` — repo-intel (T3 code index) state. Distinct
-    from `IndexStatus` above, which tracks Project Context vectorization. */
+    from the Project Context listing. */
 export const RepoIntelState = z.object({
   status: z.enum(['full', 'partial', 'degraded', 'failed']),
   filesIndexed: z.number().int(),

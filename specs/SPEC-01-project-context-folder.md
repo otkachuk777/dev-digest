@@ -1,6 +1,6 @@
 # Spec: Project Context Folder — attach repository markdown docs to agents and skills
 Spec ID: SPEC-01
-Status: approved
+Status: implemented
 Supersedes: none
 
 ## Problem and user

@@ -1,7 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import type { Container } from '../../platform/container.js';
 import type { PrIntentRecord, Provider, Review, RunTrace, UnifiedDiff } from '@devdigest/shared';
-import { reviewPullRequest, countBlockers, renderIntentBlock } from '@devdigest/reviewer-core';
+import { reviewPullRequest, countBlockers, renderIntentBlock, renderProjectContext } from '@devdigest/reviewer-core';
+import { ContextService, EMPTY_RUN_CONTEXT, type RunContext } from '../context/index.js';
 import { RunLogger } from '../../platform/run-logger.js';
 import * as schema from '../../db/schema.js';
 import type { AgentRow } from '../../db/rows.js';
@@ -195,9 +196,17 @@ export class ReviewRunExecutor {
     // assembled. A trace is what you read when a run failed; one that says the
     // prompt had no skills when it did sends you looking in the wrong place.
     let skills: string[] = [];
+    // Same for the project-context docs: resolved FIRST (before the provider) so
+    // even a keyless/early failure has them to persist (AC-41).
+    let context: RunContext = EMPTY_RUN_CONTEXT;
     const intentBlock = intentRecord ? renderIntentBlock(intentRecord) : undefined;
 
     try {
+      context = await new ContextService(this.container).resolveForRun(workspaceId, agent, repo, runLog);
+      if (context.docs.length > 0) {
+        runLog.info(`project context: ${context.docs.length} doc(s), ~${context.summary.tokens} token(s)`);
+      }
+
       // Resolve the agent's LLM provider. (container.llm throws if the provider
       // key is missing — caught below and persisted as a failed run.)
       const llm = await runLog.step(
@@ -252,6 +261,8 @@ export class ReviewRunExecutor {
         ...(repoMap ? { repoMap } : {}),
         // L5 — linked skill bodies, same omit-when-empty contract.
         ...(skills.length ? { skills } : {}),
+        // Attached repo docs (untrusted, budgeted) → `## Project context`.
+        ...(context.docs.length ? { specs: context.docs } : {}),
         // PR author's description/body — untrusted; assemblePrompt wraps +
         // truncates it. Omitted when the PR has no body.
         ...(pull.body ? { prDescription: pull.body } : {}),
@@ -272,6 +283,7 @@ export class ReviewRunExecutor {
             sections,
             countTokens: (t) => this.container.tokenizer.count(t),
             verbose: this.container.config.promptLogVerbose,
+            ...(context.trace.length ? { projectContext: context.summary } : {}),
           });
           runLog.record('prompt.assembled', { ...rec });
           if (index === 0) runLog.info(promptSummaryLine(rec) + (count > 1 ? ` (chunk 1/${count}; per-chunk records in server log)` : ''));
@@ -338,7 +350,8 @@ export class ReviewRunExecutor {
         })),
         raw_output: outcome.raw,
         memory_pulled: [],
-        specs_read: [],
+        specs_read: context.specsRead,
+        ...(context.trace.length ? { context_docs: context.trace } : {}),
         // Persisted log = the run's FULL event buffer (incl. shared pre-work:
         // diff load + intent), not just events recorded inside this method.
         log: runLog.logFor(runId),
@@ -371,7 +384,7 @@ export class ReviewRunExecutor {
       await this.repo
         .saveRunTrace(
           runId,
-          this.traceFromBuffer(runId, pull, agent, '0/0 passed', Date.now() - start, skills, intentBlock),
+          this.traceFromBuffer(runId, pull, agent, '0/0 passed', Date.now() - start, skills, intentBlock, context),
         )
         .catch(() => undefined);
       await this.repo
@@ -513,6 +526,7 @@ export class ReviewRunExecutor {
     durationMs = 0,
     skills: string[] = [],
     intent?: string,
+    context: RunContext = EMPTY_RUN_CONTEXT,
   ): RunTrace {
     return {
       config: {
@@ -528,14 +542,15 @@ export class ReviewRunExecutor {
         system: agent.systemPrompt,
         skills: skills.length > 0 ? skills.join('\n\n') : null,
         memory: null,
-        specs: null,
+        specs: renderProjectContext(context.docs) ?? null,
         intent: intent ?? null,
         user: '',
       },
       tool_calls: [],
       raw_output: '',
       memory_pulled: [],
-      specs_read: [],
+      specs_read: context.specsRead,
+      ...(context.trace.length ? { context_docs: context.trace } : {}),
       log: this.container.runBus.buffer(runId).map((e) => ({ t: e.t, kind: e.kind, msg: e.msg })),
     };
   }
