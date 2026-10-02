@@ -3,6 +3,9 @@
 #
 #   pushed-delta.sh <skip-glob>...     (shell `case` globs, `*` matches `/`)
 #
+#   e2e-web.yml:             pushed-delta.sh '*.md' 'server/test/*' 'client/*.test.ts' 'client/*.test.tsx'
+#   server-unit.yml, server-integration.yml:  pushed-delta.sh '*.md'
+#
 # `paths` on pull_request matches the WHOLE PR diff (base...head), so once a PR
 # touches a suite's paths, every later push re-runs it — even a push that only
 # edits markdown. On `synchronize` this diffs just the pushed delta and writes
