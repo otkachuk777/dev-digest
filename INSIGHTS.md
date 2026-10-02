@@ -111,6 +111,11 @@ The plan's parallel layout, one worktree per group, also failed. Implementers sp
 
 **Rule:** in an isolated session, call `/usr/bin/git` directly, one git command per Bash call, and pass the commit message with `-F <scratchpad file>`. Tell every agent prompt the same. Run parallel groups with disjoint modules in the session's own worktree and commit each with explicit paths. Per-agent worktrees branched from the session would need `worktree.baseRef: "head"` and implementers that commit; that design was discussed and not adopted yet (`docs/workflow-retros/2026-10-02+spec-01.md` P1/P2).
 
+> **2026-10-02 correction:** use `/opt/homebrew/bin/git`, not `/usr/bin/git`.
+> - `/usr/bin/git` is Apple git (Xcode). Its credential helper is a different `git-credential-osxkeychain` binary from the Homebrew one that created the GitHub Keychain item.
+> - So macOS asked for Keychain access on every push or fetch.
+> - The Homebrew absolute path is not rewritten by RTK either, and the isolation guard accepts it (verified with `status` and `commit` in the isolated worktree).
+
 ## Recurring Errors & Fixes
 
 _No entries yet._
