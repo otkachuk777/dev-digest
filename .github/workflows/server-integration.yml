@@ -17,11 +17,13 @@ on:
     paths:
       - 'server/**'
       - '.github/workflows/server-integration.yml'
+      - '.github/scripts/pushed-delta.sh'
       - '!**/*.md'
   pull_request:
     paths:
       - 'server/**'
       - '.github/workflows/server-integration.yml'
+      - '.github/scripts/pushed-delta.sh'
       - '!**/*.md'
 
 permissions:
@@ -41,22 +43,38 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Skip the steps below when this push only changes files the negated
+      # `paths` above exclude; see .github/scripts/pushed-delta.sh.
+      - name: Check pushed delta
+        id: delta
+        working-directory: .
+        env:
+          EVENT: ${{ github.event_name }}
+          ACTION: ${{ github.event.action }}
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.event.pull_request.head.sha }}
+        run: .github/scripts/pushed-delta.sh '*.md'
+
       - uses: pnpm/action-setup@v4
+        if: steps.delta.outputs.run == 'true'
         with:
           version: 10
 
       - uses: actions/setup-node@v4
+        if: steps.delta.outputs.run == 'true'
         with:
           node-version: 22
           cache: pnpm
           cache-dependency-path: server/pnpm-lock.yaml
 
       - run: pnpm install --frozen-lockfile
+        if: steps.delta.outputs.run == 'true'
 
       # Integration tests load server src, which imports @devdigest/reviewer-core
       # (../reviewer-core/src) → which imports `openai`/`zod`. Install reviewer-core's
       # deps so those resolve at module load. reviewer-core uses npm (see reviewer-core.yml).
       - name: Install reviewer-core deps
+        if: steps.delta.outputs.run == 'true'
         working-directory: reviewer-core
         run: npm ci
 
@@ -66,3 +84,4 @@ jobs:
       # vitest's config gives these a 120s timeout for container spin-up; no API
       # keys needed — LLM/git are mocked.
       - run: pnpm exec vitest run .it.test
+        if: steps.delta.outputs.run == 'true'
