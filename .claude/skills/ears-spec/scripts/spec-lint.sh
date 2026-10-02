@@ -45,8 +45,13 @@ if not any(re.fullmatch(r"Status: (draft|approved|implemented)", l.strip()) for 
 if not any(l.startswith("Supersedes:") for l in head): err(4, "missing 'Supersedes:' line (use 'none')")
 
 if root and num:
-    for other in pathlib.Path(root).glob("**/specs/SPEC-*.md"):
-        if "node_modules" in other.parts or other.resolve() == path.resolve(): continue
+    rootp = pathlib.Path(root)
+    def foreign(other):  # node_modules, .claude/worktrees or any nested git checkout (has its own .git)
+        parts = other.relative_to(rootp).parts
+        return ("node_modules" in parts or parts[:2] == (".claude", "worktrees")
+                or any((rootp.joinpath(*parts[:k]) / ".git").exists() for k in range(1, len(parts) - 1)))
+    for other in rootp.glob("**/specs/SPEC-*.md"):
+        if other.resolve() == path.resolve() or foreign(other): continue
         if other.name.startswith(f"SPEC-{num}-") or f"Spec ID: SPEC-{num}\n" in other.read_text(encoding="utf-8") + "\n":
             err(2, f"SPEC-{num} is already used by {other.relative_to(root)}")
 

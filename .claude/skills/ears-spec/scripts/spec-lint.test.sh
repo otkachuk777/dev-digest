@@ -93,4 +93,10 @@ printf 'Spec ID: SPEC-97\n' > "$TMP/specs/SPEC-97-other.md"
 check "Spec ID already used"         fail "SPEC-97 is already used"            -
 rm "$TMP/specs/SPEC-97-other.md"
 
+mkdir -p "$TMP/.claude/worktrees/wt/specs" "$TMP/sub/specs" "$TMP/node_modules/x/specs"
+printf 'Spec ID: SPEC-97\n' > "$TMP/.claude/worktrees/wt/specs/SPEC-97-copy.md"
+printf 'Spec ID: SPEC-97\n' > "$TMP/sub/specs/SPEC-97-copy.md"; printf 'gitdir: x\n' > "$TMP/sub/.git"
+printf 'Spec ID: SPEC-97\n' > "$TMP/node_modules/x/specs/SPEC-97-copy.md"
+check "duplicate in worktree/nested checkout/node_modules ignored" ok - -
+
 exit $FAIL
