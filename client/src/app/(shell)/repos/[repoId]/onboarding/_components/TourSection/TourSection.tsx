@@ -1,14 +1,26 @@
 "use client";
 
 import React from "react";
-import { body, header, section } from "./styles";
+import { Icon, type IconName } from "@devdigest/ui";
+import { body, chevron, header, heading, section, tile, title as titleStyle } from "./styles";
 
 /** Collapsible section; expanded on mount. The header button carries `id` so the TOC can focus it. */
-export function TourSection({ id, title, children }: { id: string; title: string; children: React.ReactNode }) {
+export function TourSection({
+  id,
+  title,
+  icon,
+  children,
+}: {
+  id: string;
+  title: string;
+  icon: IconName;
+  children: React.ReactNode;
+}) {
   const [open, setOpen] = React.useState(true);
+  const Ico = Icon[icon];
   return (
     <section style={section}>
-      <h2 style={{ margin: 0 }}>
+      <h2 style={heading}>
         <button
           type="button"
           id={id}
@@ -17,8 +29,11 @@ export function TourSection({ id, title, children }: { id: string; title: string
           onClick={() => setOpen((o) => !o)}
           style={header}
         >
-          <span aria-hidden="true">{open ? "▾" : "▸"}</span>
-          {title}
+          <span style={tile} aria-hidden="true">
+            <Ico size={15} />
+          </span>
+          <span style={titleStyle}>{title}</span>
+          <Icon.ChevronDown size={16} style={chevron(open)} aria-hidden="true" />
         </button>
       </h2>
       <div id={`${id}-body`} hidden={!open} style={body}>

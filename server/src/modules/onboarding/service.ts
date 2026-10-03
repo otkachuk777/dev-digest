@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs';
+import { existsSync, statSync } from 'node:fs';
 import { stat } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import {
@@ -164,12 +164,13 @@ export class OnboardingService {
       if (remaining <= 0) failure = 'timeout';
       else {
         let timer: ReturnType<typeof setTimeout> | undefined;
+        let res: { data: TourLlmOutput; tokensIn: number; tokensOut: number; costUsd?: number | null } | null = null;
         try {
           const system = await loadPromptTemplate('onboarding.system.md');
           const { messages } = buildPrompt(facts, sections, system, container.tokenizer);
           const llm = await container.llmNoRetry(choice.provider, remaining + SDK_GRACE_MS);
           m.llm_calls = 1;
-          const res = await Promise.race([
+          res = await Promise.race([
             llm.completeStructured({
               model: choice.model,
               schema: TourLlmOutput,
@@ -184,10 +185,23 @@ export class OnboardingService {
               timer = setTimeout(() => rej(new TimeoutError(remaining)), remaining);
             }),
           ]);
-          const grounded = groundOutput(res.data, sections, facts, (p) => {
+        } catch (err) {
+          failure = classifyLlmError(err); // only provider call + schema parse land here
+        } finally {
+          clearTimeout(timer);
+        }
+        if (res) {
+          // grounding / persistence errors propagate (logged as `failed`), not LLM failures
+          const scopeExists = (p: string) => {
             const f = join(root, p);
-            return existsSync(f) || existsSync(dirname(f));
-          });
+            if (existsSync(f)) return true;
+            try {
+              return statSync(dirname(f)).isDirectory();
+            } catch {
+              return false;
+            }
+          };
+          const grounded = groundOutput(res.data, sections, facts, scopeExists);
           m.tokens_in = res.tokensIn;
           m.tokens_out = res.tokensOut;
           m.cost_usd = res.costUsd == null ? null : round6(res.costUsd);
@@ -207,11 +221,6 @@ export class OnboardingService {
           };
           await persist(tour);
           return { tour, failed_attempt: null };
-        } catch (err) {
-          if (err instanceof AppError && err.code === 'not_found') throw err;
-          failure = classifyLlmError(err);
-        } finally {
-          clearTimeout(timer);
         }
       }
 
@@ -232,7 +241,7 @@ export class OnboardingService {
       const stored = await this.repo.getTour(workspaceId, repoId);
       const prev = stored ? Onboarding.safeParse(stored.json) : null;
       if (prev?.success && prev.data.status !== 'skeleton') {
-        return { tour: prev.data, failed_attempt: { reason: failure, skeleton } }; // AC-44: keep the good tour
+        return { tour: prev.data, failed_attempt: { reason: failure ?? 'provider_error', skeleton } }; // AC-44: keep the good tour
       }
       await persist(skeleton);
       return { tour: skeleton, failed_attempt: null };

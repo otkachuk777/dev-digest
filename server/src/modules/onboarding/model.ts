@@ -4,7 +4,7 @@ import type {
   OnboardingStatus,
 } from '@devdigest/shared';
 import { isJunkPath, type RepoFacts } from '../repo-intel/index.js';
-import { CHAIN_MAX, CRITICAL_MAX, CRITICAL_ROOTS, GENERATED_PATH_PATTERNS, HOW_TO_RUN_MAX, READING_PATH_MAX } from './constants.js';
+import { CHAIN_MAX, CRITICAL_MAX, CRITICAL_ROOTS, GENERATED_PATH_PATTERNS, HOW_TO_RUN_MAX, READING_ENTRY_MAX, READING_PATH_MAX } from './constants.js';
 
 export type ReadingPathItem = Onboarding['reading_path'][number];
 export type CriticalPathItem = Onboarding['critical_paths'][number];
@@ -52,6 +52,60 @@ function fallbackPaths(facts: RepoFacts, max: number): string[] {
   return [...new Set(all)].filter((p) => !excluded(p)).slice(0, max);
 }
 
+/**
+ * AC-63 entry points: ranked graph roots (a ranked importee, no ranked importer) plus manifest entries
+ * that are ranked, ordered reach desc, rank desc, path asc. Pure; reach is memoised per file
+ * (O(R*(V+E)) for R candidates, NFR-2).
+ */
+function graphView(facts: RepoFacts, hotness: Record<string, number>) {
+  const ranked = rankFiles(facts, hotness).filter((f) => !excluded(f.path));
+  const order = new Map(ranked.map((f, i) => [f.path, i]));
+  const imports = new Map<string, string[]>();
+  const importedByRanked = new Set<string>();
+  for (const e of facts.graph.edges) {
+    if (e.from === e.to) continue;
+    const l = imports.get(e.from);
+    if (l) l.push(e.to);
+    else imports.set(e.from, [e.to]);
+    if (order.has(e.from) && order.has(e.to)) importedByRanked.add(e.to);
+  }
+  const memo = new Map<string, number>();
+  const reach = (path: string): number => {
+    const hit = memo.get(path);
+    if (hit !== undefined) return hit;
+    const seen = new Set([path]);
+    const stack = [path];
+    let n = 0;
+    while (stack.length) {
+      for (const to of imports.get(stack.pop()!) ?? []) {
+        if (seen.has(to)) continue;
+        seen.add(to);
+        stack.push(to);
+        if (order.has(to)) n++;
+      }
+    }
+    memo.set(path, n);
+    return n;
+  };
+  const roots = ranked
+    .map((f) => f.path)
+    .filter((p) => !importedByRanked.has(p) && (imports.get(p) ?? []).some((t) => order.has(t)));
+  const entries = [...new Set([...roots, ...facts.entryPoints.filter((p) => order.has(p))])].sort(
+    (a, b) => reach(b) - reach(a) || order.get(a)! - order.get(b)!,
+  );
+  const entrySet = new Set(entries);
+  return {
+    ranked,
+    order,
+    imports,
+    reach,
+    entries,
+    isEntry: (p: string) => entrySet.has(p),
+    entryReason: (p: string) => `Entry point · reaches ${reach(p)} indexed files`,
+  };
+}
+
+/** AC-28/AC-63: up to READING_ENTRY_MAX entry points first, then the other ranked files. */
 export function selectReadingPath(
   facts: RepoFacts,
   hotness: Record<string, number>,
@@ -64,36 +118,53 @@ export function selectReadingPath(
       hotness: 0,
     }));
   }
-  return rankFiles(facts, hotness)
-    .filter((f) => !excluded(f.path))
+  const g = graphView(facts, hotness);
+  const head = new Set(g.entries.slice(0, READING_ENTRY_MAX));
+  const byPath = new Map(g.ranked.map((f) => [f.path, f]));
+  return [...[...head].map((p) => byPath.get(p)!), ...g.ranked.filter((f) => !head.has(f.path))]
     .slice(0, READING_PATH_MAX)
-    .map((f) => ({ path: f.path, reason: `Rank percentile ${f.percentile}`, rank: f.rank, hotness: f.hotness }));
+    .map((f) => ({
+      path: f.path,
+      reason: g.isEntry(f.path) ? g.entryReason(f.path) : `Rank percentile ${f.percentile}`,
+      rank: f.rank,
+      hotness: f.hotness,
+    }));
 }
 
+/** AC-30/AC-63: chains start at entry points, then top-ranked files; each step follows the highest reach. */
 export function selectCriticalPaths(
   facts: RepoFacts,
   hotness: Record<string, number>,
 ): CriticalPathItem[] {
   const importedBy = new Map(facts.graph.files.map((f) => [f.path, f.importedBy]));
-  const reason = (path: string) => `Imported by ${importedBy.get(path) ?? 0} indexed files`;
   if (facts.graph.edges.length === 0) {
-    return fallbackPaths(facts, CRITICAL_MAX).map((path) => ({ path, reason: reason(path) }));
+    return fallbackPaths(facts, CRITICAL_MAX).map((path) => ({
+      path,
+      reason: `Imported by ${importedBy.get(path) ?? 0} indexed files`,
+    }));
   }
-  const ranked = rankFiles(facts, hotness).filter((f) => !excluded(f.path));
-  const order = new Map(ranked.map((f, i) => [f.path, i]));
+  const g = graphView(facts, hotness);
+  const starts = g.entries.slice(0, CRITICAL_ROOTS);
+  for (const f of g.ranked) {
+    if (starts.length >= CRITICAL_ROOTS) break;
+    if (!starts.includes(f.path)) starts.push(f.path);
+  }
   const out = new Set<string>();
-  for (const root of ranked.slice(0, CRITICAL_ROOTS)) {
-    const chain = [root.path];
+  for (const start of starts) {
+    const chain = [start];
     while (chain.length < CHAIN_MAX) {
-      const next = facts.graph.edges
-        .filter((e) => e.from === chain[chain.length - 1] && order.has(e.to) && !chain.includes(e.to))
-        .sort((a, b) => order.get(a.to)! - order.get(b.to)!)[0];
+      const next = (g.imports.get(chain[chain.length - 1]!) ?? [])
+        .filter((to) => g.order.has(to) && !chain.includes(to))
+        .sort((a, b) => g.reach(b) - g.reach(a) || g.order.get(a)! - g.order.get(b)!)[0];
       if (!next) break;
-      chain.push(next.to);
+      chain.push(next);
     }
     chain.forEach((p) => out.add(p));
   }
-  return [...out].slice(0, CRITICAL_MAX).map((path) => ({ path, reason: reason(path) }));
+  return [...out].slice(0, CRITICAL_MAX).map((path) => ({
+    path,
+    reason: g.isEntry(path) ? g.entryReason(path) : `Imported by ${importedBy.get(path) ?? 0} indexed files`,
+  }));
 }
 
 /** Fixed order: index_partial|index_degraded, graph_unavailable, hotness_unavailable, files_bounded. */

@@ -134,7 +134,27 @@ describe('AI contracts parse fixtures', () => {
     ).not.toThrow();
     expect(() =>
       Onboarding.parse({
-        sections: [{ kind: 'architecture', title: 'T', body: 'b', links: [] }],
+        repo_full_name: 'o/r',
+        commit_sha: 'abc',
+        generated_at: '2026-10-02T00:00:00.000Z',
+        status: 'skeleton',
+        skeleton_reason: 'no_api_key',
+        notes: [],
+        files_total: 0,
+        files_indexed: 0,
+        provider: 'openrouter',
+        model: 'm',
+        llm_calls: 0,
+        tokens_in: 0,
+        tokens_out: 0,
+        cost_usd: null,
+        duration_ms: 1,
+        dropped_items: 0,
+        architecture: { body: 'b', diagram: null },
+        critical_paths: [],
+        how_to_run: [],
+        reading_path: [],
+        first_tasks: [],
       }),
     ).not.toThrow();
     expect(() =>

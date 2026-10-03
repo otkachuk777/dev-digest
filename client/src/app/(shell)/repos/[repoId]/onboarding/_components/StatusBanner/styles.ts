@@ -1,13 +1,11 @@
 import type { CSSProperties } from "react";
 
+/** A subtle muted line — the tour itself is the star of the page. */
 export const banner: CSSProperties = {
-  background: "var(--bg-elevated)",
-  border: "1px solid var(--border)",
-  borderRadius: 8,
-  color: "var(--text-primary)",
-  padding: "8px 12px",
-  fontSize: 13,
+  color: "var(--text-muted)",
+  fontSize: 12,
   display: "flex",
   flexDirection: "column",
-  gap: 4,
+  gap: 2,
+  marginBottom: 14,
 };

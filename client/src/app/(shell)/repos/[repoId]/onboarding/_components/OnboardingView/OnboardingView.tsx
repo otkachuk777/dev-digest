@@ -14,11 +14,11 @@ import { useActiveRepo } from "@/lib/repo-context";
 import { useToast } from "@/lib/toast";
 import { tourToMarkdown } from "../../_lib/tour";
 import { RepoNotFound } from "../../../_components/RepoNotFound";
-import { StatusBanner } from "../StatusBanner";
-import { useBannerLines } from "../StatusBanner/helpers";
+import { StatusBanner, useBannerLines } from "../StatusBanner";
 import { SECTION_KEYS } from "./constants";
-import { TourBody } from "./TourBody";
+import { TourBody, TourToc } from "./TourBody";
 import { useCopy } from "./useCopy";
+import { b } from "./bodyStyles";
 import { s } from "./styles";
 
 type Failed = NonNullable<OnboardingGenerateResult["failed_attempt"]>;
@@ -108,6 +108,7 @@ export function OnboardingView({ repoId }: { repoId: string }) {
   }
 
   const repoName = activeRepo?.name ?? (tour?.repo_full_name ?? "").split("/").pop() ?? "";
+  const [headPre = "", headPost = ""] = t("heading", { repo: "\u0000" }).split("\u0000");
   const meta = tour
     ? t("meta", {
         total: tour.files_total,
@@ -128,21 +129,26 @@ export function OnboardingView({ repoId }: { repoId: string }) {
     if (await copy(md)) toast.success(t("copiedMarkdown"));
   };
 
-  return (
-    <div style={s.page}>
-      <ShellCrumb items={[{ label: t("heading", { repo: repoName }) }]} />
+  const head = (
+    <>
       <div style={s.header}>
-        <div>
-          <h1 style={s.title}>{t("heading", { repo: repoName })}</h1>
+        <div style={s.headText}>
+          <h1 style={s.title}>
+            {headPre}
+            <span className="mono" style={s.repo}>
+              {repoName}
+            </span>
+            {headPost}
+          </h1>
           {tour && <p style={s.meta}>{meta}</p>}
         </div>
         <div style={s.actions}>
           {stale && <Badge>{t("stale")}</Badge>}
-          <Button kind="secondary" icon="Copy" disabled={gen.isPending || !tour} onClick={copyMarkdown}>
-            {t("copyMarkdown")}
-          </Button>
-          <Button kind="primary" icon="RefreshCw" disabled={gen.isPending} onClick={generate}>
+          <Button kind="ghost" size="sm" icon="RefreshCw" disabled={gen.isPending} onClick={generate}>
             {gen.isPending ? t("generating", { seconds }) : t("regenerate")}
+          </Button>
+          <Button kind="secondary" size="sm" icon="Copy" disabled={gen.isPending || !tour} onClick={copyMarkdown}>
+            {t("copyMarkdown")}
           </Button>
         </div>
       </div>
@@ -164,19 +170,28 @@ export function OnboardingView({ repoId }: { repoId: string }) {
           </Button>
         </div>
       )}
+      {!gen.isPending && tour && <StatusBanner tour={tour} />}
+    </>
+  );
 
-      {gen.isPending || !tour ? (
-        <div style={s.stack}>
-          {SECTION_KEYS.map((k) => (
-            <Skeleton key={k} height={72} />
-          ))}
+  return (
+    <div style={s.page}>
+      <ShellCrumb items={[{ label: tour?.repo_full_name ?? repoName, mono: true }, { label: t("crumb") }]} />
+      <div style={b.layout}>
+        {!gen.isPending && tour && <TourToc />}
+        <div style={b.main}>
+          {head}
+          {gen.isPending || !tour ? (
+            <div style={s.stack}>
+              {SECTION_KEYS.map((k) => (
+                <Skeleton key={k} height={72} />
+              ))}
+            </div>
+          ) : (
+            <TourBody tour={tour} copied={copied} onCopy={(text, key) => void copy(text, key)} />
+          )}
         </div>
-      ) : (
-        <>
-          <StatusBanner tour={tour} />
-          <TourBody tour={tour} copied={copied} onCopy={(text, key) => void copy(text, key)} />
-        </>
-      )}
+      </div>
       <span aria-live="polite" style={s.live}>
         {copied ? t("copied") : ""}
       </span>

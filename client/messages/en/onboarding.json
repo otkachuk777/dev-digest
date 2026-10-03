@@ -1,6 +1,7 @@
 {
   "heading": "Onboarding for {repo}",
   "meta": "Generated from index of {total, plural, one {# file} other {# files}} · {indexed, number} indexed · last refreshed {when}",
+  "crumb": "Onboarding Tour",
   "toc": "On this page",
   "sections": { "architecture": "Architecture overview", "critical": "Critical paths", "run": "How to run locally", "reading": "Guided reading path", "tasks": "First tasks" },
   "empty": {

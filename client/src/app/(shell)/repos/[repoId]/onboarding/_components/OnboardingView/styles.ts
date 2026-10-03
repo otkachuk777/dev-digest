@@ -1,10 +1,12 @@
 import type { CSSProperties } from "react";
 
 export const s = {
-  page: { padding: "20px 28px 40px", maxWidth: 1100, margin: "0 auto" } satisfies CSSProperties,
-  header: { display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, marginBottom: 12 } satisfies CSSProperties,
-  title: { margin: 0, fontSize: 22, fontWeight: 700, letterSpacing: "-0.02em" } satisfies CSSProperties,
-  meta: { margin: "4px 0 0", fontSize: 13, color: "var(--text-muted)" } satisfies CSSProperties,
+  page: { display: "flex", flexDirection: "column", padding: "24px 28px 40px", maxWidth: 1080, margin: "0 auto" } satisfies CSSProperties,
+  header: { display: "flex", alignItems: "flex-start", gap: 12, marginBottom: 20 } satisfies CSSProperties,
+  headText: { flex: 1 } satisfies CSSProperties,
+  title: { margin: 0, fontSize: 24, fontWeight: 700, letterSpacing: "-0.02em" } satisfies CSSProperties,
+  repo: { color: "var(--accent-text)" } satisfies CSSProperties,
+  meta: { margin: "5px 0 0", fontSize: 12.5, color: "var(--text-muted)" } satisfies CSSProperties,
   actions: { display: "flex", alignItems: "center", gap: 8 } satisfies CSSProperties,
   notice: {
     display: "flex",

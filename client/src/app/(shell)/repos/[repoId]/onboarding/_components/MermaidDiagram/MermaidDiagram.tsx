@@ -10,6 +10,27 @@ let seq = 0;
 const MERMAID_RE =
   /^\s*(flowchart|graph|sequenceDiagram|classDiagram|stateDiagram(-v2)?|erDiagram|journey|gantt|pie|mindmap|timeline|gitGraph|quadrantChart|requirementDiagram|C4Context)\b/;
 
+/** Mermaid can't read CSS variables, so resolve the app's current theme to concrete colours. */
+function themeVars() {
+  const css = getComputedStyle(document.documentElement);
+  const v = (name: string, fallback: string) => css.getPropertyValue(name).trim() || fallback;
+  return {
+    background: "transparent",
+    primaryColor: v("--bg-surface", "#141414"),
+    primaryBorderColor: v("--accent", "#3b82f6"),
+    primaryTextColor: v("--text-primary", "#ededed"),
+    lineColor: v("--text-muted", "#6a6a6a"),
+    textColor: v("--text-primary", "#ededed"),
+    secondaryColor: v("--bg-surface", "#141414"),
+    tertiaryColor: v("--bg-surface", "#141414"),
+    clusterBkg: "transparent",
+    clusterBorder: v("--border-strong", "#3a3a3a"),
+    edgeLabelBackground: v("--bg-primary", "#0a0a0a"),
+    fontFamily: "JetBrains Mono, monospace",
+    fontSize: "12px",
+  };
+}
+
 /**
  * Renders a mermaid diagram string to inline SVG. mermaid is imported lazily
  * (client-only). We VALIDATE with mermaid.parse({suppressErrors}) before
@@ -34,7 +55,8 @@ export function MermaidDiagram({ chart, label }: { chart: string; label: string 
         const mermaid = (await import("mermaid")).default;
         mermaid.initialize({
           startOnLoad: false,
-          theme: "dark",
+          theme: "base",
+          themeVariables: themeVars(),
           securityLevel: "strict",
           htmlLabels: false,
           flowchart: { htmlLabels: false },

@@ -32,13 +32,21 @@ Supersedes: none
 - *skeleton*: a tour built from facts only, with no LLM output.
 - *index*, *file rank*, *import graph*: as in `docs/architecture.md` and the repo-intel module.
 - *hotness*: defined in AC-27.
+- *rank*: `PageRank × (1 + hotness)` of an indexed file (AC-28).
+- *ranked file*: an indexed file that is not a test, config, type-declaration, migration or generated file.
+- *reach* of a file: the number of distinct ranked files, other than the file itself, reachable from it by following imports in the import graph.
+- *entry point*: defined in AC-63 — a ranked file that a manifest declares as an entry, or that imports at least one ranked file while no ranked file imports it.
 - *note*: a machine code that explains a degradation (AC-33, AC-34, AC-29, AC-31).
+
+### Amendments
+
+- **2026-10-03 — entry points boosted (AC-28, AC-30, AC-37 changed; AC-63, EC-19 to EC-22 added).** Reason: a review finding, confirmed by a real run on `burnjohn/quick-blog` (React + Express monorepo). Import edges run importer → imported, so PageRank collects on the most-imported leaf utilities. The Guided reading path and the Critical paths started with `client/src/utils/helpers.js`, `client/src/constants/messages.js` and `client/src/assets/assets.js`, and every critical-path chain had one file. `PageRank × (1 + hotness)` stays the core order. Entry points now lead the reading path (at most 3), critical-path chains start at entry points and step to the import that reaches the most files, and entry points get their own deterministic reason. The status went back to `draft` until the user approves the amended text.
 
 ## Goals / Non-goals
 
 **Goals**
 - Generate, store and show one tour per repository with the five sections of design N5, in a fixed order.
-- Collect stack, structure, routes and scripts deterministically through the repo-intel facade. Compute critical paths and the guided reading path from the import graph, ranked by `PageRank × (1 + hotness)`.
+- Collect stack, structure, routes and scripts deterministically through the repo-intel facade. Compute critical paths and the guided reading path from the import graph, ranked by `PageRank × (1 + hotness)`, with the repository's entry points first.
 - Make exactly one structured LLM call per generation. Never retry it, and make zero calls when the generation is rejected.
 - Ground every model output against the facts: files must exist, commands must come from the repository, and task scopes must be real or creatable.
 - Degrade honestly. A partial or missing index, missing history or a failed call produces a tour (or skeleton) whose status banner names every degradation.
@@ -130,19 +138,20 @@ flowchart TD
 - **AC-25:** WHEN a generation starts, the server shall collect the facts through the repo-intel facade from the repository clone at its current commit: stack (languages by file count per extension; the package manager detected from the lockfile; frameworks and libraries from dependency manifests); structure (top-level directories with file counts); routes (HTTP endpoints from the indexed per-file facts); scripts (manifest scripts with the manifest's directory; Makefile targets; docker-compose service names; `.env.example` variable names; shell commands in fenced code blocks of the root README). [verify: unit, it]
 - **AC-26:** The repo-intel facade shall return identical facts for the same repository commit and the same index state. [verify: unit]
 - **AC-27:** WHEN the server ranks files for a generation, the server shall set each indexed file's hotness to the number of commits touching the file among the at most 200 most recent default-branch commits dated within the last 90 days, divided by the highest such count in the repository, or to 0 for every file when that highest count is 0. [verify: unit]
-- **AC-28:** The server shall build the Guided reading path from at most 10 indexed files, ordered by rank `PageRank × (1 + hotness)` descending with ties broken by path ascending, excluding test, config, type-declaration, migration and generated files. [verify: unit]
+- **AC-28:** The server shall build the Guided reading path from at most 10 ranked files: first at most 3 entry points in the order of AC-63, then the remaining ranked files ordered by rank `PageRank × (1 + hotness)` descending with ties broken by path ascending. [verify: unit]
 - **AC-29:** IF the commit history cannot be read within 15 seconds or cannot be fetched at all, THEN the server shall use hotness 0 for every file and add the note `hotness_unavailable`. [verify: unit, it]
-- **AC-30:** The server shall build the Critical paths list from the distinct files of the dependency chains that start at the 5 highest-ranked files, with each chain up to 3 files and each step following the highest-ranked imported file, in chain order, at most 6 files. [verify: unit]
+- **AC-30:** The server shall build the Critical paths list from the distinct files of up to 5 dependency chains, in chain order and at most 6 files. The chains start at the entry points in the order of AC-63; when there are fewer than 5 entry points, the remaining chains start at the highest-ranked files not already used as a start. Each chain has up to 3 files, and each step follows the imported ranked file not yet in the chain with the highest reach, with ties broken by rank descending and then path ascending. [verify: unit]
 - **AC-31:** IF the import graph has no edges for the repository, THEN the server shall add the note `graph_unavailable` and build the Guided reading path (at most 10) and the Critical paths (at most 6) from the fallback order: existing files linked from the root README, then entry points declared in manifests, then root-level files alphabetically. [verify: unit]
 - **AC-32:** The server shall set `files_total` to the number of files in the clone excluding the `.git` directory, and `files_indexed` to the number of files in the repository's index state. [verify: it]
 - **AC-33:** IF the repository's index status is not `full` when generation starts, THEN the server shall add the note `index_partial` for status `partial` or `index_degraded` for status `degraded` or `failed` or a missing index. [verify: unit]
 - **AC-34:** IF the index left source files out because of its file-count limit, THEN the server shall add the note `files_bounded`. [verify: unit]
 - **AC-35:** The server shall send at most one request to the LLM provider per generation, using the workspace's `onboarding` feature model, with no retry and no schema-repair re-request, recording the number of provider requests sent as `llm_calls`. [verify: unit, it]
 - **AC-36:** WHEN the LLM call returns valid output, the server shall take from it only the architecture overview body and optional diagram, one reason per listed critical-path and reading-path file, the ordered how-to-run commands and the first tasks, keeping the file lists and their order from AC-28, AC-30 and AC-31. [verify: unit]
-- **AC-37:** IF the model output has no reason for a listed file, THEN the server shall use the deterministic reason "Imported by {n} indexed files" for a critical path or "Rank percentile {p}" for a reading-path file. [verify: unit]
+- **AC-37:** IF the model output has no reason for a listed file, THEN the server shall use the deterministic reason "Entry point · reaches {n} indexed files" (n = the file's reach) for an entry point in either list, and otherwise "Imported by {n} indexed files" for a critical path or "Rank percentile {p}" for a reading-path file. [verify: unit]
 - **AC-38:** The server shall keep a model-proposed command only when it equals, after whitespace normalisation, a candidate command derived from the facts (the package manager's install command; running each found manifest script with the detected package manager; `make <target>` for each found target; `docker compose up -d` with any subset of the found services; `cp .env.example .env` when that file exists; each README fenced shell command), dropping every other command and counting it in `dropped_items`. [verify: unit]
 - **AC-39:** The server shall keep at most 5 first tasks, each with complexity `Low`, `Medium` or `High` and a scope path that is an existing file or directory in the clone or a new file whose parent directory exists, dropping every other task and counting it in `dropped_items`. [verify: unit]
 - **AC-40:** IF no model-proposed command survives grounding, THEN the server shall use the deterministic command list of AC-42 for How to run locally. [verify: unit]
+- **AC-63:** WHEN the server ranks files for a generation, the server shall treat these ranked files as entry points: each one that a manifest declares as an entry (`main`, `module` or `bin`), and each one that imports at least one ranked file while no ranked file imports it. Entry points are ordered by reach descending, then rank descending, then path ascending. [verify: unit]
 
 ### US-3 — Honest status and skeleton
 
@@ -198,7 +207,7 @@ flowchart TD
 | US-1 | AC-4, AC-5, AC-6, AC-7, AC-8, AC-9, AC-10, AC-11, AC-12, AC-13, AC-14, AC-62 | EC-3, EC-4, EC-9, EC-17 | NFR-6, NFR-7, NFR-8, NFR-9 | unit, e2e |
 | US-2 | AC-15, AC-16, AC-17, AC-18, AC-19, AC-20, AC-21, AC-22, AC-23, AC-24 | EC-1, EC-2, EC-6 | NFR-1, NFR-9 | unit, it, e2e |
 | US-3 | AC-41, AC-42, AC-43, AC-44, AC-45, AC-46, AC-47, AC-48, AC-49 | EC-10, EC-11, EC-16 | NFR-1, NFR-10 | unit, it |
-| US-4 | AC-25, AC-26, AC-27, AC-28, AC-29, AC-30, AC-31, AC-32, AC-33, AC-34, AC-35, AC-36, AC-37, AC-38, AC-39, AC-40, AC-59, AC-60, AC-61 | EC-4, EC-5, EC-7, EC-8, EC-12, EC-13, EC-15 | NFR-2, NFR-3, NFR-4, NFR-8 | unit, it |
+| US-4 | AC-25, AC-26, AC-27, AC-28, AC-29, AC-30, AC-31, AC-32, AC-33, AC-34, AC-35, AC-36, AC-37, AC-38, AC-39, AC-40, AC-59, AC-60, AC-61, AC-63 | EC-4, EC-5, EC-7, EC-8, EC-12, EC-13, EC-15, EC-19, EC-20, EC-21, EC-22 | NFR-2, NFR-3, NFR-4, NFR-8 | unit, it |
 | US-5 | AC-50, AC-51, AC-52, AC-53, AC-54, AC-55 | EC-14, EC-18 | NFR-6, NFR-7 | unit |
 | US-6 | AC-56, AC-57, AC-58 | — | NFR-4, NFR-5 | it, manual |
 | US-7 | AC-1, AC-2, AC-3 | — | NFR-7 | unit |
@@ -223,6 +232,10 @@ flowchart TD
 - **EC-16:** No index row exists for the repository → notes `index_degraded` and `graph_unavailable`, with the fallback order (AC-33, AC-31).
 - **EC-17:** The tour read endpoint is called for a repository outside the caller's workspace → 404 `not_found`, and the client shows the existing repo-not-found state (AC-4).
 - **EC-18:** The browser blocks clipboard access → error toast (AC-54).
+- **EC-19:** The import graph has edges but no entry point exists. For example, no manifest entry is indexed and every root of the graph is a test or config file. → The Guided reading path is ordered by rank only, and all 5 chains start at the highest-ranked files. No note is added (AC-63, AC-28, AC-30).
+- **EC-20:** A monorepo with more than 3 entry points (reading path) or more than 5 (chains) → entry points are ordered by reach across the whole repository with no share per package, so entry points of smaller packages may not appear (AC-63, AC-28, AC-30). In `burnjohn/quick-blog` at commit `19e7c3c`, the entry points by reach are `client/src/main.jsx`, `server/server.js`, `server/src/app.js` and `server/scripts/seed.js`. The reading path starts with the first three. The critical paths are `client/src/main.jsx`, `client/src/App.jsx`, `client/src/pages/public/index.js`, `server/server.js`, `server/src/routes/blogRoutes.js` and `server/src/controllers/blogController.js`.
+- **EC-21:** An import cycle, or a file that is both a manifest entry and a graph root, or that appears both as an entry point and among the top-ranked files → reach counts each file once, a chain never repeats a file, and each list shows a file at most once (AC-63, AC-30, AC-28).
+- **EC-22:** The index left out the only files that import some file (`files_bounded` or `index_partial`) → that file can count as an entry point. The banner already names the degradation (AC-34, AC-33, AC-63).
 
 ## Non-functional requirements
 

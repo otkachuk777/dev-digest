@@ -36,8 +36,8 @@ Chunks are **not** committed individually; in the matrix every task's commit is 
 ## Requirements
 - Source: `specs/SPEC-02-onboarding-generator.md` (Status: approved; `spec-lint.sh` → OK).
 - Items:
-  - AC-1…AC-62
-  - EC-1…EC-18
+  - AC-1…AC-63 (AC-63 added by the 2026-10-03 amendment)
+  - EC-1…EC-22 (EC-19…EC-22 added by the 2026-10-03 amendment)
   - NFR-1…NFR-10
 - Items are referenced by ID only. Their text is not rewritten here.
 
@@ -713,7 +713,7 @@ Unmapped skills: none.
 |---|---|---|
 | `repo-intel-facts.test.ts` (temp-dir clone, `RepoIntelService` with patched `repo` as in `repo-intel-facade-degraded.test.ts`) | unit | AC-25, AC-26, AC-32 (files_total), AC-34 (`filesBounded`), AC-60 (env values absent from facts), EC-4, EC-5, EC-6, EC-16 |
 | `repo-intel-hotness.test.ts` (`MockGitClient.commitPaths`) | unit | AC-27, AC-29, EC-12, EC-13 |
-| `onboarding-model.test.ts` | unit | AC-28, AC-30, AC-31, AC-33, AC-34, AC-37, AC-42, AC-47, EC-4, EC-16 |
+| `onboarding-model.test.ts` | unit | AC-28, AC-30, AC-31, AC-33, AC-34, AC-37, AC-42, AC-47, AC-63, EC-4, EC-16, EC-19, EC-20, EC-21, EC-22, NFR-2 (guard T10); entry-point tests per Fix plan addendum F1 |
 | `onboarding-grounding.test.ts` | unit | AC-36, AC-37, AC-38, AC-39, AC-40, AC-61, EC-8, EC-9, EC-15, NFR-8 (incl. max-size tour serialises ≤ 256 KB) |
 | `onboarding-prompt.test.ts` | unit | AC-59, AC-60, NFR-3, EC-7, AC-41 (`classifyLlmError` mapping) |
 | `llm-no-retry.test.ts` (localhost HTTP stub) | unit | AC-35, NFR-4 |
@@ -771,9 +771,11 @@ Unmapped skills: none.
 | AC-17, AC-19, AC-20, AC-22, AC-24, AC-43, AC-44, AC-49, AC-56, AC-57 | S6 | onboarding.it |
 | AC-25, AC-26, AC-32 | S1 (+S6) | repo-intel-facts, onboarding.it |
 | AC-27, AC-29 | S2 (+S6) | repo-intel-hotness, onboarding.it |
-| AC-28, AC-30, AC-31, AC-33, AC-34, AC-42, AC-47 | S3 | onboarding-model |
+| AC-28, AC-30 | S3, F1, F2 | onboarding-model (F1: updated tests 1–3, T1, T3–T5, T9) |
+| AC-31, AC-33, AC-34, AC-42, AC-47 | S3 | onboarding-model |
+| AC-63 | F1, F2 | onboarding-model (T1, T2, T9) |
 | AC-36…AC-40, AC-61 | S4 | onboarding-grounding |
-| AC-37 | S3, S4 | onboarding-model, onboarding-grounding |
+| AC-37 | S3, S4, F1, F2 | onboarding-model (updated test 1, T6), onboarding-grounding |
 | AC-41 | S4, S6 | onboarding-prompt, onboarding.it |
 | AC-35 | S5, S6 | llm-no-retry, onboarding.it |
 | AC-59, AC-60 | S1, S4 | onboarding-prompt, repo-intel-facts |
@@ -792,15 +794,19 @@ Unmapped skills: none.
 | EC-16 | S1, S3 | facts, model |
 | EC-17 | S6, C3 | it, OnboardingView |
 | EC-18 | C4 | OnboardingView |
+| EC-19 | F1, F2 | onboarding-model (T7) |
+| EC-20 | F1, F2 | onboarding-model (T5b, T9) |
+| EC-21 | F1, F2 | onboarding-model (T5a, T8) |
+| EC-22 | F1, F2 | onboarding-model (T2) |
 | NFR-1, NFR-5, NFR-9, NFR-10 | S6 | it |
-| NFR-2 | S1, S2, S6 | it + manual |
+| NFR-2 | S1, S2, S6, F2 | it + manual; onboarding-model T10 (reach-walk guard) |
 | NFR-3 | S4 | prompt |
 | NFR-4 | S5, S6 | llm-no-retry, it |
 | NFR-6 | C2, C3, C4 | unit + manual |
 | NFR-7 | 0.3, C2, C3 (D2) | OnboardingView |
 | NFR-8 | 0.1, S4 | grounding, contracts |
 
-Every AC-1…62, EC-1…18 and NFR-1…10 is covered. The only manual-only item is AC-58.
+Every AC-1…63, EC-1…22 and NFR-1…10 is covered. The only manual-only item is AC-58.
 
 ## Cross-model review
 Gemini 3.1 Pro, verdict APPROVE WITH CHANGES. Findings and resolutions:
@@ -834,3 +840,312 @@ Gemini 3.1 Pro, verdict APPROVE WITH CHANGES. Findings and resolutions:
 - **That the hermetic stack resolves `/repos/<seeded id>/onboarding` via the sidebar click** (the e2e runner was not run during planning).
 - **That `readdir({ recursive: true })` on Node 22.16 skips nothing hidden** (expected to include dotfiles). `files_total` excludes `.git` explicitly.
 - **The design N5 visual** in `docs/designs/DevDigest_Design.html` (1.7 MB) was not opened. Implementers grep it for layout cues; the spec text is authoritative.
+
+## Fix plan addendum — entry points (2026-10-03)
+
+### Context
+- A review finding was confirmed by a real run on `burnjohn/quick-blog`. PageRank collects on the most-imported leaf utilities. So the reading path and the critical-path roots were leaf files, and every critical-path chain had one file.
+- The spec amendment is approved and committed at `242ff3b` (`specs/SPEC-02-onboarding-generator.md` § Amendments). It changes AC-28, AC-30 and AC-37, and adds AC-63 and EC-19…EC-22. `spec-lint.sh` → OK. Status: approved.
+- Replan class: the fix contradicts tests in `server/test/onboarding-model.test.ts` and the Change text of Step S3. Only the edges branch of the two Step S3 selectors is re-planned. No other finished step changes.
+
+### Scope of the fix
+- Files: `server/src/modules/onboarding/{model,constants}.ts` (implementer) and `server/test/onboarding-model.test.ts` (test-writer). Nothing else changes.
+- **No contract, client, I/O or repo-intel change.** The wire shapes `{path, reason, rank, hotness}` and `{path, reason}` stay the same. Only the order and the reason text change.
+- `onboarding/helpers.ts` needs no edit. `groundOutput` falls back to the skeleton's reason (`helpers.ts:100-101`), and `buildPrompt` prints the skeleton reasons, so both pick up the new reasons on their own.
+- `onboarding-grounding.test.ts`, `onboarding-prompt.test.ts`, `onboarding-review-fixes.test.ts` and `onboarding.it.test.ts` build their skeletons by hand. They stay unchanged (checked by grep).
+
+### Facts verified
+- `facts.entryPoints` holds only the manifest `main`, `module` and `bin` values, string or object (`repo-intel/helpers.ts:58-63`, `parsePackageJson`).
+  - `exports["."]` is **not** read, although gap 4 of the original plan named it. So the code already matches AC-63.
+  - The values are files that exist in the clone, sorted alphabetically (`repo-intel/facts.ts:104-113`).
+  - They are **not** filtered to indexed files, so the model must intersect them with the ranked files.
+- `facts.graph`:
+  - `edges` holds every `file_edges` row (importer → imported), sorted.
+  - `files` holds the rank rows.
+  - `importedBy` is the in-degree over all edges (`repo-intel/service.ts:695-707`).
+- A *ranked file* (spec glossary) is a file from `rankFiles(...)` that `excluded()` does not drop (`isJunkPath` ∪ `GENERATED_PATH_PATTERNS`, `model.ts:36-37`). The selectors already use this filter.
+
+### Requirements review (fix only)
+**Gaps.** These are planner interpretations, pinned so test-writer and implementer agree. None of them blocks.
+1. **Reach traversal.** The spec says "reachable by following imports in the import graph".
+   - The walk follows **every** edge, including edges through non-ranked files (test, config, unindexed).
+   - It counts only ranked files other than the start file, each file once (EC-21).
+   - It is an iterative walk with a visited `Set`, never recursion.
+2. **Graph root.** A graph root is a ranked file with at least one edge to a *ranked* file and no edge from a *ranked* file.
+   - Importers that are junk, generated or missing from `graph.files` do not count. This covers EC-22.
+   - Self-edges (`f → f`) are ignored on both sides.
+3. **The AC-31 fallback (no edges) is unchanged and has no entry-point reasons.**
+   - AC-63 applies "WHEN the server ranks files", and the fallback does not rank.
+   - Otherwise every manifest entry would read "Entry point · reaches 0 indexed files".
+   - Recommendation for spec-creator: state this in one line.
+4. **Chain-start fill (AC-30).** "Not already used as a start" is read literally.
+   - A file that already appeared *inside* an earlier chain can still start a chain.
+   - The distinct pass then drops its duplicate files.
+5. **AC-37 for an entry point outside the first 3.** Every entry point (the AC-63 set) gets the entry reason in either list. This includes:
+   - an entry point that reaches the reading path through the rank-ordered part;
+   - a manifest entry that appears as a chain step.
+6. **Reason text is literal:** `Entry point · reaches {n} indexed files`.
+   - The separator is U+00B7 (middle dot) with a space on each side.
+   - "1 indexed files" is not pluralised, the same as the existing "Imported by {n} indexed files".
+
+**Conflicts.** None. Step F2 below replaces the old Step S3 Change bullets for `selectReadingPath` (edges branch) and `selectCriticalPaths` (roots and step rule).
+
+**Recommendations.** Gap 3 → spec-creator.
+
+### Decisions
+- **F-D1 Entry points and reach live in `onboarding/model.ts` as a pure, unexported helper.**
+  - No new `RepoFacts` field and no repo-intel change: `graph.files`, `graph.edges` and `entryPoints` are already in `RepoFacts`.
+  - This follows the domain-ring rule (`onion-architecture/tools.md` § Tests per ring: "If a domain function needs a mock to be tested, it isn't domain yet").
+  - The code settles this choice, so no brainstorm was run.
+- **F-D2 No new exported seam.**
+  - Entry points, reach and their order are visible through the existing selectors:
+    - `selectReadingPath`: the first 3 items, and the reach printed in the reason;
+    - `selectCriticalPaths`: the chain starts and steps.
+  - So there is no Skeleton step and no stub. The red tests compile against `HEAD` as it is.
+- **F-D3 NFR-2 budget.**
+  - Reach is memoised per file and computed only for:
+    - entry candidates (ranked roots ∪ manifest entries);
+    - chain-step candidates (≤ 5 chains × 2 steps × out-degree).
+  - Cost is O(R·(V+E)), where R is the number of candidates.
+  - For 5,000 files and about 25k edges, even R = 2,500 gives about 75M visits. That is under 1 s in V8, far inside the 20 s budget.
+  - Test T10 guards it.
+
+### Insights applied
+- `server/INSIGHTS.md:241-245` (cross-module imports via `index.ts`): `model.ts` keeps importing `isJunkPath` / `RepoFacts` from `../repo-intel/index.js`. No new cross-module import.
+- Root `INSIGHTS.md` and `server/INSIGHTS.md` were read. No entry there is about ranking or graph traversal.
+
+### Test seams (signatures unchanged)
+| Seam | Kind | Shape | Pinned by |
+|---|---|---|---|
+| `selectReadingPath(facts: RepoFacts, hotness: Record<string, number>): ReadingPathItem[]` | function, `onboarding/model.ts` | Signature unchanged. With edges: first ≤ `READING_ENTRY_MAX` (3) entry points in AC-63 order, then the other ranked files by rank desc, path asc; ≤ 10 in total. Reason: an entry point gets `Entry point · reaches {reach} indexed files`, any other file `Rank percentile {p}`. Without edges: unchanged (AC-31). | AC-28, AC-37, AC-63, EC-19, EC-20, EC-21, EC-22 |
+| `selectCriticalPaths(facts: RepoFacts, hotness: Record<string, number>): CriticalPathItem[]` | function, `onboarding/model.ts` | Signature unchanged. Starts: the entry points in AC-63 order, cut to 5, then the highest-ranked files not already used as a start, up to 5 starts. Step: the imported ranked file not yet in the chain with the highest reach, then rank desc, then path asc. ≤ 3 files per chain, distinct, ≤ 6 in total. Reason: an entry point gets the entry reason, any other file `Imported by {n} indexed files`. Without edges: unchanged (AC-31). | AC-30, AC-37, AC-63, EC-19, EC-20, EC-21 |
+| `rankFiles`, `tourNotes`, `buildSkeletonSections` | functions | unchanged | AC-28, EC-19 (no note) |
+| `READING_ENTRY_MAX = 3` | constant, `onboarding/constants.ts` | new | AC-28 |
+
+### Steps
+
+#### Step F1 — Tests for the entry-point amendment (test-writer, test-first; chunk F-1)
+- **Covers:** AC-28, AC-30, AC-37, AC-63, EC-19, EC-20, EC-21, EC-22, NFR-2 (guard).
+- **Files:** modify only `server/test/onboarding-model.test.ts`. Build fixtures with the existing `mkFacts`/`gf` from `server/test/helpers/onboarding-facts.ts` and the file's own `edge()` helper.
+- **Skills:** plain domain unit tests with no mocks (`onion-architecture/tools.md` § Tests per ring).
+
+**Contradicted tests.** Update them inside their existing describe blocks.
+1. `selectReadingPath` › `'wire shape {path, reason, rank, hotness} with the deterministic percentile reason'`
+   - Rename to `'wire shape {path, reason, rank, hotness}: entry reason for the entry point, percentile reason otherwise (AC-37)'`.
+   - In that fixture the edge `src/a.ts → src/b.ts` makes `src/a.ts` a graph root with reach 1.
+   - Expect `r[0]` = `{ path: 'src/a.ts', reason: 'Entry point · reaches 1 indexed files', rank: 0.5, hotness: 0 }`.
+   - Expect `r[1]` = `{ path: 'src/b.ts', reason: 'Rank percentile 90', rank: 0.4, hotness: 0 }`.
+2. `'hotness reorders the list'`
+   - Rename to `'hotness reorders the ranked (non-entry) part of the list'`.
+   - New fixture with non-entry files: `gf('src/main.ts', 0.01)`, `gf('src/a.ts', 0.5)`, `gf('src/b.ts', 0.4)`; edges `main→a`, `main→b`.
+   - Without hotness, expect `['src/main.ts','src/a.ts','src/b.ts']`.
+   - With `{ 'src/b.ts': 1 }`, expect `['src/main.ts','src/b.ts','src/a.ts']` and `r[1].hotness === 1`.
+3. `selectCriticalPaths` › `'chains from the 5 top roots, each step the highest-ranked import, <=3 per chain, distinct, <=6'`
+   - Rename only, to `'chains start at entry points a, b (reach 2, 1), then the top-ranked c, d, e; each step the import with the highest reach; <=3 per chain, distinct, <=6'`.
+   - The expectation `['a.ts','f.ts','g.ts','b.ts','c.ts','d.ts']` stays: `a` and `b` are roots, and `c`, `d`, `e` have no edges.
+
+These three tests still hold against the new rules (checked against their fixtures). Leave them unchanged:
+- `'excludes test, config…'`
+- `'is capped at 10'`
+- `'uses the deterministic "Imported by n…"'`
+
+**New tests.**
+- **T1 — AC-63 order** (`selectReadingPath`).
+  - Files (pagerank): `src/main.ts` .01, `src/lib.ts` .5, `src/util.ts` .9, `src/cli.ts` .04, `src/api.ts` .03, `src/srv.ts` .03, `src/job.ts` .02.
+  - Edges: `main→lib`, `main→util`, `lib→cli`, `cli→util`, `api→util`, `srv→util`, `job→util`.
+  - `entryPoints: ['src/cli.ts']`. This entry is manifest-only, because `lib` imports it.
+  - Reach: `main` 3; `cli`, `api`, `srv`, `job` 1 each.
+  - Expect `['src/main.ts','src/cli.ts','src/api.ts','src/util.ts','src/lib.ts','src/srv.ts','src/job.ts']`. This pins:
+    - reach desc;
+    - then rank desc (`cli` at .04 before `api`/`srv` at .03);
+    - then path asc (`api` before `srv`);
+    - and the cap of 3 entry points at the head.
+- **T2 — AC-63 exclusions and EC-22** (`selectReadingPath`).
+  - Never an entry point:
+    - junk roots: `src/main.test.ts → src/x.ts`, `vite.config.ts → src/y.ts`;
+    - a manifest entry that is junk or generated (`dist/app.min.js`);
+    - a manifest entry missing from `graph.files` (`bin/missing.js`);
+    - a ranked file with no ranked imports and no manifest entry.
+  - Always an entry point:
+    - a file imported only by a test: `src/app.test.ts → src/app.ts`, with `src/app.ts → src/x.ts`;
+    - EC-22, a file whose only importer is not indexed: the edge `src/gone.ts → src/orphan.ts` with `src/gone.ts` missing from `graph.files`, and `src/orphan.ts → src/y.ts`.
+  - Expect exactly `src/app.ts` and `src/orphan.ts` to carry the entry reason.
+- **T3 — AC-30: the step follows reach before rank** (`selectCriticalPaths`).
+  - Root `src/main.ts` (.01) imports `src/hi.ts` (.9, reach 0) and `src/deep.ts` (.1, with `deep→x1→x2`).
+  - Expect the chain `main, deep, x1`, not `main, hi`.
+- **T4 — AC-30 step tie-breaks.**
+  - (a) Equal reach → rank desc. `r.ts` imports `o.ts` (.5) and `p.ts` (.3); both import `q.ts`. The step is `o.ts`.
+  - (b) Equal reach and rank → path asc. `s.ts` imports `m.ts` (.3) and `n.ts` (.3); both import `q.ts`. The step is `m.ts`.
+- **T5 — AC-30 fill and cap.**
+  - (a) With 2 entry points, chains 3–5 start at the highest-ranked files not already used as a start. An entry point that is also top-ranked does not start a second chain (EC-21).
+  - (b) With 6 graph roots, only the first 5 in AC-63 order start chains. Assert that the list has ≤ 6 files and that the 6th root is absent (EC-20).
+- **T6 — AC-37 reasons in both lists.**
+  - `selectCriticalPaths`: an entry point has `Entry point · reaches {n} indexed files`; any other file has `Imported by {n} indexed files`.
+  - `selectReadingPath`: entry points outside the first 3 (T1's `src/srv.ts` and `src/job.ts`) still have the entry reason, and `src/util.ts` has `Rank percentile {p}`.
+- **T7 — EC-19.**
+  - Edges come only from junk files: `src/a.test.ts → src/a.ts` and `vitest.config.ts → src/b.ts`. `entryPoints: ['vitest.config.ts']`.
+  - Expect:
+    - the reading path in pure rank order, with percentile reasons;
+    - the 5 chains starting at the 5 highest-ranked files;
+    - `tourNotes(facts, true)` to be `[]` (no new note).
+  - A pure cycle `a → b → a` also has no entry points.
+- **T8 — EC-21.**
+  - Root `z.ts` imports `x.ts`, and `x` and `y` import each other (a cycle).
+  - Expect the reason `Entry point · reaches 2 indexed files` and the chain `z, x, y` with no repeated file.
+  - A file that is both a manifest entry and a graph root appears once in the reading path.
+  - An entry point that is also top-ranked appears once in each list.
+- **T9 — EC-20, synthetic quick-blog fixture** (`hotness {}`).
+  - Files (pagerank):
+    - `client/src/utils/helpers.js` .30
+    - `client/src/constants/messages.js` .25
+    - `client/src/assets/assets.js` .20
+    - `server/src/models/Blog.js` .08
+    - `client/src/App.jsx` .05
+    - `server/src/controllers/blogController.js` .05
+    - `client/src/pages/public/index.js` .04
+    - `server/src/routes/blogRoutes.js` .04
+    - `client/src/pages/public/Home.jsx` .03
+    - `server/src/app.js` .02
+    - `client/src/main.jsx` .01
+    - `server/server.js` .01
+    - `server/scripts/seed.js` .01
+  - Edges:
+    - `main.jsx → App.jsx`
+    - `App.jsx → index.js`, `App.jsx → helpers.js`
+    - `index.js → Home.jsx`
+    - `Home.jsx → helpers.js`, `Home.jsx → messages.js`, `Home.jsx → assets.js`
+    - `server.js → blogRoutes.js`
+    - `blogRoutes.js → blogController.js`
+    - `app.js → blogController.js`
+    - `blogController.js → Blog.js`
+    - `seed.js → Blog.js`
+  - `entryPoints: ['server/src/app.js']`.
+  - Reach: `main.jsx` 6, `server.js` 3, `app.js` 2, `seed.js` 1.
+  - Expected reading path:
+    1. `client/src/main.jsx`
+    2. `server/server.js`
+    3. `server/src/app.js`
+    4. `client/src/utils/helpers.js`
+    5. `client/src/constants/messages.js`
+    6. `client/src/assets/assets.js`
+    7. `server/src/models/Blog.js`
+    8. `client/src/App.jsx`
+    9. `server/src/controllers/blogController.js`
+    10. `client/src/pages/public/index.js`
+  - Expected critical paths, exactly the EC-20 list in the spec:
+    1. `client/src/main.jsx`
+    2. `client/src/App.jsx`
+    3. `client/src/pages/public/index.js`
+    4. `server/server.js`
+    5. `server/src/routes/blogRoutes.js`
+    6. `server/src/controllers/blogController.js`
+- **T10 — NFR-2 guard.**
+  - 5,000 files: 2,500 roots `r####.ts`, each importing `c0000.ts`, and the chain `c0000 → c0001 → … → c2499`.
+  - `selectReadingPath` + `selectCriticalPaths` together take < 2,000 ms (`performance.now()`).
+  - The first reading-path reason is `Entry point · reaches 2500 indexed files`.
+
+**Verify:** run `cd server && pnpm test -- onboarding-model`.
+- **Red against `HEAD`**, failing on a wrong order or reason, never on an import or type error: updated tests 1 and 2, and T1, T2, T3, T5, T6, T8, T9, T10 (T10 fails on its reason assertion).
+- **Green against `HEAD`**: renamed test 3, T4, T7 and every other existing test in the file. These pin behaviour the amendment keeps: the rank tie-breaks and the rank-only order when there is no entry point.
+- `cd server && pnpm typecheck` → green.
+
+**Done when:** the test-writer report shows this red/green split.
+
+#### Step F2 — Entry points, reach and the new selectors (implementer; chunk F-2)
+- **Covers:** AC-28, AC-30, AC-37, AC-63, EC-19, EC-20, EC-21, EC-22, NFR-2.
+- **Files:** modify `server/src/modules/onboarding/model.ts` and `server/src/modules/onboarding/constants.ts`.
+- **Skills:** onion-architecture, domain ring. Code stays pure: no I/O, and no new import besides `../repo-intel/index.js` and `./constants.js` (`onion-architecture/tools.md` § Tests per ring; `onion-architecture/SKILL.md` § Step 2: place it).
+
+**Change in `constants.ts`.** Add `export const READING_ENTRY_MAX = 3;` next to `READING_PATH_MAX`.
+
+**Change in `model.ts`.** Add one **unexported** helper. Both selectors call it, in their edges branch only:
+```ts
+function graphView(facts: RepoFacts, hotness: Record<string, number>): {
+  ranked: RankedFile[];                 // rankFiles minus excluded(), rank desc / path asc
+  order: Map<string, number>;           // path → index in ranked
+  imports: Map<string, string[]>;       // from → [to], all edges, self-edges dropped
+  reach: (path: string) => number;      // memoised; iterative walk over all edges, counts ranked files ≠ path, each once
+  entries: string[];                    // AC-63 order: reach desc, rank desc (order asc), path asc
+  isEntry: (path: string) => boolean;
+}
+```
+- **Roots:** each `p` in `order` that has a ranked target in `imports.get(p)` and is not in `importedByRanked`. `importedByRanked` is the set of `e.to` over the edges where `e.from` and `e.to` are both ranked and `e.from !== e.to`.
+- **Manifest entries:** `facts.entryPoints.filter((p) => order.has(p))`.
+- **`entries`:** the deduped union of roots and manifest entries (EC-21), sorted by `reach(b) - reach(a) || order.get(a)! - order.get(b)!`. `order` already sorts by rank desc, then path asc, so this sort gives the full AC-63 tie-break.
+- **`entryReason`:** `(p) => \`Entry point · reaches ${reach(p)} indexed files\``.
+
+`selectReadingPath`, edges branch:
+- `head = entries.slice(0, READING_ENTRY_MAX)`, then the `ranked` files not in `head`, cut to `READING_PATH_MAX`.
+- Reason: `isEntry(p) ? entryReason(p) : \`Rank percentile ${percentile}\``.
+- `rank` and `hotness` still come from `rankFiles`.
+- The no-edges branch stays unchanged.
+
+`selectCriticalPaths`, edges branch:
+- Starts: `entries.slice(0, CRITICAL_ROOTS)`, topped up from the `ranked` paths not already in the starts, until there are `CRITICAL_ROOTS` starts.
+- Each chain step chooses from `imports.get(tail)`: files in `order` and not yet in the chain, sorted by reach desc, then `order` asc.
+- Each chain has ≤ `CHAIN_MAX` files. The result is distinct and cut to `CRITICAL_MAX`.
+- Reason: `isEntry(p) ? entryReason(p) : \`Imported by ${importedBy} indexed files\``.
+- The no-edges branch stays unchanged.
+
+Also:
+- Update the `rankFiles` and selector doc comments to name AC-63.
+- Add no `ponytail:` comment unless a corner is cut. F-D3 documents the O(R·(V+E)) bound, and T10 guards it.
+
+**Verify:** `cd server && pnpm test -- onboarding-model && pnpm typecheck && pnpm arch && pnpm test` → green. The full unit suite shows that the grounding, prompt and review-fixes tests still pass unchanged.
+
+**Done when:**
+- every F1 test is green;
+- the implementer edited no test file;
+- `pnpm arch` shows no new violation.
+
+### Execution mode and chunks
+- **Mode: single.** There are 2 production files and 1 test file, so parallel buys nothing.
+
+| Group | Chunk | Steps | Owned files | Depends on | Merge order |
+|---|---|---|---|---|---|
+| F | F-1 | F1 (test-writer, test-first) | `server/test/onboarding-model.test.ts` | — | 1 |
+| F | F-2 | F2 (implementer) | `server/src/modules/onboarding/{model,constants}.ts` | F-1 | 2 |
+
+- Both chunks run in the feature worktree.
+- `node_modules` should be there from the original run. If not, run `cd server && pnpm install --frozen-lockfile` first.
+- The main session commits. Agents never commit.
+
+### Test plan (fix)
+- **Owner:** test-writer (test-first) for every test. The implementer edits no test.
+- **Layer:** unit only. Every changed or new item is tagged `[verify: unit]`.
+- **Docker:** not needed.
+- **e2e:** not required. Flow `09-onboarding-tour` checks the structure of the keyless skeleton, not the order of files.
+- **Manual (optional):** regenerate the tour for `burnjohn/quick-blog` at `19e7c3c` and compare both lists with EC-20. T9 already pins the logic.
+
+### Risks (fix)
+- **The real EC-20 order depends on the indexer's edges.** T9 is synthetic. A real quick-blog run can still differ if `file_edges` misses an import, for example a dynamic `import()`. That is outside this fix.
+- **T10 is a timing test.** The 2 s bound is generous; the expected time is well under 100 ms. It fails only if the reach walk becomes quadratic, for example `Array.includes` over the visited files.
+- **Gap 3 is a planner reading:** no entry-point reasons in the AC-31 fallback. spec-creator may want to state it.
+
+## Review log
+| Round | Id | Reviewer | Severity | Class | Status | Commit |
+|---|---|---|---|---|---|---|
+| 1 | A1 | architecture | minor | fix-along | resolved (r2) | a5ad8d0 |
+| 1 | A2 | architecture | minor | defer | accepted (barrel import required by cross-module rule) | — |
+| 1 | A3 | architecture | minor | defer | follow-up (docblock placement in repo-intel/service.ts) | — |
+| 1 | A4 | architecture | minor | defer | no action (file size note) | — |
+| 1 | S1 | security | major | fix | resolved (r2) — lodash-es override ^4.18.1 | 9aecb59 |
+| 1 | S2 | security | minor | fix-along | resolved (r2) | 9aecb59 |
+| 1 | C1 | code-reviewer | minor | fix (user) | resolved (r2) | 774e43a |
+| 1 | C2 | code-reviewer | minor | fix (user) | resolved (r2) | 774e43a |
+| 1 | C3 | code-reviewer | minor | fix (user) | resolved (r2) | 774e43a |
+| 1 | C4 | code-reviewer | minor | fix (user) | resolved (r2) | 774e43a |
+| 1 | C5 | code-reviewer | minor | defer | follow-up (collectFacts not bounded by deadline) | — |
+| 1 | C-rank | code-reviewer | — | replan | resolved (r2) — spec amendment 242ff3b, addendum 086c18d, F1 7e59398, F2 71e8331 | 71e8331 |
+| 1 | U1 | user (design fidelity) | major | fix | resolved — UI matched to design N5; sticky TOC | a5ad8d0, 9aecb59 |
+| 1 | T1 | implementer (C-2) | — | test bug | resolved — tour.test.ts line-vs-char assertion | b126b71 |
+
+Marker SHAs above are SDD markers kept on local branch `backup/spec-02-review-markers`; all of them are folded into the stage commit "Onboarding Generator - tests & review".
+
+Round 2 (delta 7755ce8..71e8331): architecture pass, security pass, code-reviewer pass — 0 open blocking findings. Manual check: regenerated `burnjohn/quick-blog` → critical paths / reading path match EC-20 exactly (1 LLM call, $0.000688, 34 s, status full).
+
+### Follow-ups
+- C5: bound `collectFacts` by the generation deadline.
+- A3: move `collectFacts`/`getHotness` above the `getCriticalPaths` docblock in `repo-intel/service.ts`.
+- T10 (NFR-2 reach-walk timing guard, 2 s bound, ~0.9 s locally) may be flaky on slow CI.
+- Flow 01 (`01-app-boot`) cold-start flake seen in the hermetic e2e run (unrelated to SPEC-02).

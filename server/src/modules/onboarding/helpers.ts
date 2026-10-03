@@ -68,6 +68,7 @@ export function groundOutput(
   }
 
   const commands: TourSections['how_to_run'] = [];
+  const seen = new Set<string>();
   for (const c of out.how_to_run) {
     const cwd = normalizeCwd(c.cwd);
     const command = c.command.trim().replace(/\s+/g, ' ');
@@ -75,8 +76,12 @@ export function groundOutput(
       (cwd !== null && !isSafeRepoPath(cwd)) || command.length > COMMAND_MAX
         ? false
         : isCandidateCommand(facts, command, cwd);
-    if (canon === false) dropped++;
-    else commands.push({ command, comment: c.comment?.slice(0, COMMAND_MAX) ?? null, cwd: canon });
+    const key = `${canon}\0${command}`;
+    if (canon === false || seen.has(key)) dropped++;
+    else {
+      seen.add(key);
+      commands.push({ command, comment: c.comment?.slice(0, COMMAND_MAX) ?? null, cwd: canon });
+    }
   }
   dropped += Math.max(0, commands.length - HOW_TO_RUN_MAX);
 
@@ -168,6 +173,6 @@ export function classifyLlmError(err: unknown): OnboardingSkeletonReason {
   if (err instanceof TimeoutError || name.includes('Timeout')) return 'timeout';
   if (e?.status === 429) return 'rate_limited';
   if (err instanceof ConfigError && message.includes('API_KEY')) return 'no_api_key';
-  if (err instanceof z.ZodError || name === 'ZodError' || /schema validation|no choices|JSON/i.test(message)) return 'invalid_output';
+  if (err instanceof z.ZodError || name === 'ZodError' || err instanceof SyntaxError || /structured output failed schema validation|returned no choices|in JSON at position|not valid JSON|Unexpected token/i.test(message)) return 'invalid_output';
   return 'provider_error';
 }

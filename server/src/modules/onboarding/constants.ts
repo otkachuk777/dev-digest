@@ -5,6 +5,7 @@ export const MAX_INPUT_TOKENS = 12_000;
 export const MAX_OUTPUT_TOKENS = 4_000;
 
 export const READING_PATH_MAX = 10;
+export const READING_ENTRY_MAX = 3;
 export const CRITICAL_ROOTS = 5;
 export const CHAIN_MAX = 3;
 export const CRITICAL_MAX = 6;
