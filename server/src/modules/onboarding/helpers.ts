@@ -1,8 +1,6 @@
 import { z } from 'zod';
-import type { ChatMessage, OnboardingSkeletonReason } from '@devdigest/shared';
-import { ConfigError } from '../../platform/errors.js';
+import type { ChatMessage } from '@devdigest/shared';
 import { wrapUntrusted } from '../../platform/prompt.js';
-import { TimeoutError } from '../../platform/resilience.js';
 import type { RepoFacts } from '../repo-intel/index.js';
 import { isCandidateCommand, normalizeCwd, type TourSections } from './model.js';
 import {
@@ -166,13 +164,4 @@ export function buildPrompt(
   };
 }
 
-export function classifyLlmError(err: unknown): OnboardingSkeletonReason {
-  const e = err as { name?: unknown; status?: unknown; message?: unknown } | null;
-  const name = typeof e?.name === 'string' ? e.name : '';
-  const message = typeof e?.message === 'string' ? e.message : '';
-  if (err instanceof TimeoutError || name.includes('Timeout')) return 'timeout';
-  if (e?.status === 429) return 'rate_limited';
-  if (err instanceof ConfigError && message.includes('API_KEY')) return 'no_api_key';
-  if (err instanceof z.ZodError || name === 'ZodError' || err instanceof SyntaxError || /structured output failed schema validation|returned no choices|in JSON at position|not valid JSON|Unexpected token/i.test(message)) return 'invalid_output';
-  return 'provider_error';
-}
+export { classifyLlmError } from '../../platform/llm-errors.js';

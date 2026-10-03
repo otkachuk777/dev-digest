@@ -7,7 +7,7 @@ import { useTranslations } from "next-intl";
 import { Icon, Badge, CircularScore } from "@devdigest/ui";
 import type { Verdict } from "@devdigest/shared";
 import { formatCost, formatTokens } from "@/lib/format";
-import { VERDICT_META } from "./constants";
+import { VERDICT_META } from "../../_lib/verdict";
 import { s } from "./styles";
 
 export function VerdictBanner({

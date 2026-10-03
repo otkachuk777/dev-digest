@@ -2,6 +2,7 @@ import 'dotenv/config';
 import { createDb, type Db } from './client.js';
 import * as t from './schema.js';
 import { eq, and } from 'drizzle-orm';
+import { PrBrief } from '@devdigest/shared';
 import {
   GENERAL_REVIEWER_PROMPT,
   SECURITY_REVIEWER_PROMPT,
@@ -398,6 +399,44 @@ export async function seed(db: Db): Promise<{ workspaceId: string; userId: strin
       .returning();
     await db.insert(t.prFiles).values(fx.files.map((f) => ({ prId: row!.id, ...f })));
     await db.insert(t.prCommits).values({ prId: row!.id, ...fx.commit });
+
+    // PR #483 ships a stored brief so the e2e flow can open it without a model key. #482/#484 get none.
+    if (fx.pr.number === 483) {
+      const brief = PrBrief.parse({
+        summary: 'Adds refundPayment with its guards and one happy-path test.',
+        intent: null,
+        blast: null,
+        risks: {
+          risks: [
+            {
+              kind: 'other',
+              title: 'Guard branches are not exercised',
+              explanation: 'Only the happy path of refundPayment is tested; the four guard branches have no test.',
+              severity: 'medium',
+              file_refs: ['src/services/refund.ts:10-20'],
+            },
+          ],
+        },
+        review_focus: [
+          { file: 'src/services/refund.ts', line: 10, reason: 'Guards before the refund write' },
+          { file: 'src/services/refund.test.ts', line: 5, reason: 'Only the happy path is covered' },
+        ],
+        head_sha: row!.headSha,
+        generated_at: new Date().toISOString(),
+        provider: 'openrouter',
+        model: 'seed',
+        llm_calls: 0,
+        tokens_in: 0,
+        tokens_out: 0,
+        cost_usd: null,
+        duration_ms: 0,
+        missing: ['intent', 'blast'],
+        truncated: false,
+        files_truncated: false,
+        dropped_items: 0,
+      });
+      await db.insert(t.prBrief).values({ prId: row!.id, json: brief }).onConflictDoNothing();
+    }
   }
 
   // ---- built-in agents (the three starter presets) ----

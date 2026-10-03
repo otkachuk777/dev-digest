@@ -62,6 +62,22 @@ export {
 // CI runner and the server's openrouter path. Owns session grouping + guards.
 export { OpenRouterProvider, type OpenRouterProviderOptions } from './llm/openrouter.js';
 
+// PR Brief — one structured prompt within a token budget; hunk headers only.
+export {
+  BriefModelOutput,
+  parseHunks,
+  buildBriefPrompt,
+  BRIEF_MAX_INPUT_TOKENS,
+  BRIEF_DESCRIPTION_TOKENS,
+  BRIEF_ISSUE_TOKENS,
+  BRIEF_MAX_FACT_BYTES,
+  type BriefHunk,
+  type BriefTokenizer,
+  type BriefFileFacts,
+  type BriefFacts,
+  type BriefPrompt,
+} from './brief.js';
+
 // PR Intent — derives {summary, in_scope, out_of_scope} before review, and the
 // scope filter that trims out-of-scope findings after grounding.
 export {

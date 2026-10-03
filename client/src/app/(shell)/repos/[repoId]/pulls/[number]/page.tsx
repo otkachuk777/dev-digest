@@ -46,7 +46,7 @@ export default function PRDetailPage() {
   const findingsCount = allFindings(runs).length;
   const qc = useQueryClient();
 
-  const { tab, traceRunId, setTab, setParam } = usePrDetailParams(repoId, number);
+  const { tab, traceRunId, setTab, setParam, openInDiff, diffTarget } = usePrDetailParams(repoId, number);
 
   const repoName = activeRepo?.full_name ?? repoId;
   // The real "owner/repo" (null until the repo is loaded) — used to build
@@ -119,6 +119,8 @@ export default function PRDetailPage() {
             prBody={pr.body}
             repoId={repoId}
             repoFullName={repoFullName}
+            prFiles={pr.files.map((f) => f.path)}
+            onOpenInDiff={openInDiff}
           />
         )}
 
@@ -138,6 +140,7 @@ export default function PRDetailPage() {
             filesCount={pr.files_count}
             files={pr.files}
             canComment={pr.status === "open"}
+            target={diffTarget && pr.files.some((f) => f.path === diffTarget.file) ? diffTarget : null}
           />
         )}
       </div>

@@ -10,7 +10,7 @@ import { commentTargetFor, type CommentThread, type DiffCommentApi, cs } from ".
 import { topSeverity } from "../findings";
 import { type Line } from "../helpers";
 import { SEVERITY_LINE_LABEL } from "../constants";
-import { s, lineRowFor, lineSignFor } from "../styles";
+import { s, lineRowFor, lineSignFor, lineHighlight } from "../styles";
 import { CommentThreadView } from "../CommentThreadView";
 import { InlineComposer } from "../InlineComposer";
 import { FindingCard } from "../../../FindingCard";
@@ -22,6 +22,8 @@ export function CodeLine({
   commenting,
   findings,
   onFindingAction,
+  highlighted,
+  ref,
 }: {
   ln: Line;
   path: string;
@@ -29,6 +31,9 @@ export function CodeLine({
   commenting?: DiffCommentApi;
   findings?: FindingRecord[];
   onFindingAction?: (findingId: string, action: FindingActionKind) => void;
+  /** Deep-link target line (brief → Files changed). */
+  highlighted?: boolean;
+  ref?: React.Ref<HTMLDivElement>;
 }) {
   const t = useTranslations("prReview");
   const [hover, setHover] = React.useState(false);
@@ -49,11 +54,19 @@ export function CodeLine({
 
   return (
     <div
+      ref={ref}
       style={cs.rowWrap}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
     >
-      <div style={{ ...lineRowFor(ln.kind), ...(top ? { borderLeft: `3px solid ${SEV[top].c}` } : {}) }}>
+      <div
+        aria-current={highlighted ? "location" : undefined}
+        style={{
+          ...lineRowFor(ln.kind),
+          ...(highlighted ? lineHighlight : {}),
+          ...(top ? { borderLeft: `3px solid ${SEV[top].c}` } : {}),
+        }}
+      >
         <span className="mono tnum" style={{ ...s.lineNo, position: "relative" }}>
           {showAdd && target && (
             <button

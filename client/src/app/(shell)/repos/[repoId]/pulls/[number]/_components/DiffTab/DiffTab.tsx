@@ -3,7 +3,7 @@
 import React from "react";
 import { useTranslations } from "next-intl";
 import { SectionLabel, Button } from "@devdigest/ui";
-import { DiffViewer, type DiffCommentApi } from "./diff-viewer";
+import { DiffViewer, type DiffCommentApi, type DiffTarget } from "./diff-viewer";
 import { usePrComments, useCreatePrComment, useSmartDiff } from "@/lib/api/reviews";
 import { useDiffFindings } from "./useDiffFindings";
 import { notify } from "@/lib/toast";
@@ -15,9 +15,11 @@ interface DiffTabProps {
   files: PrFile[];
   /** Inline commenting is offered only on open PRs (GitHub rejects otherwise). */
   canComment?: boolean;
+  /** Brief → Files changed: the file (and new-side line) to expand, highlight and scroll to. */
+  target?: DiffTarget | null;
 }
 
-export function DiffTab({ prId, filesCount, files, canComment }: DiffTabProps) {
+export function DiffTab({ prId, filesCount, files, canComment, target }: DiffTabProps) {
   const t = useTranslations("prReview");
   const { data: comments } = usePrComments(prId);
   const create = useCreatePrComment(prId);
@@ -103,6 +105,7 @@ export function DiffTab({ prId, filesCount, files, canComment }: DiffTabProps) {
         commenting={commenting}
         findings={{ byPath, show: visible.findings, onAction }}
         groups={order === "smart" ? smartDiff?.groups : undefined}
+        target={target}
       />
     </section>
   );

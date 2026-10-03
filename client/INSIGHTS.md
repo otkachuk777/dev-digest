@@ -106,6 +106,12 @@ Forcing a transitive version (`lodash-es` ≥ 4.18.1 under `mermaid > chevrotain
 
 **Rule:** add `overrides:` to `client/pnpm-workspace.yaml` (next to `allowBuilds:`), run `pnpm install`, then confirm with `grep lodash-es@ pnpm-lock.yaml` and `pnpm audit` (`client/pnpm-workspace.yaml`, commit `accf9be`).
 
+### TanStack Query v5: `mutate(…, { onError })` is skipped after unmount — put the toast on the mutation options (2026-10)
+
+`BriefCard` showed the generation error through `gen.mutate(undefined, { onError })` while `meta.silentError` muted the global `MutationCache` toast. The Overview tab is rendered only while it is the active tab, so a user who clicked Generate and switched to Files changed got no error at all when the request failed (and, on return, a fresh Generate hit 409). Per-`mutate` callbacks do not run once the observer unmounts; the callbacks passed to `useMutation({ … })` do.
+
+**Rule:** a mutation whose result must be reported even if the user navigates away gets its `onError`/toast in the hook definition, plus `meta.silentError` to avoid a second toast (`client/src/lib/api/brief.ts`, test `BriefCard.unmount.test.tsx`, commit `cf0fbbf`)
+
 ## Recurring Errors & Fixes
 
 ### React dev warning: `borderColor` + `borderLeftColor` still "conflict" even without the `border` shorthand (2026-09-18)

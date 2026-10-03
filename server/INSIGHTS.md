@@ -86,7 +86,19 @@ Adding `excalidraw/excalidraw` (57k references) failed the index at the 120 s Jo
 
 **Rule:** check a budget where the work STARTS (inside the queued task) and before each later phase, not where it is scheduled (`src/modules/repo-intel/pipeline/full.ts`, `INDEX_PARSE_BUDGET_MS`)
 
+### `deepseek-v4-flash` fails a structured call that has no schema-repair retry (2026-10)
+
+The PR brief (SPEC-03) must make exactly one model call, so `completeStructured` runs with `maxRetries: 0`. On a 74-file PR `deepseek/deepseek-v4-flash` returned unusable JSON 3 times out of 3 (502 `invalid_model_output`, 21–23 s, 0 tokens parsed), while `google/gemini-2.5-flash-lite` answered in 2–4 s for ~$0.001 on three different PRs. Reviews hide this problem because their schema-repair retries mask the first bad answer. This extends the two entries above (free models; deepseek too slow).
+
+**Rule:** a feature that must not retry needs a model that is valid on the first try — measure it through `POST /pulls/:id/brief` on a large real PR, not through mocks. `risk_brief` defaults to flash-lite; if a user's Settings picks deepseek for it, expect 502s (`server/src/vendor/shared/contracts/platform.ts`, `specs/SPEC-03-pr-brief.md` OQ-1, commit `cf0fbbf`)
+
 ## Codebase Patterns
+
+### A rate-limited route needs `nodeEnv: 'development'` in its test, and it-tests that PUT `/settings` must restore it (2026-10)
+
+`@fastify/rate-limit` is not registered when `nodeEnv` is `test`, so a 429 test against the normal test app never fires. Build the app with `{ ...config(), nodeEnv: 'development', logLevel: 'silent' }` — `silent` is needed because `development` otherwise starts the pino-pretty transport. Separately, `brief.it.test.ts` tests share one DB: the AC-27 test overrode `risk_brief` to openai and every test that ran after it got a 502 until it restored the default.
+
+**Rule:** for a limiter test spy on the service's logging method instead of capturing app logs (silent logger); end any test that PUTs feature models by restoring the default (`server/test/brief.it.test.ts`, `server/src/modules/brief/routes.ts`, commit `cf0fbbf`)
 
 ### Reuse the existing severity tally instead of duplicating it (2026-09-18)
 
@@ -156,6 +168,12 @@ Project-context docs are untrusted repo markdown. A doc that mentions `<|endofte
 Passing a GitHub token to git as `GIT_CONFIG_COUNT/KEY_0/VALUE_0` (an `http.extraheader`, so it never lands in `.git/config` or argv) failed with `Use of "GIT_EDITOR" is not permitted without enabling allowUnsafeEditor`: `.env()` replaces the whole env and simple-git vets every inherited var. `GIT_CONFIG_COUNT` itself also needs `unsafe: { allowUnsafeConfigEnvCount: true }`.
 
 **Rule:** for `.env()`, start from `process.env` minus `GIT_*`/`PAGER`/`EDITOR`/`VISUAL`, and opt in only to the one unsafe flag you need (`src/adapters/git/simple-git.ts` `remote()`)
+
+### `.slice(0, N)` on model text can split an emoji, and Postgres `jsonb` then rejects the row (2026-10)
+
+The brief caps model-written strings (summary 600, explanation 600, reason 200). A cut that lands between the two halves of a surrogate pair leaves a lone `\ud83d`; `JSON.stringify` writes it as an escape, and `'"\ud83d"'::jsonb` fails with `invalid input syntax for type json` (checked on the dev Postgres). The paid model call is spent, the upsert throws and the client gets a 500. Tests with ASCII fixtures never show it; the code reviewer found it by reading.
+
+**Rule:** cut model text on code points (drop a trailing lone high surrogate) before any jsonb write — reuse `cut()` (`server/src/modules/brief/helpers.ts`, test "string caps never split a surrogate pair" in `server/test/brief-helpers.test.ts`, commit `cf0fbbf`)
 
 ## Recurring Errors & Fixes
 
