@@ -34,7 +34,7 @@ Number findings by reviewer: `A<n>` architecture, `S<n>` security, `C<n>` code-r
 | `fix-along` | minor / Nit in a file that already has a `fix` this round | fix in the same chunk — the file is open anyway |
 | `defer` | any other minor / Nit | `Follow-ups` (PR body); never a round of its own |
 | `dispute` | a critical whose scenario depends on prior state ("existing rows", "used to be validated") | check the premise yourself first (root `INSIGHTS.md`: grep every branch, `git cat-file -e <rev>:<path>`); refuted → downgrade and record why |
-| `replan` | the fix changes a Test seam, a contract, or more than one module, or contradicts the plan | implementation-planner **fix plan addendum** → short user approval → its steps become the fix chunks |
+| `replan` | the fix changes a Test seam, a contract, or more than one module, or contradicts the plan | implementation-planner **fix plan addendum**, written to `~/.claude/plans/<plan-name>-addendum.md` (the planner cannot write `docs/`): a ready-to-append section between `=== APPEND BELOW ===` / `=== END APPEND ===` plus exact coverage-table row replacements → short user approval → the main session appends it to the archived plan, applies the replacements, deletes the draft and commits `SDD(SPEC-NN): fix plan addendum` → its steps become the fix chunks (spec amendment first via spec-creator when an AC changes) |
 
 `Unknown` / non-blocking major with no clear fix → `defer` with the reviewer's "what would confirm it".
 

@@ -4,7 +4,8 @@
 #   tests — test-writer: test files, test-only helpers/fixtures and e2e flows (e2e/flows/NN-name.flow.json)
 #   docs  — doc-writer: docs/, <module>/docs/, READMEs; never plans, prompts, specs, CLAUDE.md, INSIGHTS.md
 #   plans — implementation-planner: draft plan files ~/.claude/plans/<name>.md only (outside the repo, never docs/cc-plans/)
-#   specs — spec-creator: <module>/specs/SPEC-NN-<slug>.md or top-level specs/SPEC-NN-<slug>.md (cross-module)
+#   specs — spec-creator: <module>/specs/SPEC-NN-<slug>.md or top-level specs/SPEC-NN-<slug>.md (cross-module),
+#           plus decoded design extracts docs/designs/extracted/<kebab>.(jsx|tsx|html|md)
 # Covers Edit/Write only — Bash writes are limited by the agent prompt, not here.
 set -uo pipefail
 command -v jq >/dev/null || { echo "path-guard: jq not found, tool call blocked — install it (macOS: brew install jq; Debian/Ubuntu: sudo apt-get install jq) and retry" >&2; exit 2; }
@@ -46,7 +47,9 @@ case "$PROFILE" in
     ;;
   specs)
     [[ "$REL" =~ ^(($MODULES|mcp)/)?specs/SPEC-[0-9]{2,}-[a-z0-9]+(-[a-z0-9]+)*\.md$ ]] && exit 0
-    deny "$REL is not a spec file. spec-creator may only write <module>/specs/SPEC-NN-<kebab-slug>.md (module: client|server|reviewer-core|e2e|mcp) or specs/SPEC-NN-<kebab-slug>.md for cross-module specs"
+    # Decoded design screens extracted from an encoded docs/designs bundle (spec-creator Round 2 step 2).
+    [[ "$REL" =~ ^docs/designs/extracted/[a-z0-9]+(-[a-z0-9]+)*\.(jsx|tsx|html|md)$ ]] && exit 0
+    deny "$REL is not a spec file. spec-creator may only write <module>/specs/SPEC-NN-<kebab-slug>.md (module: client|server|reviewer-core|e2e|mcp), specs/SPEC-NN-<kebab-slug>.md for cross-module specs, or docs/designs/extracted/<kebab-name>.(jsx|tsx|html|md)"
     ;;
   *) deny "unknown profile '$PROFILE' (expected tests|docs|plans|specs)";;
 esac

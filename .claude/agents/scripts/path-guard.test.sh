@@ -60,6 +60,13 @@ check specs "$ROOT/client/specs/spec-01-x.md" deny
 check specs "$ROOT/client/specs/SPEC-01-X.md" deny
 check specs "$ROOT/client/specs/SPEC-01-x.txt" deny
 check specs "$ROOT/client/src/x.md" deny
+check specs "$ROOT/docs/designs/extracted/onboarding-tour.jsx" allow
+check specs "$ROOT/docs/designs/extracted/tour.html" allow
+check specs "$ROOT/docs/designs/DevDigest_Design.html" deny
+check specs "$ROOT/docs/designs/extracted/sub/x.jsx" deny
+check specs "$ROOT/docs/designs/extracted/Tour.jsx" deny
+check specs "$ROOT/docs/designs/extracted/x.sh" deny
+check specs "$ROOT/docs/designs/extracted/../../../server/src/app.ts" deny
 check specs "$ROOT/docs/specs/SPEC-01-x.md" deny
 check specs "$ROOT/e2e/flows/01-a.flow.json" deny
 check specs "$ROOT/client/specs/../src/SPEC-01-x.md" deny
