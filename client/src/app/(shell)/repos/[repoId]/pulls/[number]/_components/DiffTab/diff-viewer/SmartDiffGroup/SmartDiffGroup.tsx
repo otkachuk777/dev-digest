@@ -14,15 +14,21 @@ export function SmartDiffGroup({
   role,
   fileCount,
   filesWithFindings,
+  forceOpen = false,
   children,
 }: {
   role: SmartDiffRole;
   fileCount: number;
   filesWithFindings: number;
+  /** A deep-link target lives in this group: open it even if it starts collapsed (EC-6). */
+  forceOpen?: boolean;
   children: React.ReactNode;
 }) {
   const t = useTranslations("prReview");
-  const [open, setOpen] = React.useState(!COLLAPSED_BY_DEFAULT.has(role));
+  const [open, setOpen] = React.useState(!COLLAPSED_BY_DEFAULT.has(role) || forceOpen);
+  React.useEffect(() => {
+    if (forceOpen) setOpen(true);
+  }, [forceOpen]);
 
   return (
     <div>

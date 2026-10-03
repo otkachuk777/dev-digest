@@ -7,7 +7,7 @@ import { useTranslations } from "next-intl";
 import { Icon, SEV } from "@devdigest/ui";
 import type { PrFile } from "@devdigest/shared";
 import { AUTO_EXPAND_MAX_LINES } from "../constants";
-import { parsePatch, type Line } from "../helpers";
+import { parsePatch, type DiffTarget, type Line } from "../helpers";
 import {
   buildThreads,
   keysForLine,
@@ -17,7 +17,7 @@ import {
   type DiffCommentApi,
 } from "../comments";
 import { partitionFindings, topSeverity, type DiffFindingsApi } from "../findings";
-import { s, chevronFor } from "../styles";
+import { s, chevronFor, fileCardFor } from "../styles";
 import { CodeLine } from "../CodeLine";
 import { OutdatedComments } from "../OutdatedComments";
 import { FindingCard } from "../../../FindingCard";
@@ -37,17 +37,41 @@ export function FileCard({
   file,
   commenting,
   findings,
+  target,
 }: {
   file: PrFile;
   commenting?: DiffCommentApi;
   findings?: DiffFindingsApi;
+  /** Set only on the card the deep link points at. */
+  target?: DiffTarget | null;
 }) {
   const t = useTranslations("shell");
   const tFindings = useTranslations("prReview");
+  const isTarget = !!target;
   const [open, setOpen] = React.useState(
-    (file.additions ?? 0) + (file.deletions ?? 0) <= AUTO_EXPAND_MAX_LINES
+    isTarget || (file.additions ?? 0) + (file.deletions ?? 0) <= AUTO_EXPAND_MAX_LINES
   );
   const lines = React.useMemo(() => parsePatch(file.patch), [file.patch]);
+
+  // Target line = the rendered new-side line; absent/unrendered → scroll the header.
+  const targetIdx = target?.line
+    ? lines.findIndex((l) => l.kind !== "del" && l.kind !== "hunk" && l.newNo === target.line)
+    : -1;
+  const headerRef = React.useRef<HTMLDivElement>(null);
+  const lineRef = React.useRef<HTMLDivElement>(null);
+  const targetLine = target?.line;
+  React.useEffect(() => {
+    if (isTarget) setOpen(true);
+  }, [isTarget, target?.file, targetLine]);
+  // Scroll once per target, not again when the user collapses and re-expands the card.
+  const scrolledFor = React.useRef<string | null>(null);
+  React.useEffect(() => {
+    if (!isTarget || !open) return;
+    const key = `${target?.file}:${targetLine}`;
+    if (scrolledFor.current === key) return;
+    scrolledFor.current = key;
+    (lineRef.current ?? headerRef.current)?.scrollIntoView({ block: "center" });
+  }, [isTarget, open, targetLine, targetIdx]);
 
   // Every rendered line's keys (RIGHT/LEFT), shared by comment threads and findings.
   const renderedKeys = React.useMemo(() => {
@@ -77,8 +101,8 @@ export function FileCard({
   const fileTopSeverity = topSeverity(fileFindings);
 
   return (
-    <div style={s.fileCard}>
-      <div onClick={() => setOpen((o) => !o)} style={s.fileHeader}>
+    <div style={fileCardFor(isTarget)}>
+      <div ref={headerRef} onClick={() => setOpen((o) => !o)} style={s.fileHeader}>
         <Icon.ChevronRight size={13} style={chevronFor(open)} />
         <Icon.FileText size={14} style={s.fileIcon} />
         {fileFindings.length > 0 && fileTopSeverity && (
@@ -124,6 +148,8 @@ export function FileCard({
               return (
                 <CodeLine
                   key={i}
+                  ref={i === targetIdx ? lineRef : undefined}
+                  highlighted={i === targetIdx}
                   ln={ln}
                   path={file.path}
                   threads={threadsForLine(ln, matched)}

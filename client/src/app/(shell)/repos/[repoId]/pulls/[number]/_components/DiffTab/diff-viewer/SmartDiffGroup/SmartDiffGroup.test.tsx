@@ -36,4 +36,18 @@ describe("SmartDiffGroup", () => {
     setup({ role: "core", filesWithFindings: 0 });
     expect(screen.queryByText(/●/)).not.toBeInTheDocument();
   });
+
+  it("EC-6: forceOpen expands a collapsed docs group, also when it turns true later", () => {
+    const ui = (forceOpen: boolean) => (
+      <NextIntlClientProvider locale="en" messages={{ prReview }}>
+        <SmartDiffGroup role="docs" fileCount={1} filesWithFindings={0} forceOpen={forceOpen}>
+          <div>child file card</div>
+        </SmartDiffGroup>
+      </NextIntlClientProvider>
+    );
+    const { rerender } = render(ui(false));
+    expect(screen.queryByText("child file card")).not.toBeInTheDocument();
+    rerender(ui(true));
+    expect(screen.getByText("child file card")).toBeInTheDocument();
+  });
 });

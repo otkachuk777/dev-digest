@@ -39,7 +39,10 @@ export function Providers({ children }: { children: React.ReactNode }) {
           },
         }),
         mutationCache: new MutationCache({
-          onError: (err) => notify.error(errorMessage(err)),
+          onError: (err, _v, _c, mutation) => {
+            if (mutation.meta?.silentError) return; // caller raises its own toast
+            notify.error(errorMessage(err));
+          },
         }),
       })
   );

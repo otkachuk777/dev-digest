@@ -1,6 +1,6 @@
 # Spec: PR Why + Risk Brief — one card that says why a PR exists, what is risky and where to read first
 Spec ID: SPEC-03
-Status: approved
+Status: implemented
 Supersedes: none
 
 ## Problem and user
@@ -360,5 +360,8 @@ Unchanged and only consumed: `Intent`, `BlastRadius`, `SmartDiff`, `PrDetail`, `
 
 ## Open questions
 
-- **OQ-1:** Which model becomes the `risk_brief` default on `openrouter`: `google/gemini-2.5-flash-lite` or `openai/gpt-4.1-mini`? The plan must measure both on one real large PR through the generation endpoint (latency, grounding drop count, cost) and pin the winner here before implementation ends (AC-36, NFR-8). — owner: user — blocking: no — from Q1
-- **OQ-2:** Two fact limits were not given and use defaults until changed: at most 30 latest-review findings (CRITICAL, then WARNING, then SUGGESTION), sent together with their files so the file truncation of AC-30 removes them too; and the linked issue body capped at 1,000 tokens. Confirm or change. — owner: user — blocking: no — from Q2
+- **OQ-1:** CLOSED 2026-10-03. Which model becomes the `risk_brief` default on `openrouter`? Decision: `openrouter` / `google/gemini-2.5-flash-lite` (AC-36, NFR-8). Measured on real PRs via OpenRouter, one generation request each, no retries (AC-27):
+  - `google/gemini-2.5-flash-lite`: `burnjohn/quick-blog#31` (74 files) 3.9 s, 4310→1187 tokens, $0.000906, 1 risk + 8 focus items, `dropped_items` 0; `otkachuk777/dev-digest#11` (50 files) 4.4 s, 5556→1252 tokens, $0.001056, 1 risk + 8 focus items, `dropped_items` 0; `otkachuk777/dev-digest#9` (10 files) about 2 s, about 2k→1.0k tokens, $0.000637. All within NFR-8 (at most 30 s).
+  - `deepseek/deepseek-v4-flash` (the model the user's reviewers use): on `burnjohn/quick-blog#31`, 3 of 3 runs failed with 502 `invalid_model_output` after 21–23 s (`llm_calls` 1, nothing parseable). With schema-repair retries disabled (AC-27) it does not return valid output on the first try. It stays selectable in Settings but is not recommended for the brief.
+  — owner: user — blocking: no — from Q1
+- **OQ-2:** CLOSED 2026-10-03. Two fact limits: the user confirmed at most 30 latest-review findings (CRITICAL, then WARNING, then SUGGESTION), sent together with their files so the file truncation of AC-30 removes them too, and the linked issue body capped at 1,000 tokens. — owner: user — blocking: no — from Q2

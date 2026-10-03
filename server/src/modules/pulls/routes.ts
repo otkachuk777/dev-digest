@@ -262,6 +262,8 @@ export default async function pullsRoutes(appBase: FastifyInstance) {
           additions: detail.additions,
           deletions: detail.deletions,
           filesCount: detail.files_count,
+          // The brief stores this SHA; keep it in step with what the detail endpoint reports.
+          headSha: detail.head_sha,
         })
         .where(eq(t.pullRequests.id, pr.id));
 

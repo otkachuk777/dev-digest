@@ -1,6 +1,12 @@
 /** Pure helpers for the DiffViewer. */
 import { HUNK_HEADER_RE } from "./constants";
 
+/** The file (and optional new-side line) a deep link points at. */
+export interface DiffTarget {
+  file: string;
+  line: number | null;
+}
+
 export interface Line {
   kind: "add" | "del" | "ctx" | "hunk";
   text: string;

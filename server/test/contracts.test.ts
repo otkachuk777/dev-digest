@@ -6,6 +6,8 @@ import {
   BlastRadius,
   Risks,
   PrHistory,
+  Risk,
+  PrBrief,
   SmartDiff,
   Conformance,
   Onboarding,
@@ -91,7 +93,7 @@ describe('AI contracts parse fixtures', () => {
     ).not.toThrow();
     expect(() =>
       Risks.parse({
-        risks: [{ kind: 'security', title: 't', explanation: 'e', severity: 'high', file_refs: [] }],
+        risks: [{ kind: 'security', title: 't', explanation: 'e', severity: 'high', file_refs: ['a.ts:3'] }],
       }),
     ).not.toThrow();
     expect(() =>
@@ -307,5 +309,42 @@ describe('platform DTOs', () => {
         commits: [],
       }),
     ).not.toThrow();
+  });
+});
+
+describe('PrBrief contract (SPEC-03)', () => {
+  const brief = {
+    summary: 's',
+    intent: null,
+    blast: null,
+    risks: { risks: [] },
+    review_focus: [{ file: 'a.ts', line: 3, reason: 'r' }],
+    head_sha: 'abc',
+    generated_at: '2026-10-03T10:00:00.000Z',
+    provider: 'openrouter',
+    model: 'm',
+    llm_calls: 1,
+    tokens_in: 1,
+    tokens_out: 1,
+    cost_usd: null,
+    duration_ms: 5,
+    missing: ['intent'],
+    truncated: false,
+    files_truncated: false,
+    dropped_items: 0,
+  };
+
+  it('AC-57: Risk.kind is a closed set', () => {
+    const risk = { kind: 'security', title: 't', explanation: 'e', severity: 'low', file_refs: ['a.ts'] };
+    expect(Risk.safeParse(risk).success).toBe(true);
+    expect(Risk.safeParse({ ...risk, kind: 'foo' }).success).toBe(false);
+  });
+
+  it('parses a valid brief; rejects legacy history and a missing summary', () => {
+    expect(PrBrief.safeParse(brief).success).toBe(true);
+    expect(PrBrief.safeParse({ ...brief, history: { history: [] } }).success).toBe(true); // zod strips unknown keys
+    expect(PrBrief.parse({ ...brief, history: { history: [] } })).not.toHaveProperty('history');
+    const { summary: _s, ...noSummary } = brief;
+    expect(PrBrief.safeParse(noSummary).success).toBe(false);
   });
 });
