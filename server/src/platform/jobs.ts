@@ -96,6 +96,10 @@ export class JobRunner {
         throw err;
       }
     }) as Promise<void>;
+    // Fire-and-forget callers never touch `done`; without a handler a failed
+    // job becomes an unhandledRejection that kills the process. The failure is
+    // already persisted on the row above; `done` still rejects for awaiters.
+    done.catch(() => {});
 
     return { id: jobId, done };
   }

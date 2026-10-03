@@ -70,10 +70,10 @@ export class RepoRepository {
   }
 
   /** Persist the clone path and bump `last_polled_at` once a clone job completes. */
-  async updateClonePath(repoId: string, clonePath: string): Promise<void> {
+  async updateClonePath(repoId: string, clonePath: string, defaultBranch?: string): Promise<void> {
     await this.db
       .update(t.repos)
-      .set({ clonePath, lastPolledAt: new Date() })
+      .set({ clonePath, lastPolledAt: new Date(), ...(defaultBranch ? { defaultBranch } : {}) })
       .where(eq(t.repos.id, repoId));
   }
 
