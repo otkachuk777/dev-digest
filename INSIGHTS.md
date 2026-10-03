@@ -124,6 +124,20 @@ The plan's parallel layout, one worktree per group, also failed. Implementers sp
 > - So macOS asked for Keychain access on every push or fetch.
 > - The Homebrew absolute path is not rewritten by RTK either, and the isolation guard accepts it (verified with `status` and `commit` in the isolated worktree).
 
+> **2026-10-03 correction:** per-group worktrees DO work when the main session is not itself isolated (it runs in the main checkout and drives a feature worktree by absolute path). For SPEC-02 the main session cut `.claude/worktrees/spec-02-{server,client}` with `git worktree add -b feat/spec-02-<group> <path> <red-tests sha>`, passed the absolute path in each implementer prompt, committed each chunk there with explicit paths and `git merge`d both branches back into the feature branch: 5 parallel implementer spawns, 0 refused writes (`docs/workflow-retros/2026-10-03+spec-02.md` P1). Still avoid `isolation: "worktree"`.
+
+### Gemini CLI no longer works on the free tier — use `agy` for a Gemini cross-model review (2026-10)
+
+`gemini -p …` (0.38.2) died at auth with `IneligibleTierError: This client is no longer supported for Gemini Code Assist for individuals`; no API keys were configured, so a "cross-model review" looked impossible. The Antigravity CLI `agy` (`~/.local/bin/agy`, Gemini Plus subscription login) serves the same models: `agy models` lists `gemini-3.1-pro-high` etc. It has no stdin input in print mode, so put the material in a file and grant the directory.
+
+**Rule:** for a non-Claude review run `agy --mode plan --model gemini-3.1-pro-high --add-dir <dir with the plan> -p "<prompt naming the file>"` from the repo/worktree root (`--mode plan` = read-only). Used for the SPEC-02 plan review (`docs/cc-plans/2026-10-02+spec-02-onboarding-generator.md` § Cross-model review).
+
+### `preview_start` reads the MAIN checkout's `.claude/launch.json`, even for a worktree (2026-10)
+
+Adding spare-port entries to a worktree's `.claude/launch.json` did nothing ("No server named … found"); the Browser pane only reads the launch file of the session's original project. A worktree server started with `pnpm --dir server dev` also resolved `DEVDIGEST_CLONE_DIR=./clones` relative to the worktree, so every repo showed `no_clone`.
+
+**Rule:** to preview a worktree, add temporary entries to the main checkout's `.claude/launch.json` with `runtimeExecutable: "bash"`, `runtimeArgs: ["-c", "cd <abs worktree>/server && DEVDIGEST_CLONE_DIR=<abs main>/server/clones API_PORT=3121 WEB_PORT=3120 pnpm dev"]` (client: `NEXT_PUBLIC_API_BASE=http://localhost:3121 pnpm exec next dev -p 3120`), copy `server/.env` into the worktree, and `git checkout -- .claude/launch.json` afterwards.
+
 ## Recurring Errors & Fixes
 
 _No entries yet._

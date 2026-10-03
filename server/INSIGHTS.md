@@ -113,6 +113,12 @@ Once intent derivation ran inside every review, `reviews.it.test.ts` kept passin
 
 **Rule:** when a feature's `FEATURE_MODELS` default gets wired into a flow that existing it-tests exercise, add a mock for that provider to every such test's container overrides in the same change, and check test durations for multi-second jumps (`server/test/reviews.it.test.ts:139`, `server/src/adapters/mocks.ts:59`, commit `2cf6fe9`)
 
+### `file_rank` PageRank favours the most-imported leaf utilities — don't use it alone as "where to start reading" (2026-10)
+
+Import edges run importer → imported (`server/src/modules/repo-intel/pipeline/rank.ts`), so PageRank accumulates on files many others import (`utils/helpers.js`, `constants/messages.js`). SPEC-02's first reading path and critical paths on `burnjohn/quick-blog` were all leaf utilities with chains of length 1 — spec-correct, useless for onboarding, caught only on a real run and fixed by a spec amendment.
+
+**Rule:** for "start here" lists put entry points first (manifest `main`/`module`/`bin` + graph roots, ordered by reach) and step chains by reach, not rank; reuse `graphView` in `server/src/modules/onboarding/model.ts` (SPEC-02 AC-63, commit `accf9be`). Keep raw rank for "most depended-on" lists (blast radius, conventions).
+
 ## Tool & Library Notes
 
 ### dependency-cruiser `exclude` silently deletes edges to npm packages (2026-09)

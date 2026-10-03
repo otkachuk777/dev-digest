@@ -100,6 +100,12 @@ commit `d94ceac`)
 
 **Rule:** use braces in hooks that configure mocks — `beforeEach(() => { m.mockResolvedValue(x); })` (`src/app/(shell)/repos/[repoId]/conventions/_components/CreateSkillFromConventionsModal/CreateSkillFromConventionsModal.test.tsx:47`, commit `5ac3a44`)
 
+### pnpm 12 ignores `pnpm.overrides` in `package.json` — overrides go in `client/pnpm-workspace.yaml` (2026-10)
+
+Forcing a transitive version (`lodash-es` ≥ 4.18.1 under `mermaid > chevrotain`, a high advisory) via `"pnpm": { "overrides": … }` in `client/package.json` only printed a "no longer read" warning and left the lockfile unchanged.
+
+**Rule:** add `overrides:` to `client/pnpm-workspace.yaml` (next to `allowBuilds:`), run `pnpm install`, then confirm with `grep lodash-es@ pnpm-lock.yaml` and `pnpm audit` (`client/pnpm-workspace.yaml`, commit `accf9be`).
+
 ## Recurring Errors & Fixes
 
 ### React dev warning: `borderColor` + `borderLeftColor` still "conflict" even without the `border` shorthand (2026-09-18)
