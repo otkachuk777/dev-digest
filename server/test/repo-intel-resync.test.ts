@@ -11,7 +11,8 @@
  * happy path here takes the cheap `sha_unchanged` branch — it exercises the
  * sync→delegate handoff without re-running the parse.
  */
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+import * as fullPipeline from '../src/modules/repo-intel/pipeline/full.js';
 import { RepoIntelService } from '../src/modules/repo-intel/service.js';
 import { MockGitClient } from '../src/adapters/mocks.js';
 import { INDEXER_VERSION } from '../src/modules/repo-intel/constants.js';
@@ -105,6 +106,7 @@ describe('RepoIntelService.resyncRepo', () => {
     };
     const { service } = makeService({
       basics: { id: 'r1', owner: 'acme', name: 'app', defaultBranch: 'main', clonePath: '/mock/clone' },
+      state: stateAt('sha-1'),
       git,
     });
 
@@ -112,5 +114,28 @@ describe('RepoIntelService.resyncRepo', () => {
 
     expect(result.status).toBe('degraded');
     expect(result.reason).toMatch(/^sync_failed:/);
+  });
+
+  it('fetch fails and the repo was never indexed → full index of the existing clone', async () => {
+    const git = new MockGitClient({});
+    git.sync = async () => {
+      throw new Error("couldn't find remote ref main");
+    };
+    const { service } = makeService({
+      basics: { id: 'r1', owner: 'acme', name: 'app', defaultBranch: 'main', clonePath: '/mock/clone' },
+      state: null,
+      git,
+    });
+    const fullIndex = vi.spyOn(fullPipeline, 'runFullIndex').mockResolvedValue({
+      status: 'full',
+      filesIndexed: 3,
+      filesSkipped: 0,
+      durationMs: 1,
+    });
+
+    const result = await service.resyncRepo('r1');
+
+    expect(fullIndex).toHaveBeenCalledWith(expect.anything(), expect.anything(), { repoId: 'r1' });
+    expect(result.status).toBe('full');
   });
 });
