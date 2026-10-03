@@ -15,7 +15,7 @@
  *
  * Full-DB persistence is covered by integration.test.ts (Docker-gated).
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -23,6 +23,21 @@ import { runFullIndex } from '../src/modules/repo-intel/pipeline/full.js';
 import { runIncremental } from '../src/modules/repo-intel/pipeline/incremental.js';
 import type { RepoIntelRepository } from '../src/modules/repo-intel/repository.js';
 import { INDEXER_VERSION } from '../src/modules/repo-intel/constants.js';
+
+// Budgets are overridable per test; `undefined` = the real constant.
+const budget = vi.hoisted(() => ({ parse: undefined as number | undefined, soft: undefined as number | undefined }));
+vi.mock('../src/modules/repo-intel/constants.js', async (importOriginal) => {
+  const real = await importOriginal<typeof import('../src/modules/repo-intel/constants.js')>();
+  return {
+    ...real,
+    get INDEX_PARSE_BUDGET_MS() {
+      return budget.parse ?? real.INDEX_PARSE_BUDGET_MS;
+    },
+    get INDEX_SOFT_BUDGET_MS() {
+      return budget.soft ?? real.INDEX_SOFT_BUDGET_MS;
+    },
+  };
+});
 import type { IndexState } from '../src/modules/repo-intel/types.js';
 import type { Container } from '../src/platform/container.js';
 
@@ -156,6 +171,62 @@ describe('runFullIndex', () => {
   });
   afterEach(async () => {
     await rm(root, { recursive: true, force: true });
+    budget.parse = undefined;
+    budget.soft = undefined;
+  });
+
+  it('parse budget spent → stops parsing, skips the graph, ends "partial"', async () => {
+    await writeFileAt(root, 'src/a.ts', 'export const a = 1;\n');
+    await writeFileAt(root, 'src/b.ts', 'export const b = 2;\n');
+    budget.parse = -1; // already over when the first parse task starts
+
+    const stub = makeRepoStub({ basics: { id: 'r1', owner: 'acme', name: 'app', clonePath: root } });
+    const buildEdges = vi.fn(async () => []);
+    const container = {
+      ...makeContainer({ currentHead: async () => 'sha', diffNameOnly: async () => [] }),
+      depgraph: { buildEdges },
+    } as unknown as Container;
+
+    const result = await runFullIndex(container, stub.repo, { repoId: 'r1' });
+
+    expect(result).toMatchObject({ status: 'partial', reason: 'soft_budget', filesIndexed: 0 });
+    expect(buildEdges).not.toHaveBeenCalled();
+    expect(stub.getState()!.status).toBe('partial');
+  });
+
+  it('graph build outliving the soft budget → ends "partial" instead of hanging', async () => {
+    await writeFileAt(root, 'src/a.ts', 'export const a = 1;\n');
+    budget.soft = 50;
+
+    const stub = makeRepoStub({ basics: { id: 'r1', owner: 'acme', name: 'app', clonePath: root } });
+    const container = {
+      ...makeContainer({ currentHead: async () => 'sha', diffNameOnly: async () => [] }),
+      depgraph: { buildEdges: () => new Promise(() => {}) }, // never settles
+    } as unknown as Container;
+
+    const result = await runFullIndex(container, stub.repo, { repoId: 'r1' });
+
+    expect(result).toMatchObject({ status: 'partial', reason: 'graph_failed', filesIndexed: 1 });
+    expect(stub.getState()!.status).toBe('partial');
+   }, 5_000);
+
+  it('decl_file resolve cancelled by its statement timeout → ends "partial"', async () => {
+    await writeFileAt(root, 'src/a.ts', 'export const a = 1;\n');
+
+    const stub = makeRepoStub({ basics: { id: 'r1', owner: 'acme', name: 'app', clonePath: root } });
+    const resolve = vi.fn(async () => {
+      throw new Error('canceling statement due to statement timeout');
+    });
+    (stub.repo as unknown as { resolveReferences: typeof resolve }).resolveReferences = resolve;
+
+    const result = await runFullIndex(
+      makeContainer({ currentHead: async () => 'sha', diffNameOnly: async () => [] }),
+      stub.repo,
+      { repoId: 'r1' },
+    );
+
+    expect(resolve).toHaveBeenCalledWith('r1', expect.objectContaining({ timeoutMs: expect.any(Number) }));
+    expect(result).toMatchObject({ status: 'partial', reason: 'graph_failed' });
   });
 
   it('walks, parses, persists, and stamps status="full" with INDEXER_VERSION', async () => {
@@ -298,6 +369,23 @@ describe('runIncremental', () => {
 
     const result = await runIncremental(container, stub.repo, { repoId: 'r1' });
     // Full path on a clean tree → 'full' with the new sha persisted (T3).
+    expect(result.status).toBe('full');
+    expect(stub.getState()!.lastIndexedSha).toBe('sha-new');
+  });
+
+  it('degraded marker row (never indexed, sha "") → delegates to runFullIndex', async () => {
+    await writeFileAt(root, 'src/a.ts', 'export const a = 1;');
+
+    const stub = makeRepoStub({
+      basics: { id: 'r1', owner: 'acme', name: 'app', clonePath: root },
+      initialState: makeInitialState({ status: 'degraded', lastIndexedSha: '', filesIndexed: 0 }),
+    });
+    const container = makeContainer({
+      currentHead: async () => 'sha-new',
+      diffNameOnly: async () => [], // `..sha-new` diffs to nothing
+    });
+
+    const result = await runIncremental(container, stub.repo, { repoId: 'r1' });
     expect(result.status).toBe('full');
     expect(stub.getState()!.lastIndexedSha).toBe('sha-new');
   });

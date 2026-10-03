@@ -74,6 +74,18 @@ The Intent Layer classifier was planned on `deepseek/deepseek-v4-flash` (the ent
 
 **Rule:** the terminal status (`done`/`failed`/`cancelled`) is written LAST, after every artifact of the run (review, findings, trace) is persisted — on the success path, the per-run failure path and `failAll` (`src/modules/reviews/run-executor.ts:82`, `:347`)
 
+### A new repo_id after other repos are indexed gets a nested-loop plan (2026-10)
+
+Adding `excalidraw/excalidraw` (57k references) failed the index at the 120 s JobRunner cap, but a standalone run took 13 s and a run on an empty DB 19 s. The `resolveReferences` UPDATE ran for minutes: the planner's stats for `references`/`symbols`/`file_edges` said every row belonged to repos indexed earlier, estimated ~1 row for the freshly inserted repo_id and chose nested loops. Only reproducible with OTHER repos already indexed; the timed-out query kept running in Postgres after the job failed.
+
+**Rule:** after a bulk insert that a big join reads back in the same run, `ANALYZE` those tables first, and bound long statements with `SET LOCAL statement_timeout` (a JS `withTimeout` leaves the query running); to reproduce, index a second large repo, not the first (`src/modules/repo-intel/repository.ts` `resolveReferences`)
+
+### A time-budget check at enqueue time never fires (2026-10)
+
+`runFullIndex` checked `INDEX_SOFT_BUDGET_MS` in the loop that `parseQ.add`s files, so all files were queued in milliseconds and the 110 s soft budget could never trip; the job ran into the 120 s hard timeout instead of ending `partial`.
+
+**Rule:** check a budget where the work STARTS (inside the queued task) and before each later phase, not where it is scheduled (`src/modules/repo-intel/pipeline/full.ts`, `INDEX_PARSE_BUDGET_MS`)
+
 ## Codebase Patterns
 
 ### Reuse the existing severity tally instead of duplicating it (2026-09-18)
@@ -138,6 +150,12 @@ While building the onion-architecture rules, an `exclude` pattern containing `no
 Project-context docs are untrusted repo markdown. A doc that mentions `<|endoftext|>`, which is common in LLM-related docs, made `encode(text)` throw, because special tokens are disallowed by default. The adapter's `catch` set `this.broken = true` and never reset it. From then on every count in the process, including the repo map and all other docs, used the `chars/4` heuristic. Counts cached before the flip kept their real values, so editor totals, trace tokens and the 8000-token budget disagreed with each other. Unit tests never fed a special token, so they didn't catch it; code review did.
 
 **Rule:** for text you don't control, call `encode(text, [], [])` (no allowed and no disallowed specials), so special-token strings are counted as plain text. Keep `broken` for a genuinely failing encoder only (`src/adapters/tokenizer/index.ts:36,50`, test `test/tokenizer.test.ts` "special tokens").
+
+### simple-git refuses an env that carries the shell's `GIT_EDITOR` (2026-10)
+
+Passing a GitHub token to git as `GIT_CONFIG_COUNT/KEY_0/VALUE_0` (an `http.extraheader`, so it never lands in `.git/config` or argv) failed with `Use of "GIT_EDITOR" is not permitted without enabling allowUnsafeEditor`: `.env()` replaces the whole env and simple-git vets every inherited var. `GIT_CONFIG_COUNT` itself also needs `unsafe: { allowUnsafeConfigEnvCount: true }`.
+
+**Rule:** for `.env()`, start from `process.env` minus `GIT_*`/`PAGER`/`EDITOR`/`VISUAL`, and opt in only to the one unsafe flag you need (`src/adapters/git/simple-git.ts` `remote()`)
 
 ## Recurring Errors & Fixes
 

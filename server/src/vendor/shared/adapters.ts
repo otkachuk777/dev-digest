@@ -226,7 +226,8 @@ export interface GitCommit {
 }
 
 export interface GitClient {
-  clone(repo: RepoRef, url: string, opts?: CloneOptions): Promise<{ path: string }>;
+  /** `branch` = the branch the clone checked out (the remote's default), when known. */
+  clone(repo: RepoRef, url: string, opts?: CloneOptions): Promise<{ path: string; branch?: string }>;
   fetchPullHead(repo: RepoRef, n: number): Promise<void>;
   /**
    * Resync an already-cloned repo to the tip of `branch`: fetch from origin and

@@ -12,8 +12,12 @@
  *
  * Soft budget self-watch: JobRunner wraps the handler in
  * `withTimeout(120s)` and rejects → `failed`+retry on hit.
- * The handler can't catch its own outer timeout, so we self-monitor
- * `INDEX_SOFT_BUDGET_MS ≈ 110s` and finish 'partial' BEFORE the hard cap.
+ * The handler can't catch its own outer timeout, so it self-monitors and
+ * finishes 'partial' BEFORE the hard cap: each parse task checks
+ * `INDEX_PARSE_BUDGET_MS` when it starts (all tasks are queued up front, so a
+ * check at enqueue time never fires), T3 is skipped once parse + persist ran
+ * past that budget, and the graph build + decl_file resolve are bounded by
+ * what is left of `INDEX_SOFT_BUDGET_MS`.
  *
  * Option B: rank = PageRank only, hotness=0 (clone is shallow). The T3
  * block is skipped when the soft budget trips, leaving status 'partial'.
@@ -30,6 +34,7 @@ import { parseSymbols, parseReferences, langForFile } from '../../../adapters/as
 import { extractEndpoints, extractCrons } from '../../../adapters/codeindex/extract.js';
 import {
   DEFAULT_REPO_MAP_TOKEN_BUDGET,
+  INDEX_PARSE_BUDGET_MS,
   INDEX_SOFT_BUDGET_MS,
   INDEXER_VERSION,
   MAX_PARSE_MS_PER_FILE,
@@ -74,6 +79,7 @@ export async function runFullIndex(
   payload: IndexPayload,
 ): Promise<IndexResult> {
   const startedAt = Date.now();
+  const elapsed = () => Date.now() - startedAt;
   const repoId = payload.repoId;
 
   const repo = await repository.getRepoBasics(repoId);
@@ -126,14 +132,12 @@ export async function runFullIndex(
   const parseQ = new PQueue({ concurrency });
 
   for (const relPath of walk.files) {
-    // Soft-budget gate: before enqueuing each file, bail out if we've burned
-    // the budget. Anything still in flight is awaited via `onIdle()` below.
-    if (Date.now() - startedAt > INDEX_SOFT_BUDGET_MS) {
-      softBudgetReached = true;
-      break;
-    }
-
     void parseQ.add(async () => {
+      // Budget gate runs when the task STARTS — enqueueing is instant.
+      if (elapsed() > INDEX_PARSE_BUDGET_MS) {
+        softBudgetReached = true;
+        return;
+      }
       const lang = langForFile(relPath);
       if (!lang) {
         filesSkipped += 1;
@@ -204,6 +208,7 @@ export async function runFullIndex(
   await repository.deleteAllForRepo(repoId);
   await repository.insertSymbols(symbolsBuf);
   await repository.insertReferences(refsBuf);
+  if (elapsed() > INDEX_PARSE_BUDGET_MS) softBudgetReached = true;
 
   // --- T3: graph → resolve → rank → repo-map → facts -------------------
   // Skipped when the soft budget tripped: we're already over time, and the
@@ -213,7 +218,10 @@ export async function runFullIndex(
   let rankCount = 0;
   if (!softBudgetReached) {
     try {
-      const edges = await container.depgraph.buildEdges(repo.clonePath, walk.files);
+      const edges = await withTimeout(
+        container.depgraph.buildEdges(repo.clonePath, walk.files),
+        INDEX_SOFT_BUDGET_MS - elapsed(),
+      );
       edgeRows = edges.map((e) => ({ fromFile: e.from, toFile: e.to }));
     } catch (err) {
       graphFailed = asMessage(err);
@@ -221,8 +229,16 @@ export async function runFullIndex(
     await repository.replaceEdges(repoId, edgeRows);
 
     // Resolve references.decl_file via the fresh graph. Full index inserts
-    // rows with NULL decl_file, so no reset is needed (step 5).
-    await repository.resolveReferences(repoId, { reset: false });
+    // rows with NULL decl_file, so no reset is needed (step 5). Bounded by
+    // what's left of the budget; a cancelled resolve leaves decl_file NULL.
+    try {
+      await repository.resolveReferences(repoId, {
+        reset: false,
+        timeoutMs: INDEX_SOFT_BUDGET_MS - elapsed(),
+      });
+    } catch (err) {
+      graphFailed ??= `resolve: ${asMessage(err)}`;
+    }
 
     // Rank (PageRank only; hotness=0 — Option B).
     const rankRows = computeFileRank(walk.files, edgeRows);

@@ -2,12 +2,8 @@ import type { Container } from '../../platform/container.js';
 import { type Repo } from '@devdigest/shared';
 import { NotFoundError } from '../../platform/errors.js';
 import { RepoRepository } from './repository.js';
-import { parseRepoUrl, withGitHubToken, toRepoDto } from './helpers.js';
-import {
-  CLONE_JOB_KIND,
-  CLONE_DEPTH,
-  GITHUB_TOKEN_SECRET,
-} from './constants.js';
+import { parseRepoUrl, toRepoDto } from './helpers.js';
+import { CLONE_JOB_KIND, CLONE_DEPTH } from './constants.js';
 import {
   INDEX_JOB_KIND,
   REFRESH_JOB_KIND,
@@ -50,12 +46,14 @@ export class RepoService {
 
   async runCloneJob(payload: CloneJobPayload): Promise<void> {
     const { repoId, owner, name, url } = payload;
-    const token = await this.container.secrets.get(GITHUB_TOKEN_SECRET);
-    const cloneUrl = token ? withGitHubToken(url, token) : url;
-    const { path } = await this.container.git.clone({ owner, name }, cloneUrl, {
+    // Auth for private repos is added per git command by the GitClient (from
+    // the secrets store), never embedded in the URL that lands in .git/config.
+    const { path, branch } = await this.container.git.clone({ owner, name }, url, {
       depth: CLONE_DEPTH,
     });
-    await this.repo.updateClonePath(repoId, path);
+    // `default_branch` defaults to 'main'; record the real one (e.g. 'master')
+    // or every resync fetches a branch that doesn't exist.
+    await this.repo.updateClonePath(repoId, path, branch);
 
     // T2.2 — kick off the indexer in the background. ENQUEUE (not call) so the
     // clone job closes immediately and the (heavier) index runs as its own

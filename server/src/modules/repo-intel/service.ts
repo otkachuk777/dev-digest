@@ -61,7 +61,7 @@ import { hotnessFromCommits, isJunkPath } from './helpers.js';
 import { collectCloneFacts, emptyCloneFacts } from './facts.js';
 import { withTimeout } from '../../platform/resilience.js';
 import { runFullIndex, type IndexPayload } from './pipeline/full.js';
-import { runIncremental } from './pipeline/incremental.js';
+import { hasUsableIndex, runIncremental } from './pipeline/incremental.js';
 
 /**
  * GLOBALS allowlist — common JS/TS builtins + runtime that appear as bare
@@ -158,6 +158,11 @@ export class RepoIntelService implements RepoIntel {
     try {
       await this.container.git.sync(ref, repo.defaultBranch);
     } catch (err) {
+      // Never indexed (the first index failed / timed out): the clone on disk
+      // is still good, so index it rather than leave the repo with no data.
+      if (!hasUsableIndex(await this.repo.tryGetIndexState(repoId))) {
+        return runFullIndex(this.container, this.repo, { repoId });
+      }
       return {
         status: 'degraded',
         filesIndexed: 0,

@@ -44,6 +44,11 @@ export const MAX_FILE_SIZE = 400 * 1024; // 400 KB
 export const MAX_PARSE_MS_PER_FILE = 2000;
 /** Soft self-watch budget (< JobRunner hard 120s) → finish as `partial`. */
 export const INDEX_SOFT_BUDGET_MS = 110_000;
+/**
+ * Parse + persist must end by here, or the graph phase (T3) is skipped. Leaves
+ * the rest of the soft budget for T3's dependency-cruiser walk + DB writes.
+ */
+export const INDEX_PARSE_BUDGET_MS = 60_000;
 
 // --- [T3] Graph / hotness / repo-map ---------------------------------------
 export const BFS_DEPTH = 2;

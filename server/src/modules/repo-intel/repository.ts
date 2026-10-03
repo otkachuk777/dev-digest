@@ -397,32 +397,48 @@ export class RepoIntelRepository {
    *
    * Quoted `"references"` — it's a SQL reserved word. The query is fully
    * parameterised on repoId (no injection surface).
+   *
+   * ANALYZE first: right after a bulk insert for a NEW repo_id the planner's
+   * stats still say every row belongs to other repos, estimate ~1 row, and pick
+   * nested loops — minutes instead of ~200 ms on a 57k-reference repo.
+   * `timeoutMs` cancels the UPDATE server-side (statement_timeout) so a bad
+   * plan can't outlive the caller's budget as an orphaned query.
    */
-  async resolveReferences(repoId: string, opts: { reset: boolean }): Promise<void> {
+  async resolveReferences(
+    repoId: string,
+    opts: { reset: boolean; timeoutMs?: number },
+  ): Promise<void> {
     if (opts.reset) {
       await this.db.execute(
         sql`UPDATE "references" SET decl_file = NULL WHERE repo_id = ${repoId}`,
       );
     }
-    await this.db.execute(sql`
-      WITH cand AS (
-        SELECT r.id AS ref_id, e.to_file AS decl
-        FROM "references" r
-        JOIN file_edges e ON e.repo_id = r.repo_id AND e.from_file = r.from_path
-        JOIN symbols s ON s.repo_id = r.repo_id AND s.path = e.to_file
-                      AND s.name = r.to_symbol AND s.exported = true
-        WHERE r.repo_id = ${repoId}
-        GROUP BY r.id, e.to_file
-      ),
-      uniq AS (
-        SELECT ref_id FROM cand GROUP BY ref_id HAVING count(*) = 1
-      )
-      UPDATE "references" r
-      SET decl_file = c.decl
-      FROM cand c
-      JOIN uniq u ON u.ref_id = c.ref_id
-      WHERE r.id = c.ref_id
-    `);
+    await this.db.execute(sql`ANALYZE "references", symbols, file_edges`);
+    await this.db.transaction(async (tx) => {
+      if (opts.timeoutMs !== undefined) {
+        const ms = Math.max(1, Math.floor(opts.timeoutMs));
+        await tx.execute(sql.raw(`SET LOCAL statement_timeout = ${ms}`));
+      }
+      await tx.execute(sql`
+        WITH cand AS (
+          SELECT r.id AS ref_id, e.to_file AS decl
+          FROM "references" r
+          JOIN file_edges e ON e.repo_id = r.repo_id AND e.from_file = r.from_path
+          JOIN symbols s ON s.repo_id = r.repo_id AND s.path = e.to_file
+                        AND s.name = r.to_symbol AND s.exported = true
+          WHERE r.repo_id = ${repoId}
+          GROUP BY r.id, e.to_file
+        ),
+        uniq AS (
+          SELECT ref_id FROM cand GROUP BY ref_id HAVING count(*) = 1
+        )
+        UPDATE "references" r
+        SET decl_file = c.decl
+        FROM cand c
+        JOIN uniq u ON u.ref_id = c.ref_id
+        WHERE r.id = c.ref_id
+      `);
+    });
   }
 
   // -------------------------------------------------------------------------

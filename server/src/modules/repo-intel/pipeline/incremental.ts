@@ -34,7 +34,7 @@ import type {
   IndexerSymbolRow,
   RepoIntelRepository,
 } from '../repository.js';
-import type { IndexResult, IndexStatus } from '../types.js';
+import type { IndexResult, IndexState, IndexStatus } from '../types.js';
 import { runFullIndex, type IndexPayload } from './full.js';
 import { walkClone } from './walk.js';
 import { computeFileRank } from './rank.js';
@@ -48,6 +48,11 @@ import { renderRepoMap } from './repo-map.js';
 const INCREMENTAL_FULL_THRESHOLD = 300;
 
 const SUPPORTED_SET: ReadonlySet<string> = new Set(SUPPORTED_EXT);
+
+/** True when a previous run left real index rows to diff against. */
+export function hasUsableIndex(state: IndexState | null): state is IndexState {
+  return !!state && (state.status === 'full' || state.status === 'partial');
+}
 
 export async function runIncremental(
   container: Container,
@@ -72,10 +77,12 @@ export async function runIncremental(
 
   const state = await repository.tryGetIndexState(repoId);
 
-  // (1) No state row OR indexer-version mismatch → full reindex. The version
+  // (1) No usable index OR indexer-version mismatch → full reindex. The version
   //     bumps whenever the parser/schema changes shape; mixing rows from two
-  //     versions would corrupt downstream consumers (step 1).
-  if (!state || state.indexerVersion !== INDEXER_VERSION) {
+  //     versions would corrupt downstream consumers (step 1). A `degraded`
+  //     row (e.g. 'no_clone', sha '') is a marker, not an index: diffing from
+  //     its empty sha would "find" no changes and leave the repo unindexed.
+  if (!hasUsableIndex(state) || state.indexerVersion !== INDEXER_VERSION) {
     return runFullIndex(container, repository, payload);
   }
 
