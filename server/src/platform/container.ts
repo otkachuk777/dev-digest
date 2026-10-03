@@ -54,6 +54,9 @@ export interface ContainerOverrides {
   tokenizer?: Tokenizer;
 }
 
+/** Secret holding the GitHub PAT (Octokit + authenticated git fetches). */
+const GITHUB_TOKEN_SECRET = 'GITHUB_TOKEN';
+
 export class Container {
   readonly config: AppConfig;
   readonly db: Db;
@@ -90,7 +93,7 @@ export class Container {
 
   get git(): GitClient {
     if (this.overrides.git) return this.overrides.git;
-    this._git ??= new SimpleGitClient(this.config.cloneDir, () => this.secrets.get('GITHUB_TOKEN'));
+    this._git ??= new SimpleGitClient(this.config.cloneDir, () => this.secrets.get(GITHUB_TOKEN_SECRET));
     return this._git;
   }
 
@@ -159,7 +162,7 @@ export class Container {
   async github(): Promise<GitHubClient> {
     if (this.overrides.github) return this.overrides.github;
     if (this._github) return this._github;
-    const token = await this.secrets.get('GITHUB_TOKEN');
+    const token = await this.secrets.get(GITHUB_TOKEN_SECRET);
     if (!token) throw new ConfigError('GITHUB_TOKEN is not configured');
     this._github = new OctokitGitHubClient(token);
     return this._github;

@@ -10,6 +10,7 @@ import type {
   BlameLine,
   GitCommit,
 } from '@devdigest/shared';
+import { ExternalServiceError } from '../../platform/errors.js';
 import { parseUnifiedDiff } from './diff-parser.js';
 
 /**
@@ -172,7 +173,9 @@ export class SimpleGitClient implements GitClient {
         .filter(Boolean),
     );
     const hit = candidates.find((c) => found.has(c));
-    if (!hit) throw new Error(`none of ${candidates.join(', ')} exists on origin`);
+    if (!hit) {
+      throw new ExternalServiceError(`none of ${candidates.join(', ')} exists on origin`);
+    }
     return hit;
   }
 
