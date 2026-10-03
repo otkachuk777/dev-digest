@@ -47,6 +47,8 @@ export interface IndexState extends IndexResult {
   /** True when the layer is running on the ripgrep fallback. */
   degraded?: boolean;
   degradedReason?: DegradedReason;
+  /** Raw indexer stats (e.g. `bounded` = files left out by the index limit). */
+  stats?: Record<string, unknown>;
 }
 
 // ---------------------------------------------------------------------------
@@ -169,4 +171,64 @@ export interface RepoIntel {
     opts?: { exclude?: string[] },
   ): Promise<string[]>;
   getCriticalPaths(repoId: string): Promise<string[][]>;
+
+  // --- Onboarding facts + hotness ----------------------------------------
+  /** Deterministic facts for the onboarding tour. Never throws; no clone → empty facts. */
+  collectFacts(repoId: string): Promise<RepoFacts>;
+  /** Per-file hotness in [0,1] from recent commits. `available:false` + all 0 on failure/timeout. */
+  getHotness(
+    repoId: string,
+    opts?: { timeoutMs?: number; now?: Date },
+  ): Promise<HotnessResult>;
+}
+
+// ---------------------------------------------------------------------------
+// Onboarding facts (facade method `collectFacts`) and hotness.
+// ---------------------------------------------------------------------------
+
+export interface RepoFacts {
+  commitSha: string;
+  indexStatus: IndexStatus | 'missing';
+  filesTotal: number;
+  filesIndexed: number;
+  filesBounded: boolean;
+  stack: {
+    /** files desc, ext asc */
+    languages: { ext: string; files: number }[];
+    packageManager: 'npm' | 'pnpm' | 'yarn' | 'bun' | null;
+    frameworks: string[];
+  };
+  /** dir asc */
+  structure: { dir: string; files: number }[];
+  /** "METHOD /path", sorted, deduped */
+  routes: string[];
+  scripts: {
+    /** dir asc, root (null) first */
+    manifests: { dir: string | null; scripts: string[] }[];
+    makeTargets: string[];
+    composeServices: string[];
+    hasCompose: boolean;
+    /** Names only — values are never read into facts. */
+    envExampleNames: string[];
+    hasEnvExample: boolean;
+    readmeCommands: string[];
+  };
+  graph: {
+    files: { path: string; pagerank: number; percentile: number; importedBy: number }[];
+    edges: { from: string; to: string }[];
+  };
+  readme: {
+    text: string | null;
+    /** existing repo-relative files, in order */
+    links: string[];
+  };
+  entryPoints: string[];
+  /** asc */
+  rootFiles: string[];
+  repoMap: string;
+}
+
+export interface HotnessResult {
+  byPath: Record<string, number>;
+  available: boolean;
 }

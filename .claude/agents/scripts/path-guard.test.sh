@@ -18,6 +18,10 @@ check tests "$ROOT/server/src/modules/skills/service.ts" deny
 check tests "$ROOT/client/package.json" deny
 check tests "$ROOT/server/test/../src/app.ts" deny
 check tests "/tmp/x.test.ts" deny
+check tests "$ROOT/e2e/flows/08-new-flow.flow.json" allow
+check tests "$ROOT/e2e/flows/x.json" deny
+check tests "$ROOT/e2e/run.ts" deny
+check tests "$ROOT/e2e/flows/../run.ts" deny
 
 check docs "$ROOT/docs/architecture.md" allow
 check docs "$ROOT/docs/adr/0001-use-onion.md" allow
@@ -30,7 +34,8 @@ check docs "$ROOT/server/src/app.ts" deny
 check docs "$ROOT/client/src/vendor/docs/x.md" deny
 check docs "$ROOT/CLAUDE.md" deny
 check docs "$ROOT/server/INSIGHTS.md" deny
-check docs "$ROOT/e2e/specs-docs/01.md" deny
+check docs "$ROOT/e2e/flows-docs/01.md" deny
+check docs "$ROOT/specs/SPEC-01-x.md" deny
 check docs "$ROOT/client/specs/x.md" deny
 check docs "$ROOT/docs/../server/src/app.ts" deny
 
@@ -42,6 +47,35 @@ check plans "$HOME/.claude/plans/x.txt" deny
 check plans "$ROOT/docs/cc-plans/2026-09-24+x.md" deny
 check plans "$ROOT/server/src/app.ts" deny
 
+check specs "$ROOT/client/specs/SPEC-01-x.md" allow
+check specs "$ROOT/mcp/specs/SPEC-12-a-b.md" allow
+check specs "$ROOT/specs/SPEC-03-cross.md" allow
+check specs "$ROOT/e2e/specs/SPEC-04-y.md" allow
+check specs "$ROOT/reviewer-core/specs/SPEC-100-z.md" allow
+check specs "$ROOT/client/specs/README.md" deny
+check specs "$ROOT/specs/README.md" deny
+check specs "$ROOT/client/specs/sub/SPEC-01-x.md" deny
+check specs "$ROOT/client/specs/SPEC-1-x.md" deny
+check specs "$ROOT/client/specs/spec-01-x.md" deny
+check specs "$ROOT/client/specs/SPEC-01-X.md" deny
+check specs "$ROOT/client/specs/SPEC-01-x.txt" deny
+check specs "$ROOT/client/src/x.md" deny
+check specs "$ROOT/docs/designs/extracted/onboarding-tour.jsx" allow
+check specs "$ROOT/docs/designs/extracted/tour.html" allow
+check specs "$ROOT/docs/designs/DevDigest_Design.html" deny
+check specs "$ROOT/docs/designs/extracted/sub/x.jsx" deny
+check specs "$ROOT/docs/designs/extracted/Tour.jsx" deny
+check specs "$ROOT/docs/designs/extracted/x.sh" deny
+check specs "$ROOT/docs/designs/extracted/../../../server/src/app.ts" deny
+check specs "$ROOT/docs/specs/SPEC-01-x.md" deny
+check specs "$ROOT/e2e/flows/01-a.flow.json" deny
+check specs "$ROOT/client/specs/../src/SPEC-01-x.md" deny
+check specs "/tmp/SPEC-01-x.md" deny
+
 check other "$ROOT/docs/architecture.md" deny
+
+# without jq the guard must fail closed (exit 2) and say how to install it
+out=$(printf '{}' | env -i PATH=/nonexistent /bin/bash "$S/path-guard.sh" specs 2>&1); code=$?
+if [ $code -eq 2 ] && [[ "$out" == *"brew install jq"* ]]; then echo "ok   no-jq blocked (exit 2)"; else echo "FAIL no-jq: exit $code, out: $out"; FAIL=1; fi
 
 exit $FAIL

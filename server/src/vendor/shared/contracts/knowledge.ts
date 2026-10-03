@@ -26,25 +26,107 @@ export const Conformance = z.object({
 export type Conformance = z.infer<typeof Conformance>;
 
 // ---- Onboarding ----
-export const OnboardingLink = z.object({
-  label: z.string(),
-  path: z.string(),
-});
-export type OnboardingLink = z.infer<typeof OnboardingLink>;
+export const OnboardingStatus = z.enum(['full', 'partial', 'skeleton']);
+export type OnboardingStatus = z.infer<typeof OnboardingStatus>;
 
-export const OnboardingSection = z.object({
-  kind: z.string(),
-  title: z.string(),
-  body: z.string(), // markdown
-  diagram: z.string().nullish(), // mermaid
-  links: z.array(OnboardingLink),
-});
-export type OnboardingSection = z.infer<typeof OnboardingSection>;
+export const OnboardingSkeletonReason = z.enum([
+  'timeout',
+  'rate_limited',
+  'provider_error',
+  'no_api_key',
+  'invalid_output',
+]);
+export type OnboardingSkeletonReason = z.infer<typeof OnboardingSkeletonReason>;
+
+export const OnboardingNote = z.enum([
+  'index_partial',
+  'index_degraded',
+  'graph_unavailable',
+  'hotness_unavailable',
+  'files_bounded',
+]);
+export type OnboardingNote = z.infer<typeof OnboardingNote>;
+
+export const OnboardingComplexity = z.enum(['Low', 'Medium', 'High']);
+export type OnboardingComplexity = z.infer<typeof OnboardingComplexity>;
 
 export const Onboarding = z.object({
-  sections: z.array(OnboardingSection),
+  repo_full_name: z.string(),
+  commit_sha: z.string(),
+  generated_at: z.string(),
+  status: OnboardingStatus,
+  skeleton_reason: OnboardingSkeletonReason.nullable(),
+  notes: z.array(OnboardingNote),
+  files_total: z.number().int().min(0),
+  files_indexed: z.number().int().min(0),
+  provider: z.string(),
+  model: z.string(),
+  llm_calls: z.number().int().min(0).max(1),
+  tokens_in: z.number().int().min(0),
+  tokens_out: z.number().int().min(0),
+  cost_usd: z.number().min(0).nullable(),
+  duration_ms: z.number().int().min(0),
+  dropped_items: z.number().int().min(0),
+  architecture: z.object({
+    body: z.string().max(4000), // markdown
+    diagram: z.string().max(3000).nullable(), // mermaid
+  }),
+  critical_paths: z
+    .array(z.object({ path: z.string(), reason: z.string().max(300) }))
+    .max(6),
+  how_to_run: z
+    .array(
+      z.object({
+        command: z.string().max(300),
+        comment: z.string().max(300).nullable(),
+        cwd: z.string().nullable(),
+      }),
+    )
+    .max(8),
+  reading_path: z
+    .array(
+      z.object({
+        path: z.string(),
+        reason: z.string().max(300),
+        rank: z.number(),
+        hotness: z.number().min(0).max(1),
+      }),
+    )
+    .max(10),
+  first_tasks: z
+    .array(
+      z.object({
+        title: z.string().max(120),
+        scope_path: z.string(),
+        complexity: OnboardingComplexity,
+      }),
+    )
+    .max(5),
 });
 export type Onboarding = z.infer<typeof Onboarding>;
+
+/** `GET /repos/:id/onboarding`. */
+export const OnboardingState = z.object({
+  clone_status: z.enum(['ok', 'no_clone']),
+  generating: z.boolean(),
+  current_commit_sha: z.string().nullable(),
+  model: z.object({ provider: z.string(), model: z.string() }),
+  tour: Onboarding.nullable(),
+});
+export type OnboardingState = z.infer<typeof OnboardingState>;
+
+export const OnboardingFailedAttempt = z.object({
+  reason: OnboardingSkeletonReason,
+  skeleton: Onboarding,
+});
+export type OnboardingFailedAttempt = z.infer<typeof OnboardingFailedAttempt>;
+
+/** `POST /repos/:id/onboarding/generate`. */
+export const OnboardingGenerateResult = z.object({
+  tour: Onboarding,
+  failed_attempt: OnboardingFailedAttempt.nullable(),
+});
+export type OnboardingGenerateResult = z.infer<typeof OnboardingGenerateResult>;
 
 // ---- Eval ----
 export const EvalPerTrace = z.object({

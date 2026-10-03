@@ -48,8 +48,20 @@ export class OpenAIProvider implements LLMProvider {
   readonly id = 'openai' as const;
   private client: OpenAI;
 
-  constructor(apiKey: string) {
-    this.client = new OpenAI({ apiKey });
+  constructor(
+    apiKey: string,
+    protected readonly opts: { maxRetries?: number; timeoutMs?: number } = {},
+  ) {
+    this.client = new OpenAI({
+      apiKey,
+      ...(opts.maxRetries !== undefined ? { maxRetries: opts.maxRetries } : {}),
+      ...(opts.timeoutMs !== undefined ? { timeout: opts.timeoutMs } : {}),
+    });
+  }
+
+  /** `maxRetries` unset keeps withRetry's default; 0 means a single attempt. */
+  private retryOpts() {
+    return this.opts.maxRetries === undefined ? {} : { retries: this.opts.maxRetries };
   }
 
   async listModels(): Promise<ModelInfo[]> {
@@ -105,8 +117,9 @@ export class OpenAIProvider implements LLMProvider {
               json_schema: { name: req.schemaName, schema: jsonSchema.schema, strict: true },
             },
           }),
-          req.timeoutMs ?? DEFAULT_TIMEOUT,
+          req.timeoutMs ?? this.opts.timeoutMs ?? DEFAULT_TIMEOUT,
         ),
+        this.retryOpts(),
       );
       lastRaw = res.choices?.[0]?.message?.content ?? '';
       tokensIn += res.usage?.prompt_tokens ?? 0;

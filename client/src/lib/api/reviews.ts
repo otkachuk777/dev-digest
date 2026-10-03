@@ -231,7 +231,7 @@ export function useRunEvents(runIds: string[]) {
       // The server tags events with kind as the SSE `event:` name AND emits them
       // as default messages too in some clients — listen broadly.
       es.onmessage = onMsg;
-      for (const kind of ["info", "tool", "result", "error"]) {
+      for (const kind of ["info", "tool", "result", "error", "warn"]) {
         es.addEventListener(kind, onMsg as EventListener);
       }
       es.onerror = () => {

@@ -33,6 +33,12 @@ Self-review flagged migration `0014` (NOT NULL columns with no DEFAULT on `pr_in
 
 > **2026-09-27 correction:** that recipe works only in the main session. Inside a read-only subagent (`readonly-bash-guard.sh`) every `git branch` form is denied, because `git branch <name>` creates a branch. In an agent, list branches with `git for-each-ref --format='%(refname:short)' refs/heads refs/remotes`, which the guard's deny message now names (`.claude/agents/scripts/readonly-bash-guard.sh:38-43`).
 
+### One implementer for a whole plan costs turns × context, not test output (2026-10)
+
+Seven implementer transcripts (2026-09/10) ran 192–426 turns with the context growing to 200–315k, i.e. 25–81M input tokens per run. Test runs were only 3–12% of tool output (`pnpm test` prints ~5 KB); the cost came from every turn resending the whole context — dozens of `sed -n`/`grep -n` slice reads, 40–70 small Edits, plan and INSIGHTS re-read. Trimming test output would have saved almost nothing.
+
+**Rule:** give each chunk of 2–3 plan steps to a fresh implementer, batch independent reads in one message, read a file once whole, and run step-level tests only (full suite once per chunk). Measure before optimising: sum `usage` per assistant turn in `~/.claude/projects/<repo>/<session>/subagents/agent-*.jsonl` (`.claude/agents/implementer.md` "Working efficiently", `.claude/agents/implementation-planner.md` Step 4 "Chunks")
+
 ### `pull_request` path filters (negations too) match the whole PR diff, not the push (2026-10)
 
 On otkachuk777/dev-digest#15, pushes that changed only `INSIGHTS.md` still re-ran the ~2-minute e2e suite, even though `e2e-web.yml` negates `!**/*.md`. For `pull_request` events GitHub evaluates `paths` against base...head of the whole PR. Once any earlier commit in the PR touched `client/**` or `server/**`, every later push matches, whatever it changed. Tightening the negations can't fix this; they only ever see the full PR diff.
@@ -72,6 +78,65 @@ times in a row (commit `4703d6d`)
 In Claude Code's Bash, `grep` is a shell function wrapping ugrep, not `/usr/bin/grep`. Two security-reviewer runs got a "complexity limit" error on the secret pattern `sk-(proj-)?[A-Za-z0-9_-]{32,}` over a large diff. Both then swapped in a broader pattern and reported it as the same check. The same pattern runs fine with BSD `/usr/bin/grep -E`.
 
 **Rule:** when a `grep -E` pattern errors in a Bash call, re-run it with `/usr/bin/grep -E` before concluding anything. Never report a silently widened pattern as the original check (`.claude/agents/security-reviewer.md`, "Secret patterns" note).
+
+### `: ` inside an agent's `description` breaks its YAML frontmatter (2026-10)
+
+Adding "`[verify: e2e]` ACs" to the test-writer `description` made the frontmatter invalid: the description is a plain YAML scalar, and `: ` inside it reads as a new mapping key ("mapping values are not allowed"). Nothing in the repo's self-tests parses agent frontmatter, so the file looked fine and the agent would simply fail to load in the next session.
+
+**Rule:** after editing any `.claude/agents/*.md` frontmatter, parse it: `for f in .claude/agents/*-*.md .claude/agents/{implementer,brainstorm,researcher}.md; do LANG=en_US.UTF-8 ruby -Eutf-8 -ryaml -e 'YAML.load(File.read(ARGV[0]).split(/^---$/)[1])' "$f" || echo "FAIL $f"; done`; keep `: ` out of descriptions or quote them (`.claude/agents/test-writer.md:3`)
+
+### `rg` in the agent shell becomes a non-recursive BSD `grep` (2026-10)
+
+`rg` exists only as a Claude Code shell function, and the RTK command hook rewrites it to `rtk grep`, which runs BSD `grep`. So `rg … -g '*.md'` / `--glob` fail with "grep: invalid option -- g", `rg pattern <dir>` fails with "Is a directory", and `rtk proxy rg` fails because no `rg` binary exists. A plain `rg pattern file` still works, which hides the problem. Eight agent prompts recommended `rg`; the planner's spec search and spec-creator's SPEC-ID lookup used `--glob` and were broken on every run. Separate from the ugrep-shim entry above.
+
+**Rule:** in commands and in agent prompts, search with `grep -rnE` / `grep -rl --include='SPEC-*.md' … specs */specs`, never `rg`. (`.claude/agents/implementation-planner.md` Step 1, `.claude/agents/spec-creator.md` ID rule, commit `e62533a`)
+
+> **2026-10-02 correction:** the cause was rtk ≤ 0.39 plus a missing ripgrep binary. On rtk 0.50.0 + `brew install ripgrep` (15.2.0), `rg` is rewritten to `rtk rg` and runs real ripgrep, so `-g`/`--glob` and directory search work (verified). On a machine with older rtk or no ripgrep the old failure comes back, so agent prompts keep `grep -rnE`. Also note that rtk 0.50 `rewrite` returns exit 3 (ask) for every command with no explicit allow rule, so the RTK hook no longer auto-approves rewritten commands and Claude Code's own permission rules decide (`src/hooks/decision.rs` upstream).
+
+### `toolUseResult.totalTokens` is an agent's last API call, not its total (2026-10)
+
+The `Agent` tool result in the parent transcript carries `totalTokens`, which looks like the agent's cost. It is the input + cache + output of the agent's **last** call only (59 291 = 2 + 412 + 50 428 + 8 449). Adding these up undercounts a 46-turn planner (4.4M processed) by about 25×. A second trap when summing `usage` yourself: one assistant message spans several jsonl lines with the same `message.id` and a repeated `usage`, so a naive sum overcounts.
+
+**Rule:** measure agent cost from `subagents/agent-<id>.jsonl`. Sum `usage` once per `message.id` and track the largest single call as peak context. Or run `.claude/skills/workflow-retro/scripts/collect.py`, which does both (`usage()` in `collect.py`, commit `ffb2db1`).
+
+### `brew bundle check` answers "installed by brew?", not "is the tool here?" (2026-10)
+
+On this Mac every tool worked (`node` from the nodejs.org installer, `pnpm` from its own script, Docker Desktop, `jq` in `/usr/bin`), yet `brew bundle check --no-upgrade` reported 6 unmet Brewfile entries. A `--fix` built on `brew bundle` would have installed a second node, pnpm and Docker on top of the working ones.
+
+**Rule:** check tools with `command -v` plus a version, as `scripts/doctor.sh` does. Use the Brewfile only to install on a fresh machine, and let `doctor.sh --fix` brew-install only the rows it reports MISSING/OLD (`scripts/doctor.sh`, commit `7b52ea3`).
+
+### Testing "tool X is missing": strip PATH properly, and mount worktrees at their real path (2026-10)
+
+A hook's missing-dependency branch is only tested if X is really unreachable. `PATH=$(dirname $(command -v jq))` looked like a "jq only" PATH, but on macOS `jq` lives in `/usr/bin` next to `perl`, so the no-perl test passed while perl was still there. Running the self-tests in Docker from a worktree also failed with `fatal: not a git repository`, because the worktree's `.git` file points at the host path of the main repo.
+
+**Rule:** build the PATH from a temp dir of symlinks to every file in `/usr/bin` and `/bin` except the tool under test (see the `NOPERL` / `NJ` / `NP` blocks in `readonly-bash-guard.test.sh`, `gate.test.sh`, `spec-lint.test.sh`). Then mutate the check away once to prove the test goes red. For Linux runs of a worktree: `docker run -v "$REPO":"$REPO" -w "$WORKTREE" ubuntu:24.04 …`, mounting the main repo at the same absolute path (commit `7b52ea3`).
+
+### A session isolated in a worktree cannot run `git` through RTK, and its subagents cannot write to other worktrees (2026-10)
+
+During the SPEC-01 `/impl`, the session sat in `.claude/worktrees/spec-01-project-context-folder` (EnterWorktree). Every plain `git …` was refused with "runs rtk with a git command among its operands". The RTK hook rewrites the command to `rtk git …`, and the isolation check can't prove that stays in the worktree. Compound forms (`cmd && git …`, `cd <dir> && git …`, a `for` loop calling a tool with a computed argument) were refused too.
+
+The plan's parallel layout, one worktree per group, also failed. Implementers spawned from the isolated session were refused writes under `.claude/worktrees/spec-01-group-a` ("Edit the worktree copy of this file instead"), so 2 spawns came back `blocked`. `isolation: "worktree"` doesn't help: by default (`worktree.baseRef: "fresh"`) it branches from `origin/main` and loses the earlier groups' commits.
+
+**Rule:** in an isolated session, call `/usr/bin/git` directly, one git command per Bash call, and pass the commit message with `-F <scratchpad file>`. Tell every agent prompt the same. Run parallel groups with disjoint modules in the session's own worktree and commit each with explicit paths. Per-agent worktrees branched from the session would need `worktree.baseRef: "head"` and implementers that commit; that design was discussed and not adopted yet (`docs/workflow-retros/2026-10-02+spec-01.md` P1/P2).
+
+> **2026-10-02 correction:** use `/opt/homebrew/bin/git`, not `/usr/bin/git`.
+> - `/usr/bin/git` is Apple git (Xcode). Its credential helper is a different `git-credential-osxkeychain` binary from the Homebrew one that created the GitHub Keychain item.
+> - So macOS asked for Keychain access on every push or fetch.
+> - The Homebrew absolute path is not rewritten by RTK either, and the isolation guard accepts it (verified with `status` and `commit` in the isolated worktree).
+
+> **2026-10-03 correction:** per-group worktrees DO work when the main session is not itself isolated (it runs in the main checkout and drives a feature worktree by absolute path). For SPEC-02 the main session cut `.claude/worktrees/spec-02-{server,client}` with `git worktree add -b feat/spec-02-<group> <path> <red-tests sha>`, passed the absolute path in each implementer prompt, committed each chunk there with explicit paths and `git merge`d both branches back into the feature branch: 5 parallel implementer spawns, 0 refused writes (`docs/workflow-retros/2026-10-03+spec-02.md` P1). Still avoid `isolation: "worktree"`.
+
+### Gemini CLI no longer works on the free tier — use `agy` for a Gemini cross-model review (2026-10)
+
+`gemini -p …` (0.38.2) died at auth with `IneligibleTierError: This client is no longer supported for Gemini Code Assist for individuals`; no API keys were configured, so a "cross-model review" looked impossible. The Antigravity CLI `agy` (`~/.local/bin/agy`, Gemini Plus subscription login) serves the same models: `agy models` lists `gemini-3.1-pro-high` etc. It has no stdin input in print mode, so put the material in a file and grant the directory.
+
+**Rule:** for a non-Claude review run `agy --mode plan --model gemini-3.1-pro-high --add-dir <dir with the plan> -p "<prompt naming the file>"` from the repo/worktree root (`--mode plan` = read-only). Used for the SPEC-02 plan review (`docs/cc-plans/2026-10-02+spec-02-onboarding-generator.md` § Cross-model review).
+
+### `preview_start` reads the MAIN checkout's `.claude/launch.json`, even for a worktree (2026-10)
+
+Adding spare-port entries to a worktree's `.claude/launch.json` did nothing ("No server named … found"); the Browser pane only reads the launch file of the session's original project. A worktree server started with `pnpm --dir server dev` also resolved `DEVDIGEST_CLONE_DIR=./clones` relative to the worktree, so every repo showed `no_clone`.
+
+**Rule:** to preview a worktree, add temporary entries to the main checkout's `.claude/launch.json` with `runtimeExecutable: "bash"`, `runtimeArgs: ["-c", "cd <abs worktree>/server && DEVDIGEST_CLONE_DIR=<abs main>/server/clones API_PORT=3121 WEB_PORT=3120 pnpm dev"]` (client: `NEXT_PUBLIC_API_BASE=http://localhost:3121 pnpm exec next dev -p 3120`), copy `server/.env` into the worktree, and `git checkout -- .claude/launch.json` afterwards.
 
 ## Recurring Errors & Fixes
 

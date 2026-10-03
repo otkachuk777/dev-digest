@@ -2,6 +2,7 @@
 # `gh pr create` / `gh pr merge` without a fresh PASS verdict
 # (.claude/skills/pr-self-review/). Runs gate.test.sh: allow/deny decisions,
 # the worktree case, and that every skill named in skill-map.md exists.
+# Job `tooling`: scripts/doctor.test.sh and the agent guard self-tests (.claude/agents/scripts/*.test.sh).
 name: pr-self-review gate
 
 on:
@@ -9,10 +10,16 @@ on:
     branches: [main]
     paths:
       - '.claude/skills/**'
+      - '.claude/agents/scripts/**'
+      - 'scripts/doctor*'
+      - 'Brewfile'
       - '.github/workflows/pr-self-review.yml'
   pull_request:
     paths:
       - '.claude/skills/**'
+      - '.claude/agents/scripts/**'
+      - 'scripts/doctor*'
+      - 'Brewfile'
       - '.github/workflows/pr-self-review.yml'
 
 permissions:
@@ -31,3 +38,12 @@ jobs:
 
       # jq and git are preinstalled on ubuntu-latest.
       - run: bash .claude/skills/pr-self-review/scripts/gate.test.sh
+
+  tooling:
+    name: doctor + agent guard self-tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # jq, perl, python3 and git are preinstalled on ubuntu-latest.
+      - run: bash scripts/doctor.test.sh
+      - run: for t in .claude/agents/scripts/*.test.sh; do echo "== $t"; bash "$t" || exit 1; done

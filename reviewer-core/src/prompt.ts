@@ -53,6 +53,22 @@ export function wrapUntrusted(label: string, content: string): string {
   return `<untrusted source="${tag}">\n${safe}\n</untrusted>`;
 }
 
+/** One attached repo document for the `## Project context` slot (text already budgeted by the caller). */
+export interface ProjectContextDoc {
+  path: string;
+  text: string;
+}
+
+function wrapProjectDoc(d: ProjectContextDoc): string {
+  // The label goes through wrapUntrusted's whitelist; the full path is carried by the heading.
+  return wrapUntrusted(d.path, d.text ? `### ${d.path}\n${d.text}` : `### ${d.path}`);
+}
+
+/** Renders attached docs as one untrusted block per doc; `undefined` when there are none. */
+export function renderProjectContext(docs: ProjectContextDoc[]): string | undefined {
+  return docs.length > 0 ? docs.map(wrapProjectDoc).join('\n\n') : undefined;
+}
+
 /** Cap the PR description so a huge author body can't blow the token budget. */
 const MAX_PR_DESCRIPTION_CHARS = 4000;
 
@@ -63,8 +79,8 @@ export interface PromptParts {
   skills?: string[];
   /** Relevant memory items (trusted, curated). */
   memory?: string[];
-  /** Project-context spec chunks (untrusted content). */
-  specs?: string[];
+  /** Attached project-context docs (untrusted content), one delimiter block each. */
+  specs?: ProjectContextDoc[];
   /**
    * Repo skeleton / map (T3): top-ranked symbols by signature, token-budgeted.
    * Untrusted (derived from repo code) — delimiter-wrapped. Rendered before
@@ -153,10 +169,7 @@ export function assemblePrompt(parts: PromptParts): AssembledPrompt {
     parts.memory && parts.memory.length > 0
       ? parts.memory.map((m) => `- ${m}`).join('\n')
       : undefined;
-  const specsBlock =
-    parts.specs && parts.specs.length > 0
-      ? parts.specs.map((s, i) => wrapUntrusted(`spec-${i}`, s)).join('\n\n')
-      : undefined;
+  const specsBlock = renderProjectContext(parts.specs ?? []);
 
   const prDescription =
     parts.prDescription && parts.prDescription.trim().length > 0
@@ -209,7 +222,7 @@ export function assemblePrompt(parts: PromptParts): AssembledPrompt {
   if (parts.repoMap && parts.repoMap.trim().length > 0) {
     sections.push({ name: 'repo-map', source: 'repo-intel', text: parts.repoMap });
   }
-  if (specsBlock) sections.push({ name: 'specs', source: 'project-context', text: specsBlock, parts: parts.specs });
+  if (specsBlock) sections.push({ name: 'specs', source: 'project-context', text: specsBlock, parts: parts.specs?.map(wrapProjectDoc) });
   if (parts.callers && parts.callers.trim().length > 0) {
     sections.push({ name: 'callers', source: 'repo-intel', text: parts.callers });
   }

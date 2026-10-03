@@ -5,6 +5,7 @@
 # Exit 0 = test killed the mutant (red then green). Non-zero = survived / refused / restore problem.
 set -uo pipefail
 [ $# -ge 5 ] && [ "$4" = "--" ] || { echo "usage: mutation-probe.sh <file> <line> <replacement> -- <test command...>" >&2; exit 64; }
+command -v perl >/dev/null || { echo "mutation-probe: perl not found — install it (see scripts/doctor.sh)" >&2; exit 69; }
 FILE=$1 LINE=$2 REPL=$3; shift 4
 cd "$(git rev-parse --show-toplevel)"
 

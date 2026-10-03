@@ -1,6 +1,7 @@
 ---
 name: engineering-insights
 description: Use at the start of any coding session to read the touched module's INSIGHTS.md before doing other work, and again when wrapping up to append a lesson to that same file. Use whenever a session hit a surprising bug, a dead end, a library or version quirk, a convention discovered the hard way, or a decision worth keeping for next time. Also use when the user says "wrap up", "capture learnings", "session insights", "what did we learn", or invokes /engineering-insights.
+compatibility: "Requires git"
 ---
 
 # Engineering Insights

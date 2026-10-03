@@ -6,7 +6,7 @@ import { z } from 'zod';
  * during the run; the full log is written once on completion.
  */
 
-export const RunEventKind = z.enum(['info', 'tool', 'result', 'error']);
+export const RunEventKind = z.enum(['info', 'tool', 'result', 'error', 'warn']);
 export type RunEventKind = z.infer<typeof RunEventKind>;
 
 /** A single live-log line. `t` = elapsed timestamp string (e.g. "00.31"). */
@@ -70,6 +70,16 @@ export const RunStats = z.object({
 });
 export type RunStats = z.infer<typeof RunStats>;
 
+/** One project-context doc considered for a run (attached to the agent or an inherited skill). */
+export const ContextDocTrace = z.object({
+  path: z.string(),
+  tokens: z.number().int().nonnegative(),
+  origin: z.enum(['agent', 'skill']),
+  origin_name: z.string(),
+  status: z.enum(['read', 'truncated', 'missing']),
+});
+export type ContextDocTrace = z.infer<typeof ContextDocTrace>;
+
 /** The single-document trace stored in `run_traces.trace`. */
 export const RunTrace = z.object({
   config: z.object({
@@ -86,6 +96,7 @@ export const RunTrace = z.object({
   raw_output: z.string(),
   memory_pulled: z.array(MemoryPulled),
   specs_read: z.array(z.string()),
+  context_docs: z.array(ContextDocTrace).optional(),
   log: z.array(RunLogLine),
 });
 export type RunTrace = z.infer<typeof RunTrace>;

@@ -248,6 +248,17 @@ export interface GitClient {
   blame(repo: RepoRef, path: string): Promise<BlameLine[]>;
   log(repo: RepoRef, path?: string): Promise<GitCommit[]>;
   readFile(repo: RepoRef, path: string): Promise<string>;
+  /**
+   * Repo-relative paths touched by each recent commit of `branch` (newest first,
+   * one array per commit). Deepens the shallow clone from origin first, so it
+   * THROWS on fetch/log failure (offline, timeout) — callers treat that as
+   * "history unavailable".
+   */
+  recentCommitPaths(
+    repo: RepoRef,
+    branch: string,
+    opts: { maxCommits: number; sinceDays: number; timeoutMs: number },
+  ): Promise<string[][]>;
   clonePathFor(repo: RepoRef): string;
 }
 

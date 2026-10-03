@@ -1,17 +1,49 @@
 {
-  "title": "Onboarding Tour",
-  "sections": "Sections",
-  "sectionCount": "{count} sections",
-  "regenerate": "Regenerate",
-  "regenerating": "Regenerating…",
-  "unknownError": "Unknown error",
-  "generate": {
+  "heading": "Onboarding for {repo}",
+  "meta": "Generated from index of {total, plural, one {# file} other {# files}} · {indexed, number} indexed · last refreshed {when}",
+  "crumb": "Onboarding Tour",
+  "toc": "On this page",
+  "sections": { "architecture": "Architecture overview", "critical": "Critical paths", "run": "How to run locally", "reading": "Guided reading path", "tasks": "First tasks" },
+  "empty": {
     "title": "Generate onboarding tour",
-    "body": "DevDigest indexes the repo and specs, then writes a 5-section guided tour: overview, architecture, key modules, getting started, and conventions & gotchas.",
-    "cta": "Generate onboarding tour",
-    "generating": "Generating…"
+    "body": "Builds five sections from the repository index: Architecture overview, Critical paths, How to run locally, Guided reading path and First tasks.",
+    "cost": "One AI call to {provider}/{model} · up to 12,000 input tokens · up to 2 minutes",
+    "cta": "Generate onboarding tour"
   },
-  "loadError": {
-    "title": "Couldn’t load the onboarding tour"
-  }
+  "noClone": { "title": "Repo not cloned yet", "body": "DevDigest needs a local clone of this repository to build the tour.", "cta": "Sync repository" },
+  "regenerate": "Regenerate",
+  "generating": "Generating… {seconds}s",
+  "stale": "Repo changed since this tour",
+  "copyMarkdown": "Copy as Markdown",
+  "copiedMarkdown": "Tour copied as Markdown",
+  "copyFailed": "Couldn't copy — clipboard access was blocked",
+  "copyCommand": "Copy command: {command}",
+  "copied": "Copied",
+  "inCwd": "in {cwd}/",
+  "open": "Open",
+  "nothing": "Nothing to show for this section",
+  "tasksSkeleton": "First tasks need the AI summary — regenerate to try again",
+  "complexity": { "Low": "Low complexity", "Medium": "Medium complexity", "High": "High complexity" },
+  "banner": {
+    "ai": "AI-generated · {calls, plural, one {# LLM call} other {# LLM calls}} · {tokens, number} tokens · {cost}",
+    "skeleton": "Skeleton — AI summary unavailable: {reason}"
+  },
+  "notes": {
+    "index_partial": "Index is partial",
+    "index_degraded": "Index unavailable",
+    "graph_unavailable": "Reading path is approximate — import graph unavailable",
+    "hotness_unavailable": "Reading path ranked by structure only",
+    "files_bounded": "Only {count, number} source files were indexed"
+  },
+  "reasons": {
+    "timeout": "the AI call took longer than 2 minutes",
+    "rate_limited": "the AI provider is rate-limiting requests",
+    "provider_error": "the AI provider returned an error",
+    "no_api_key": "no API key for {provider} — add one in Settings → API Keys",
+    "invalid_output": "the AI answer could not be read"
+  },
+  "failed": { "notice": "Regeneration failed: {reason}", "showSkeleton": "Show skeleton instead" },
+  "inProgress": "A tour is already being generated for this repository",
+  "diagramAlt": "Architecture diagram",
+  "loadError": { "title": "Couldn’t load the onboarding tour" }
 }

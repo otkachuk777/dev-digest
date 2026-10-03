@@ -15,6 +15,8 @@
 export {
   assemblePrompt,
   wrapUntrusted,
+  renderProjectContext,
+  type ProjectContextDoc,
   type PromptParts,
   type AssembledPrompt,
   type PromptSection,

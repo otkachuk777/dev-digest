@@ -125,6 +125,12 @@ Once intent derivation ran inside every review, `reviews.it.test.ts` kept passin
 
 **Rule:** when a feature's `FEATURE_MODELS` default gets wired into a flow that existing it-tests exercise, add a mock for that provider to every such test's container overrides in the same change, and check test durations for multi-second jumps (`server/test/reviews.it.test.ts:139`, `server/src/adapters/mocks.ts:59`, commit `2cf6fe9`)
 
+### `file_rank` PageRank favours the most-imported leaf utilities — don't use it alone as "where to start reading" (2026-10)
+
+Import edges run importer → imported (`server/src/modules/repo-intel/pipeline/rank.ts`), so PageRank accumulates on files many others import (`utils/helpers.js`, `constants/messages.js`). SPEC-02's first reading path and critical paths on `burnjohn/quick-blog` were all leaf utilities with chains of length 1 — spec-correct, useless for onboarding, caught only on a real run and fixed by a spec amendment.
+
+**Rule:** for "start here" lists put entry points first (manifest `main`/`module`/`bin` + graph roots, ordered by reach) and step chains by reach, not rank; reuse `graphView` in `server/src/modules/onboarding/model.ts` (SPEC-02 AC-63, commit `accf9be`). Keep raw rank for "most depended-on" lists (blast radius, conventions).
+
 ## Tool & Library Notes
 
 ### dependency-cruiser `exclude` silently deletes edges to npm packages (2026-09)
@@ -138,6 +144,12 @@ While building the onion-architecture rules, an `exclude` pattern containing `no
 `pnpm test` sometimes reported `1 failed` file with `0` failed tests and N `skipped`: a `beforeAll` → `startPg()` threw `Expected Reaper to map exposed port 8080`, so vitest skipped that file's tests. `getReaper` reuses ANY running `org.testcontainers.ryuk=true` container on the Docker host, including one from another vitest process, worktree or session that is shutting down, and v10 throws instead of moving on. A re-run "passing" with 12 skipped was the same flake, not a clean run. 11.14.0 tries the next Ryuk and creates its own if none work. A port-less decoy container (`docker run -d --label org.testcontainers.ryuk=true alpine sleep 600`) reproduces it every time: 9 of 9 it-files fail on 10.28, 0 on 11.14.
 
 **Rule:** keep `testcontainers`/`@testcontainers/postgresql` at `>=11.14`; a run where `skipped > 0` while Docker is up is a failure, not a pass (`server/package.json`, `test/helpers/pg.ts:36`)
+
+### js-tiktoken `encode(text)` throws on special-token text, and the adapter then degrades for the whole process (2026-10)
+
+Project-context docs are untrusted repo markdown. A doc that mentions `<|endoftext|>`, which is common in LLM-related docs, made `encode(text)` throw, because special tokens are disallowed by default. The adapter's `catch` set `this.broken = true` and never reset it. From then on every count in the process, including the repo map and all other docs, used the `chars/4` heuristic. Counts cached before the flip kept their real values, so editor totals, trace tokens and the 8000-token budget disagreed with each other. Unit tests never fed a special token, so they didn't catch it; code review did.
+
+**Rule:** for text you don't control, call `encode(text, [], [])` (no allowed and no disallowed specials), so special-token strings are counted as plain text. Keep `broken` for a genuinely failing encoder only (`src/adapters/tokenizer/index.ts:36,50`, test `test/tokenizer.test.ts` "special tokens").
 
 ### simple-git refuses an env that carries the shell's `GIT_EDITOR` (2026-10)
 

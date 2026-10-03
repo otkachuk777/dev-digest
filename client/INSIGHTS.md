@@ -41,6 +41,12 @@ See `.claude/skills/engineering-insights/`.
 
 **Rule:** when building severity-keyed UI (pill rows, filters, counters), iterate the wire contract's `Severity` (3 values), not the UI kit's `Severity` token type (4 values) — the extra `INFO` case in the UI type has no producer. (`client/src/vendor/ui/primitives/tokens.ts:3`, `client/src/vendor/shared/contracts/findings.ts:11-12`)
 
+### Editor tabs are allow-listed twice: `TABS` in the editor and `VALID_TABS` in the route view (2026-10)
+
+SPEC-01 added a `context` tab to `AgentEditor`'s and `SkillEditor`'s `TABS`. The unit tests rendered the editor with `tab="context"` and passed, and plan-verifier marked the step Met. In the real app, clicking the tab set `?tab=context`, but `AgentEditorView` and `SkillsView` filter the param through their own `VALID_TABS` array and fell back to `config`, so the tab body never rendered. Only the e2e flow caught it.
+
+**Rule:** a new editor tab goes into both the editor's `TABS` constant and the route view's `VALID_TABS`. Test the view with `?tab=<new>`, not only the editor with a `tab` prop (`app/(shell)/agents/[id]/_components/AgentEditorView/AgentEditorView.tsx:16`, `app/(shell)/skills/_components/SkillsView/SkillsView.tsx`, regression tests `AgentEditorView.test.tsx`, `SkillsView.test.tsx`).
+
 ## Tool & Library Notes
 
 ### `@testing-library/user-event` is not installed — use `fireEvent` (2026-09-18)
@@ -93,6 +99,12 @@ commit `d94ceac`)
 `mockResolvedValue` returns the mock itself. vitest treats a function returned from `beforeEach` as a cleanup and calls it after every test, so the mock recorded an extra no-argument call. It looked like a component firing its handler twice; only the first test in the file passed cleanly, and the failure moved when tests were reordered.
 
 **Rule:** use braces in hooks that configure mocks — `beforeEach(() => { m.mockResolvedValue(x); })` (`src/app/(shell)/repos/[repoId]/conventions/_components/CreateSkillFromConventionsModal/CreateSkillFromConventionsModal.test.tsx:47`, commit `5ac3a44`)
+
+### pnpm 12 ignores `pnpm.overrides` in `package.json` — overrides go in `client/pnpm-workspace.yaml` (2026-10)
+
+Forcing a transitive version (`lodash-es` ≥ 4.18.1 under `mermaid > chevrotain`, a high advisory) via `"pnpm": { "overrides": … }` in `client/package.json` only printed a "no longer read" warning and left the lockfile unchanged.
+
+**Rule:** add `overrides:` to `client/pnpm-workspace.yaml` (next to `allowBuilds:`), run `pnpm install`, then confirm with `grep lodash-es@ pnpm-lock.yaml` and `pnpm audit` (`client/pnpm-workspace.yaml`, commit `accf9be`).
 
 ## Recurring Errors & Fixes
 

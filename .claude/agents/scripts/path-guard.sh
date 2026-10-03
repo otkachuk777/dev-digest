@@ -1,11 +1,14 @@
 #!/usr/bin/env bash
 # PreToolUse hook (matcher: Write|Edit) declared in an agent's frontmatter. Denies writes outside the
-# agent's profile. Usage: path-guard.sh <tests|docs|plans>   (hook JSON on stdin)
-#   tests — test-writer: test files and test-only helpers/fixtures
+# agent's profile. Usage: path-guard.sh <tests|docs|plans|specs>   (hook JSON on stdin)
+#   tests — test-writer: test files, test-only helpers/fixtures and e2e flows (e2e/flows/NN-name.flow.json)
 #   docs  — doc-writer: docs/, <module>/docs/, READMEs; never plans, prompts, specs, CLAUDE.md, INSIGHTS.md
-#   plans — planner: draft plan files ~/.claude/plans/<name>.md only (outside the repo, never docs/cc-plans/)
+#   plans — implementation-planner: draft plan files ~/.claude/plans/<name>.md only (outside the repo, never docs/cc-plans/)
+#   specs — spec-creator: <module>/specs/SPEC-NN-<slug>.md or top-level specs/SPEC-NN-<slug>.md (cross-module),
+#           plus decoded design extracts docs/designs/extracted/<kebab>.(jsx|tsx|html|md)
 # Covers Edit/Write only — Bash writes are limited by the agent prompt, not here.
 set -uo pipefail
+command -v jq >/dev/null || { echo "path-guard: jq not found, tool call blocked — install it (macOS: brew install jq; Debian/Ubuntu: sudo apt-get install jq) and retry" >&2; exit 2; }
 PROFILE="${1:-}"
 deny() { jq -nc --arg r "path-guard($PROFILE): $1" '{hookSpecificOutput:{hookEventName:"PreToolUse",permissionDecision:"deny",permissionDecisionReason:$r}}'; exit 0; }
 
@@ -30,16 +33,23 @@ case "$PROFILE" in
     case "$REL" in
       *.test.ts|*.test.tsx|*/test/helpers/*|*/test/fixtures/*) exit 0;;
     esac
-    deny "$REL is not a test file. test-writer may only write *.test.ts(x), *.it.test.ts and test/helpers|fixtures; prove fail-ability with mutation-probe.sh instead of editing production code."
+    [[ "$REL" =~ ^e2e/flows/[0-9][0-9]-[a-z0-9-]+\.flow\.json$ ]] && exit 0
+    deny "$REL is not a test file. test-writer may only write *.test.ts(x), *.it.test.ts, test/helpers|fixtures and e2e/flows/NN-name.flow.json; prove fail-ability with mutation-probe.sh instead of editing production code."
     ;;
   docs)
     case "$REL" in
       docs/cc-plans/*|docs/agent-prompts/*|docs/reports/*|docs/designs/*|docs/api-contract-skills/*|docs/skills-import-demo/*) deny "$REL is a protected docs area";;
-      */specs/*|e2e/specs-docs/*) deny "$REL is a spec, not documentation";;
+      specs/*|*/specs/*|e2e/flows-docs/*) deny "$REL is a spec, not documentation";;
       CLAUDE.md|*/CLAUDE.md|INSIGHTS.md|*/INSIGHTS.md) deny "$REL holds agent instructions/insights, not documentation";;
     esac
     [[ "$REL" =~ ^(docs/.+|($MODULES)/docs/.+|README\.md|($MODULES)/README\.md)$ ]] && exit 0
     deny "$REL is outside the documentation locations (docs/, <module>/docs/, README.md, <module>/README.md)"
     ;;
-  *) deny "unknown profile '$PROFILE' (expected tests|docs|plans)";;
+  specs)
+    [[ "$REL" =~ ^(($MODULES|mcp)/)?specs/SPEC-[0-9]{2,}-[a-z0-9]+(-[a-z0-9]+)*\.md$ ]] && exit 0
+    # Decoded design screens extracted from an encoded docs/designs bundle (spec-creator Round 2 step 2).
+    [[ "$REL" =~ ^docs/designs/extracted/[a-z0-9]+(-[a-z0-9]+)*\.(jsx|tsx|html|md)$ ]] && exit 0
+    deny "$REL is not a spec file. spec-creator may only write <module>/specs/SPEC-NN-<kebab-slug>.md (module: client|server|reviewer-core|e2e|mcp), specs/SPEC-NN-<kebab-slug>.md for cross-module specs, or docs/designs/extracted/<kebab-name>.(jsx|tsx|html|md)"
+    ;;
+  *) deny "unknown profile '$PROFILE' (expected tests|docs|plans|specs)";;
 esac

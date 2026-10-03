@@ -1,0 +1,22 @@
+{
+  "name": "Onboarding tour: empty state, keyless Generate renders the skeleton tour in place",
+  "description": "AC-13: opens the seeded acme/payments-api Onboarding Tour page (clone-dir fixture from scripts/e2e.sh / e2e-web.yml, no stored tour) and sees the 'Generate onboarding tour' empty state with its cost line. AC-18: clicks Generate with no page reload; the API runs keyless (empty temp HOME, no *_API_KEY) so the tour is the deterministic skeleton with reason no_api_key and the honest 'Skeleton — AI summary unavailable' banner. AC-4: the heading 'Onboarding for payments-api', the 'Generated from index of' line and the five sections render. Assumes a freshly-seeded DB; use the hermetic runner (a stack with a key would produce an AI tour and fail the banner step).",
+  "steps": [
+    { "cmd": ["set", "viewport", "1280", "2400"], "label": "tall viewport so every section is on screen (clicks do not scroll)" },
+    { "cmd": ["open", "{BASE}/"], "label": "load the app root" },
+    { "cmd": ["wait", "--url", "/pulls"], "label": "root redirects to the seeded repo's PR list" },
+    { "cmd": ["find", "text", "Onboarding Tour", "click"], "label": "open the Onboarding Tour nav item" },
+    { "cmd": ["wait", "--url", "/onboarding"], "label": "tour route reached" },
+    { "cmd": ["wait", "--text", "Generate onboarding tour"], "label": "empty state shown for a cloned repo without a tour (AC-13)" },
+    { "cmd": ["wait", "--text", "up to 12,000 input tokens"], "label": "empty state states the call cost (AC-13)" },
+    { "cmd": ["find", "role", "button", "click", "--name", "Generate onboarding tour"], "label": "click the call-to-action (AC-18)" },
+    { "cmd": ["wait", "--text", "Skeleton — AI summary unavailable: no API key for openrouter"], "label": "keyless run renders the honest skeleton banner with reason no_api_key, no reload (AC-18)" },
+    { "cmd": ["wait", "--text", "Onboarding for payments-api"], "label": "tour heading names the repo (AC-4)" },
+    { "cmd": ["wait", "--text", "Generated from index of"], "label": "index provenance line renders (AC-4)" },
+    { "cmd": ["wait", "--text", "Architecture overview"], "label": "section 1 (AC-4)" },
+    { "cmd": ["wait", "--text", "Critical paths"], "label": "section 2 (AC-4)" },
+    { "cmd": ["wait", "--text", "How to run locally"], "label": "section 3 (AC-4)" },
+    { "cmd": ["wait", "--text", "Guided reading path"], "label": "section 4 (AC-4)" },
+    { "cmd": ["wait", "--text", "First tasks"], "label": "section 5 (AC-4)" }
+  ]
+}

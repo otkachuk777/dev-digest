@@ -1,6 +1,6 @@
-# e2e/specs-docs — Flow Index
+# e2e/flows-docs — Flow Index
 
-This directory holds prose specifications for each end-to-end test flow. Each `.flow.json` in `../specs/` has a corresponding `.md` spec here (named `NN-kebab-name.md` to match `../specs/NN-kebab-name.flow.json`, per e2e/CLAUDE.md line 16). Until individual specs are created, this index documents all flows in one place.
+This directory holds prose specifications for each end-to-end test flow. Each `.flow.json` in `../flows/` has a corresponding `.md` spec here (named `NN-kebab-name.md` to match `../flows/NN-kebab-name.flow.json`, per e2e/CLAUDE.md line 16). Until individual specs are created, this index documents all flows in one place.
 
 ## 01-app-boot
 

@@ -6,14 +6,15 @@ Custom runner (`run.ts`, not Playwright/Cypress) driving Vercel agent-browser ov
 
 ## Read when
 
-- adding/changing a flow test → `specs/` holds the `.flow.json` files themselves
-- writing/checking the product spec behind a flow → `specs-docs/`
+- adding/changing a flow test → `flows/` holds the `.flow.json` files themselves
+- writing/checking the prose description behind a flow → `flows-docs/`
+- writing/reading a feature spec for e2e → `specs/SPEC-NN-<slug>.md` (see root `specs/README.md`, written by the `spec-creator` agent)
 - changing runner internals → `docs/README.md`
 - **before any work → `INSIGHTS.md` (read first, always)**
 
 ## Naming
 
-One flow per file, `specs/NN-kebab-name.flow.json` (`NN` = zero-padded run order); its prose spec belongs under `specs-docs/` by the same basename. Shared step helpers live in `lib/`.
+One flow per file, `flows/NN-kebab-name.flow.json` (`NN` = zero-padded run order); its prose spec belongs under `flows-docs/` by the same basename. Shared step helpers live in `lib/`.
 
 ## Do not touch
 

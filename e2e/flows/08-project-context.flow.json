@@ -1,0 +1,30 @@
+{
+  "name": "Attach a project-context doc to an agent, run it, and see the doc in the run trace",
+  "description": "Opens the seeded Security Reviewer, ticks the fixture doc docs/e2e-invariant.md on its Context tab (written by scripts/e2e.sh / e2e-web.yml into DEVDIGEST_CLONE_DIR), runs that agent on PR #482 and opens the run's trace. The server resolves attached docs BEFORE the LLM provider, and the API runs keyless in both CI and scripts/e2e.sh (empty temp HOME, no *_API_KEY env), so the run deterministically fails with 'OPENROUTER_API_KEY is not configured' and still records them: the trace's 'Specs read' row lists the path and the 'Project context' prompt block contains the fixture marker E2E-INVARIANT-7f3a (AC-41, AC-46). Assumes a freshly-seeded DB where acme/payments-api (PR #482) is the first repo. Running `npm test` against a stack that has a key makes the run succeed and this flow fail at the settle step; use the hermetic runner.",
+  "steps": [
+    { "cmd": ["set", "viewport", "1280", "2400"], "label": "tall viewport so every trace section is on screen (no scrolling in the drawer)" },
+    { "cmd": ["open", "{BASE}/agents"], "label": "load the agents page" },
+    { "cmd": ["wait", "--text", "Security Reviewer"], "label": "seeded agent card is visible" },
+    { "cmd": ["find", "text", "Security Reviewer", "click"], "label": "open the agent editor" },
+    { "cmd": ["wait", "--load", "networkidle"], "label": "editor data settles" },
+    { "cmd": ["find", "role", "button", "click", "--name", "Context"], "label": "switch to the Context tab" },
+    { "cmd": ["wait", "--text", "docs/e2e-invariant.md"], "label": "fixture doc is listed" },
+    { "cmd": ["find", "text", "docs/e2e-invariant.md", "click"], "label": "attach the doc" },
+    { "cmd": ["wait", "--text", "1 of 1"], "label": "attached count updates (saved)" },
+    { "cmd": ["open", "{BASE}/"], "label": "back to the app root" },
+    { "cmd": ["wait", "--url", "/pulls"], "label": "land on the PR list" },
+    { "cmd": ["find", "text", "Add rate limiting to public API endpoints", "click"], "label": "open the PR row" },
+    { "cmd": ["wait", "--url", "/pulls/482"], "label": "navigate to the PR detail route" },
+    { "cmd": ["wait", "--load", "networkidle"], "label": "PR detail data settles" },
+    { "cmd": ["find", "role", "button", "click", "--name", "Run Review"], "label": "open the run dropdown" },
+    { "cmd": ["find", "text", "Security Reviewer", "click"], "label": "run the agent with the attached doc" },
+    { "cmd": ["find", "role", "button", "click", "--name", "Agent runs"], "label": "switch to the Agent runs tab" },
+    { "cmd": ["wait", "--text", "OPENROUTER_API_KEY is not configured"], "label": "the keyless run fails on the Timeline row, after the docs were resolved (AC-41)" },
+    { "cmd": ["find", "role", "button", "click", "--name", "Open run trace & logs"], "label": "open the failed run's trace from its Timeline row" },
+    { "cmd": ["wait", "--text", "Specs read"], "label": "trace has a Specs read row" },
+    { "cmd": ["wait", "--text", "docs/e2e-invariant.md"], "label": "the attached doc path is listed" },
+    { "cmd": ["find", "text", "Prompt assembly", "click"], "label": "expand the collapsed Prompt assembly section" },
+    { "cmd": ["find", "text", "Project context — attached specs (untrusted)", "click"], "label": "expand the specs prompt block" },
+    { "cmd": ["wait", "--text", "E2E-INVARIANT-7f3a"], "label": "the doc text is in the assembled prompt" }
+  ]
+}

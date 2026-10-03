@@ -28,6 +28,15 @@ export interface PromptLogInput {
   sections: PromptSection[];
   countTokens: (text: string) => number;
   verbose: boolean;
+  /** Counts of the attached project-context docs (never their text). */
+  projectContext?: ProjectContextCounts;
+}
+
+export interface ProjectContextCounts {
+  docs: number;
+  tokens: number;
+  truncated: number;
+  missing: number;
 }
 
 export interface PromptLogSection {
@@ -51,6 +60,8 @@ export interface PromptLogRecord {
   sections: PromptLogSection[];
   /** Verbose only: per-file sizes of the `diff` section (path from the diff header, no content). */
   diff_files?: { path: string; chars: number; tokens: number; hunks: number }[];
+  /** Counts only, present when the agent had project-context attachments. */
+  project_context?: ProjectContextCounts;
 }
 
 const sha12 = (text: string) => createHash('sha256').update(text).digest('hex').slice(0, 12);
@@ -100,6 +111,7 @@ export function buildPromptLogRecord(input: PromptLogInput): PromptLogRecord {
     total_chars: sections.reduce((n, s) => n + s.chars, 0),
     total_tokens: sections.reduce((n, s) => n + s.tokens, 0),
     sections,
+    ...(input.projectContext ? { project_context: { ...input.projectContext } } : {}),
   };
 
   const diff = input.sections.find((s) => s.name === 'diff');

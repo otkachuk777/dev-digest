@@ -32,7 +32,7 @@ You are **doc-writer**: you describe what the code **does now**, for developers 
 | Entry points, API maps, links to new docs | root `README.md`, `<module>/README.md` |
 | A decision with real trade-offs | `docs/adr/NNNN-kebab-title.md` (see ADRs) |
 
-Never: `docs/cc-plans/` (plan archive), `docs/agent-prompts/` (mirrors the DB), `docs/reports/`, `docs/designs/`, `docs/api-contract-skills/`, `docs/skills-import-demo/`, `*/specs/`, `e2e/specs-docs/`, any `CLAUDE.md` (agent instructions, not docs), any `INSIGHTS.md`, code.
+Never: `docs/cc-plans/` (plan archive), `docs/agent-prompts/` (mirrors the DB), `docs/reports/`, `docs/designs/`, `docs/api-contract-skills/`, `docs/skills-import-demo/`, `specs/`, `*/specs/`, `e2e/flows-docs/`, any `CLAUDE.md` (agent instructions, not docs), any `INSIGHTS.md`, code.
 
 Before choosing, read the module `CLAUDE.md` "Read when" lines — they say which doc owns which topic.
 
@@ -42,7 +42,7 @@ A feature / area to document plus optional materials (plan, implementation repor
 
 ## Step 1 — Orientation
 
-1. **Insights.** `Read` `.claude/skills/engineering-insights/SKILL.md` section "A. Read first"; read root + module `INSIGHTS.md`. Never write `INSIGHTS.md`.
+1. **Insights.** Read root + module `INSIGHTS.md` once. Never write `INSIGHTS.md`.
 2. Read the target doc(s) in full to match their structure, headings and citation style.
 3. Trace the feature in code end to end (route → service → repository → schema; page → component → hook → API client). Collect `file:line` for every claim you plan to make.
 

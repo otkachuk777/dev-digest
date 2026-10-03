@@ -16,6 +16,18 @@ vi.mock("@/lib/api/skills", () => ({
   useSkillVersions: () => ({ data: [], isLoading: false, isError: false, refetch: vi.fn() }),
 }));
 
+vi.mock("@/lib/repo-context", () => ({
+  useActiveRepo: () => ({ activeRepo: { id: "r1", full_name: "acme/api" } }),
+}));
+vi.mock("@/components/context/ContextTab", () => ({
+  ContextTab: (p: any) => (
+    <div>
+      ctx:{p.owner.kind}:{p.owner.id}:{p.repoId}:{p.repoName}
+      {p.header}
+    </div>
+  ),
+}));
+
 import { SkillEditor } from "./SkillEditor";
 
 afterEach(cleanup);
@@ -48,5 +60,12 @@ describe("Skill Editor (smoke)", () => {
     expect(screen.getByText("Config")).toBeInTheDocument();
     expect(screen.getByText("Configuration")).toBeInTheDocument();
     expect(screen.getByText("Save")).toBeInTheDocument();
+  });
+
+  it("AC-15/AC-30: Context tab shows the title and the inheritance note", () => {
+    renderWithIntl(<SkillEditor skill={SKILL} tab="context" onTab={() => {}} />);
+    expect(screen.getByText("ctx:skill:sk1:r1:acme/api", { exact: false })).toBeInTheDocument();
+    expect(screen.getByText("Project context to use")).toBeInTheDocument();
+    expect(screen.getByText("Any agent using this skill inherits these documents")).toBeInTheDocument();
   });
 });

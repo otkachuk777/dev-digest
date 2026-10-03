@@ -6,6 +6,8 @@ import React from "react";
 import { useTranslations } from "next-intl";
 import { Tabs } from "@devdigest/ui";
 import type { Skill } from "@devdigest/shared";
+import { ContextTab } from "@/components/context/ContextTab";
+import { useActiveRepo } from "@/lib/repo-context";
 import { ConfigTab } from "./_components/ConfigTab";
 import { PreviewTab } from "./_components/PreviewTab";
 import { VersionsTab } from "./_components/VersionsTab";
@@ -14,6 +16,7 @@ import { s } from "./styles";
 
 export function SkillEditor({ skill, tab, onTab }: { skill: Skill; tab: string; onTab: (t: string) => void }) {
   const t = useTranslations("skills");
+  const { activeRepo } = useActiveRepo();
   const tabs = TABS.map((tb) => ({ key: tb.key, label: t(tb.labelKey), icon: tb.icon }));
   return (
     <div style={s.wrap}>
@@ -26,6 +29,20 @@ export function SkillEditor({ skill, tab, onTab }: { skill: Skill; tab: string; 
         {tab === "config" && <ConfigTab key={skill.id} skill={skill} />}
         {tab === "preview" && <PreviewTab skill={skill} />}
         {tab === "versions" && <VersionsTab skillId={skill.id} currentVersion={skill.version} />}
+        {tab === "context" && (
+          <ContextTab
+            key={skill.id}
+            owner={{ kind: "skill", id: skill.id }}
+            repoId={activeRepo?.id ?? null}
+            repoName={activeRepo?.full_name ?? ""}
+            header={
+              <div>
+                <h3 style={s.contextTitle}>{t("context.title")}</h3>
+                <p style={s.contextNote}>{t("context.note")}</p>
+              </div>
+            }
+          />
+        )}
       </div>
     </div>
   );

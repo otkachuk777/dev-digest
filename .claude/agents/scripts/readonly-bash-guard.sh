@@ -1,19 +1,28 @@
 #!/usr/bin/env bash
-# PreToolUse hook (matcher: Bash) for read-only agents (planner, researcher,
+# PreToolUse hook (matcher: Bash) for read-only agents (implementation-planner, researcher,
 # brainstorm, architecture-reviewer, security-reviewer, plan-verifier). Denies commands that write to the
 # filesystem, git history, or install/run migrations — modeled on path-guard.sh
 # but pattern-matching the COMMAND STRING, not a file_path. This is NOT a
 # sandbox: it blocks known write shapes, not every way to mutate state.
 set -uo pipefail
+command -v jq >/dev/null || { echo "readonly-bash-guard: jq not found, tool call blocked — install it (macOS: brew install jq; Debian/Ubuntu: sudo apt-get install jq) and retry" >&2; exit 2; }
 deny() { jq -nc --arg r "readonly-bash-guard: $1" '{hookSpecificOutput:{hookEventName:"PreToolUse",permissionDecision:"deny",permissionDecisionReason:$r}}'; exit 0; }
 
 CMD=$(jq -r '.tool_input.command // ""' 2>/dev/null)
 [ -n "$CMD" ] || exit 0
 
 # ---- redirection -----------------------------------------------------------
-# Strip the allowed no-op redirections (discard to /dev/null, dup an existing
-# fd like 2>&1), then anything left with a bare `>`/`>>` writes a real file.
-STRIPPED=$(printf '%s' "$CMD" | sed -E 's/[0-9]*>&[0-9]+//g; s/&>[[:space:]]*\/dev\/null//g; s/[0-9]*>>?[[:space:]]*\/dev\/null//g')
+# A `>` that is code, not redirection, is dropped first: the body of a heredoc
+# with a QUOTED delimiter (<<'EOF' — no expansion inside), single-quoted strings,
+# and double-quoted strings without $( or backticks (those still run commands).
+# Then strip the allowed no-op redirections (discard to /dev/null, dup an existing
+# fd like 2>&1); anything left with a bare `>`/`>>` writes a real file.
+command -v perl >/dev/null || deny "perl not found, cannot parse quotes — command blocked: $CMD"
+UNQUOTED=$(printf '%s' "$CMD" | perl -0777 -pe '
+  s/<<-?[ \t]*([\x27"])(\w+)\1([^\n]*)\n.*?(?:\n[ \t]*\2[ \t]*(?=\n|\z)|\z)/<<$3/gs;
+  s/(\x27[^\x27]*\x27)|"((?:[^"\\]|\\.)*)"/my $d = $2; defined $1 ? "" : ($d =~ m{\$\(|`} ? "\"$d\"" : "")/ge;
+')
+STRIPPED=$(printf '%s' "$UNQUOTED" | sed -E 's/[0-9]*>&[0-9]+//g; s/&>[[:space:]]*\/dev\/null//g; s/[0-9]*>>?[[:space:]]*\/dev\/null//g')
 if printf '%s' "$STRIPPED" | grep -q '>'; then
   deny "redirection to a file is not allowed: $CMD"
 fi

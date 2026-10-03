@@ -13,6 +13,8 @@ No root package.json — 5 standalone packages, each own lockfile. Cross-package
 - touching `mcp/*` → read `mcp/CLAUDE.md` first
 - need cross-module architecture → `docs/architecture.md`
 - need agent-prompt tuning → `docs/agent-prompts/README.md`
+- writing/reading a feature spec (SDD, EARS) → `specs/README.md` (written by the `spec-creator` agent)
+- SDD workflow: spec (`spec-creator`) and plan (`implementation-planner`) are run manually; implementing an approved plan (build → review → PR) → `/impl` (`.claude/skills/impl/SKILL.md`); agent map → `.claude/agents/README.md`
 
 ## Session protocol
 

@@ -8,7 +8,7 @@ The DevDigest e2e test runner is a deterministic, CDP-driven system that execute
 
 The runner (`run.ts`, lines 1–120) orchestrates browser automation by:
 
-1. **Loading flows from disk** (lines 53–61). It reads all `specs/*.flow.json` files in lexical order, each containing a list of agent-browser commands.
+1. **Loading flows from disk** (lines 53–61). It reads all `flows/*.flow.json` files in lexical order, each containing a list of agent-browser commands.
 
 2. **Executing steps sequentially** (lines 63–92). For each flow, `run.ts` iterates over its steps. Each step's `cmd` array is resolved for `{BASE}` substitution (line 69), then passed to the `ab()` helper (line 72).
 
@@ -59,7 +59,7 @@ This mode requires your dev DB to contain *only* the seeded repo — otherwise f
 
 ## Adding a New Flow
 
-1. **Create the spec file** in `specs/` with the naming convention `specs/NN-kebab-name.flow.json` (where `NN` is a zero-padded run order). Example structure (from 01-app-boot.flow.json):
+1. **Create the spec file** in `flows/` with the naming convention `flows/NN-kebab-name.flow.json` (where `NN` is a zero-padded run order). Example structure (from 01-app-boot.flow.json):
 
 ```json
 {
@@ -77,7 +77,7 @@ This mode requires your dev DB to contain *only* the seeded repo — otherwise f
 - The `label` is human-readable for logs; omit it and the joined `cmd` is used.
 - `assert?: { stdoutIncludes?: string }` adds a substring check on stdout (lib/assert.ts, lines 14–15).
 
-2. **Write the prose spec** in `specs-docs/NN-kebab-name.md` documenting the user journey and key assertions. See CLAUDE.md line 16 and specs-docs/README.md for the naming convention.
+2. **Write the prose spec** in `flows-docs/NN-kebab-name.md` documenting the user journey and key assertions. See CLAUDE.md line 16 and flows-docs/README.md for the naming convention.
 
 3. **Run the suite** to verify. The runner executes flows in lexical order, so the new flow runs after existing flows whose numbers are smaller. Non-zero exit = failure (run.ts, line 114).
 

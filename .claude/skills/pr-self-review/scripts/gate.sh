@@ -3,6 +3,12 @@
 set -uo pipefail
 S="$(cd "$(dirname "$0")" && pwd)"
 INPUT=$(cat)
+# No jq → the call can't be parsed. Fail closed for anything that looks like a PR create/merge.
+if ! command -v jq >/dev/null 2>&1; then
+  grep -Eq 'gh[[:space:]]+pr[[:space:]]+(create|merge)' <<<"$INPUT" || exit 0
+  echo '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"PR gate cannot run: jq not found. Install it (brew install jq; see scripts/doctor.sh) and retry."}}'
+  exit 0
+fi
 CMD=$(jq -r '.tool_input.command // ""' <<<"$INPUT" 2>/dev/null)
 echo "$CMD" | grep -Eq '(^|;|&&|\|\|?|\()[[:space:]]*gh[[:space:]]+pr[[:space:]]+(create|merge)\b' || exit 0
 # The hook process starts in the main checkout; judge the checkout the command runs in (a worktree).

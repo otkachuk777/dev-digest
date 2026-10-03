@@ -42,8 +42,20 @@ export class AnthropicProvider implements LLMProvider {
   readonly id = 'anthropic' as const;
   private client: Anthropic;
 
-  constructor(apiKey: string) {
-    this.client = new Anthropic({ apiKey });
+  constructor(
+    apiKey: string,
+    protected readonly opts: { maxRetries?: number; timeoutMs?: number } = {},
+  ) {
+    this.client = new Anthropic({
+      apiKey,
+      ...(opts.maxRetries !== undefined ? { maxRetries: opts.maxRetries } : {}),
+      ...(opts.timeoutMs !== undefined ? { timeout: opts.timeoutMs } : {}),
+    });
+  }
+
+  /** `maxRetries` unset keeps withRetry's default; 0 means a single attempt. */
+  private retryOpts() {
+    return this.opts.maxRetries === undefined ? {} : { retries: this.opts.maxRetries };
   }
 
   async listModels(): Promise<ModelInfo[]> {
@@ -114,8 +126,9 @@ export class AnthropicProvider implements LLMProvider {
             ],
             tool_choice: { type: 'tool', name: toolName },
           }),
-          req.timeoutMs ?? DEFAULT_TIMEOUT,
+          req.timeoutMs ?? this.opts.timeoutMs ?? DEFAULT_TIMEOUT,
         ),
+        this.retryOpts(),
       );
       tokensIn += res.usage.input_tokens;
       tokensOut += res.usage.output_tokens;

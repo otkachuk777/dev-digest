@@ -1,24 +1,48 @@
 {
   "title": "Project Context",
-  "chunks": "{count} chunks",
-  "reindex": "Re-index",
-  "indexing": "Indexing…",
-  "resync": "Resync",
-  "resyncing": "Resyncing…",
-  "indexStatus": "Index status: {status}",
-  "loadError": "Couldn’t load specs",
-  "kb": "{kb}kb",
+  "search": "Filter documents…",
+  "refresh": "Refresh",
+  "refreshing": "Refreshing…",
+  "groups": {
+    "specs": "Specs",
+    "docs": "Docs",
+    "insights": "Insights"
+  },
+  "footer": "Indexed: {files, plural, one {# file} other {# files}} · {tokens, number} tokens total · last {when}",
+  "tokens": "{count, number} tokens",
+  "usedBy": "Used by {agents, plural, one {# agent} other {# agents}} · {skills, plural, one {# skill} other {# skills}}",
   "empty": {
-    "title": "No spec files yet",
-    "body": "Drop your PRDs, tech specs, and acceptance criteria under .devdigest/specs/. Every agent and the PR brief read them as grounding context."
+    "title": "No documents yet",
+    "body": "Add markdown files matching {glob} to the repository. Agents and skills can then attach them as grounding context."
   },
-  "mode": {
-    "preview": "preview",
-    "edit": "edit"
+  "noClone": "This repository has not been cloned yet. Click Refresh to sync it.",
+  "selectRepo": "Select a repository",
+  "noMatches": "No documents match your filter.",
+  "docNotFound": "Document not found — refresh the list",
+  "loadError": "Couldn’t load documents",
+  "preview": {
+    "title": "Document preview",
+    "attached": "Attached",
+    "close": "Close"
   },
-  "editor": {
-    "loadError": "Couldn’t load spec",
-    "save": "Save",
-    "saving": "Saving…"
+  "tab": {
+    "noDocs": "No documents found in this repository.",
+    "openProjectContext": "Open Project Context",
+    "attachedCount": "{count} of {total} attached",
+    "totalTokens": "≈ {count, number} tokens",
+    "overBudget": "Over the {budget, number}-token budget — the run will truncate: {paths}",
+    "notFound": "not found in {repo}",
+    "detach": "Detach",
+    "preview": "Preview",
+    "moveUp": "Move up",
+    "moveDown": "Move down",
+    "via": "via {skill}",
+    "filterPlaceholder": "Filter documents…",
+    "saveError": "Couldn’t save the attached documents"
+  },
+  "type": {
+    "specs": "specs",
+    "docs": "docs",
+    "insights": "insights"
   }
 }

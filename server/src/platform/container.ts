@@ -179,11 +179,27 @@ export class Container {
     return provider;
   }
 
-  private async buildLlm(id: 'openai' | 'anthropic' | 'openrouter'): Promise<LLMProvider> {
+  /**
+   * Uncached provider for ONE un-retried request: SDK retries 0, no `withRetry`,
+   * SDK timeout = `timeoutMs`. `overrides.llm[id]` wins.
+   */
+  async llmNoRetry(
+    id: 'openai' | 'anthropic' | 'openrouter',
+    timeoutMs: number,
+  ): Promise<LLMProvider> {
+    const injected = this.overrides.llm?.[id];
+    if (injected) return injected;
+    return this.buildLlm(id, { maxRetries: 0, timeoutMs });
+  }
+
+  private async buildLlm(
+    id: 'openai' | 'anthropic' | 'openrouter',
+    opts: { maxRetries?: number; timeoutMs?: number } = {},
+  ): Promise<LLMProvider> {
     if (id === 'openai') {
       const key = await this.secrets.get('OPENAI_API_KEY');
       if (!key) throw new ConfigError('OPENAI_API_KEY is not configured');
-      return new OpenAIProvider(key);
+      return new OpenAIProvider(key, opts);
     }
     if (id === 'openrouter') {
       // Single OpenRouter provider lives in reviewer-core (shared with the CI
@@ -192,13 +208,14 @@ export class Container {
       const key = await this.secrets.get('OPENROUTER_API_KEY');
       if (!key) throw new ConfigError('OPENROUTER_API_KEY is not configured');
       return new OpenRouterProvider(key, {
+        ...opts,
         estimateCost: (model, tokensIn, tokensOut) =>
           this.priceBook.estimate(model, tokensIn, tokensOut),
       });
     }
     const key = await this.secrets.get('ANTHROPIC_API_KEY');
     if (!key) throw new ConfigError('ANTHROPIC_API_KEY is not configured');
-    return new AnthropicProvider(key);
+    return new AnthropicProvider(key, opts);
   }
 
   async embedder(): Promise<Embedder> {

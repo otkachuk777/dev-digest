@@ -77,6 +77,7 @@ cleanup() {
     [ -n "$pids" ] && kill $pids 2>/dev/null || true
   done
   docker rm -f "$PG_CONTAINER" >/dev/null 2>&1 || true
+  [ -n "${E2E_HOME:-}" ] && rm -rf "$E2E_HOME"
   exit "$code"
 }
 trap cleanup EXIT INT TERM
@@ -127,11 +128,27 @@ log "applying migrations (isolated db)"
 log "seeding demo data (isolated db)"
 (cd server && pnpm db:seed)
 
+# --- project-context fixture (flow 08) ---------------------------------------
+# The API lists docs from <clone dir>/<owner>/<name>; point it at a fresh temp dir
+# holding ONE doc for the seeded repo (clone = directory exists). Removed on exit.
+#
+# The API also runs KEYLESS (flow 08 relies on it, same as CI): secrets live at
+# $HOME/.devdigest/secrets.json (config.secretsPath, os.homedir() honours $HOME)
+# and fall back to *_API_KEY env, so the API gets an empty temp HOME and no key
+# env. The user's real secrets file is never read or written.
+E2E_HOME="$(mktemp -d)"
+export DEVDIGEST_CLONE_DIR="$E2E_HOME/clones"
+mkdir -p "$DEVDIGEST_CLONE_DIR"
+mkdir -p "$DEVDIGEST_CLONE_DIR/acme/payments-api/docs"
+printf '# E2E invariant\n\nE2E-INVARIANT-7f3a: handlers never import from the db layer.\n' \
+  > "$DEVDIGEST_CLONE_DIR/acme/payments-api/docs/e2e-invariant.md"
+
 # --- API on :$API_PORT -------------------------------------------------------
 # tsx directly (not `pnpm start`, which needs a build; not `tsx watch`, to avoid
 # a mid-suite watcher restart).
 log "starting API on :$API_PORT"
-(cd server && pnpm exec tsx src/server.ts) &
+(cd server && HOME="$E2E_HOME" env -u OPENAI_API_KEY -u ANTHROPIC_API_KEY -u OPENROUTER_API_KEY \
+  pnpm exec tsx src/server.ts) &
 SERVER_PID=$!
 log "waiting for API /health"
 api_up=0
