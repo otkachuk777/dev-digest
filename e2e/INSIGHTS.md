@@ -33,6 +33,12 @@ Writing flow 08 took the implementer about 100 turns.
 
 > **2026-10-02 correction:** "assertions that hold either way" was not enough. Flow 08 was developed on the with-key path and failed in CI, which is keyless. `scripts/e2e.sh` now starts the API with a temp `HOME` (secrets are read from `$HOME/.devdigest/secrets.json`) and with `*_API_KEY` unset. Local runs take the same keyless path as CI and make no paid call. Write a flow for the keyless outcome only (commit `3945583`).
 
+### `wait --text` sees CSS-uppercased text, `find text` needs a unique match, and the runner needs `agent-browser` on PATH (2026-10)
+
+Writing flow 10 (PR brief) took 33 minutes. `wait --text "Review focus — read these first"` timed out because the heading is `text-transform: uppercase` and the matcher reads rendered text. `find text Overview click` failed because "Overview" appears several times. The hermetic run hung or died with EADDRINUSE: `agent-browser` was not on PATH (`npm ci` does not install it into `e2e/node_modules`) and an aborted run left a `next-server` on :3100.
+
+**Rule:** assert the rendered (upper-case) string; click tabs and buttons with `find role button click --name "<accessible name>"`; use `reload` when the flow cannot know the repo UUID; before `npm run e2e:hermetic` run `command -v agent-browser` (shim with `npx --yes agent-browser`) and check `lsof -iTCP:3100 -iTCP:3101 -sTCP:LISTEN` (`e2e/flows/10-pr-brief.flow.json`, commit `cf0fbbf`)
+
 ## Recurring Errors & Fixes
 
 _No entries yet._

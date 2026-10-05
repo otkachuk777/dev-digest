@@ -27,6 +27,7 @@ Every turn resends your whole context, so cost is turns × context, not output s
 - Read a file you will change **once, whole**, with `Read` — not `sed -n` / `cat` / `grep -n` slices over many turns.
 - All changes to one file in one `Edit` (or one `Write`) where you can.
 - The plan, the skills and `INSIGHTS.md` stay in your context: never read them twice.
+- Scripted edits: do not use `sed -i` on macOS — BSD sed fails on `[ ]`, `( )` and `\&` and needs `-i ''`. Use the Edit tool, or `python3` for bulk replacement.
 
 ## Step 1 — Insights
 
@@ -64,7 +65,7 @@ Run in each touched module directory — the full suite, typecheck and arch once
 | client | `pnpm-lock.yaml` | `pnpm typecheck`, `pnpm test`, `pnpm arch` |
 | server | `pnpm-lock.yaml` | `pnpm typecheck`, `pnpm test`, `pnpm arch` |
 | reviewer-core | `package-lock.json` | `npm run typecheck`, `npm test`; plus `pnpm arch` in `server/` (it checks reviewer-core too) |
-| e2e | `package-lock.json` | only if the plan's Test plan requires it: `npm run e2e:hermetic` |
+| e2e | `package-lock.json` | `npm run typecheck`. The hermetic suite (`npm run e2e:hermetic`) is run by the main session when the caller says so; if you must run it: first `command -v agent-browser` (missing → PATH shim `npx --yes agent-browser`) and `lsof -iTCP:3100 -iTCP:3101 -sTCP:LISTEN` (kill your own stale stack), never leave an aborted run's stack up |
 
 - A stray `pnpm-lock.yaml` / `pnpm-workspace.yaml` appearing in reviewer-core or e2e after your run → your command used the wrong manager; report it, do not commit it.
 

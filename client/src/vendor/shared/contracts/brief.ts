@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { Provider } from './knowledge.js';
 
 /**
  * PR Brief building blocks: Intent, Blast radius, Risks, PR History,
@@ -74,17 +75,20 @@ export type BlastRadius = z.infer<typeof BlastRadius>;
 export const RiskSeverity = z.enum(['high', 'medium', 'low']);
 export type RiskSeverity = z.infer<typeof RiskSeverity>;
 
+export const RiskKind = z.enum(['security', 'db_migration', 'breaking_api', 'perf', 'deps', 'other']);
+export type RiskKind = z.infer<typeof RiskKind>;
+
 export const Risk = z.object({
-  kind: z.string(),
-  title: z.string(),
-  explanation: z.string(),
+  kind: RiskKind,
+  title: z.string().min(1).max(120),
+  explanation: z.string().max(600),
   severity: RiskSeverity,
-  file_refs: z.array(z.string()),
+  file_refs: z.array(z.string()).min(1),
 });
 export type Risk = z.infer<typeof Risk>;
 
 export const Risks = z.object({
-  risks: z.array(Risk),
+  risks: z.array(Risk).max(6),
 });
 export type Risks = z.infer<typeof Risks>;
 
@@ -140,10 +144,34 @@ export const SmartDiff = z.object({
 export type SmartDiff = z.infer<typeof SmartDiff>;
 
 // ---- Composed PR Brief (pr_brief.json) ----
+export const ReviewFocusItem = z.object({
+  file: z.string().min(1),
+  line: z.number().int().min(1),
+  reason: z.string().min(1).max(200),
+});
+export type ReviewFocusItem = z.infer<typeof ReviewFocusItem>;
+
+export const BriefMissing = z.enum(['intent', 'blast', 'description', 'issue']);
+export type BriefMissing = z.infer<typeof BriefMissing>;
+
 export const PrBrief = z.object({
-  intent: Intent,
-  blast: BlastRadius,
+  summary: z.string().min(1).max(600),
+  intent: Intent.nullable(),
+  blast: BlastRadius.nullable(),
   risks: Risks,
-  history: PrHistory,
+  review_focus: z.array(ReviewFocusItem).max(8),
+  head_sha: z.string(),
+  generated_at: z.string().datetime(),
+  provider: Provider,
+  model: z.string(),
+  llm_calls: z.number().int().min(0).max(1),
+  tokens_in: z.number().int().min(0),
+  tokens_out: z.number().int().min(0),
+  cost_usd: z.number().min(0).nullable(),
+  duration_ms: z.number().int().min(0),
+  missing: z.array(BriefMissing),
+  truncated: z.boolean(),
+  files_truncated: z.boolean(),
+  dropped_items: z.number().int().min(0),
 });
 export type PrBrief = z.infer<typeof PrBrief>;

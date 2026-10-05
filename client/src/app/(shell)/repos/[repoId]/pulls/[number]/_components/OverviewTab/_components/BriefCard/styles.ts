@@ -1,0 +1,53 @@
+import type { CSSProperties } from "react";
+
+export const s = {
+  section: { marginBottom: 20 } satisfies CSSProperties,
+  stack: { display: "flex", flexDirection: "column", gap: 16 } satisfies CSSProperties,
+  block: {
+    border: "1px solid var(--border)",
+    borderRadius: 10,
+    background: "var(--bg-elevated)",
+    padding: "14px 16px",
+  } satisfies CSSProperties,
+  empty: { minHeight: 240, display: "grid", placeItems: "center" } satisfies CSSProperties,
+  focusHead: { display: "flex", alignItems: "center", gap: 8, marginBottom: 10 } satisfies CSSProperties,
+  focusTitle: {
+    fontSize: 10.5,
+    fontWeight: 700,
+    letterSpacing: "0.06em",
+    color: "var(--text-muted)",
+    textTransform: "uppercase",
+  } satisfies CSSProperties,
+  focusList: {
+    margin: 0,
+    padding: 0,
+    listStyle: "none",
+    display: "flex",
+    flexDirection: "column",
+    gap: 2,
+  } satisfies CSSProperties,
+  focusItem: {
+    display: "flex",
+    alignItems: "baseline",
+    gap: 9,
+    width: "100%",
+    padding: "7px 8px",
+    borderRadius: 6,
+    border: "none",
+    background: "transparent",
+    cursor: "pointer",
+    textAlign: "left",
+  } satisfies CSSProperties,
+  focusArrow: { color: "var(--accent)", fontSize: 12, flexShrink: 0 } satisfies CSSProperties,
+  focusRef: {
+    fontSize: 11.5,
+    color: "var(--accent-text)",
+    flexShrink: 0,
+    whiteSpace: "nowrap",
+  } satisfies CSSProperties,
+  focusReason: { fontSize: 12.5, color: "var(--text-secondary)", lineHeight: 1.4 } satisfies CSSProperties,
+  muted: { fontSize: 13, color: "var(--text-muted)", margin: 0 } satisfies CSSProperties,
+  chips: { display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" } satisfies CSSProperties,
+  caption: { fontSize: 12, color: "var(--text-muted)" } satisfies CSSProperties,
+  skeletonRow: (w: string): CSSProperties => ({ height: 10, width: w, marginBottom: 9 }),
+} as const;

@@ -6,7 +6,6 @@ export const s = {
   list: { display: "flex", flexDirection: "column", gap: 10 } satisfies CSSProperties,
   empty: { padding: "24px", fontSize: 14, color: "var(--text-muted)", textAlign: "center" } satisfies CSSProperties,
   fileCard: {
-    border: "1px solid var(--border)",
     borderRadius: 7,
     overflow: "hidden",
     background: "var(--bg-elevated)",
@@ -66,6 +65,21 @@ export const s = {
   } satisfies CSSProperties,
 } as const;
 
+/** File card frame; the deep-link target gets an accent border. Side longhands only —
+    mixing `border`/`borderColor` with them trips React's conflicting-property warning. */
+export function fileCardFor(active: boolean): CSSProperties {
+  const c = active ? "var(--accent)" : "var(--border)";
+  return {
+    ...s.fileCard,
+    borderStyle: "solid",
+    borderWidth: 1,
+    borderTopColor: c,
+    borderRightColor: c,
+    borderBottomColor: c,
+    borderLeftColor: c,
+  };
+}
+
 /** Chevron rotates 90deg when the file card is open. */
 export function chevronFor(open: boolean): CSSProperties {
   return {
@@ -80,6 +94,12 @@ export function lineRowFor(kind: Line["kind"]): CSSProperties {
   const background = kind === "add" ? "var(--code-add)" : kind === "del" ? "var(--code-del)" : "transparent";
   return { display: "flex", alignItems: "stretch", fontSize: 13, lineHeight: "20px", background };
 }
+
+/** Deep-link target line: accent wash + left bar. */
+export const lineHighlight: CSSProperties = {
+  background: "var(--accent-bg)",
+  boxShadow: "inset 3px 0 0 var(--accent)",
+};
 
 /** Gutter sign colour per line kind. */
 export function lineSignFor(kind: Line["kind"]): CSSProperties {

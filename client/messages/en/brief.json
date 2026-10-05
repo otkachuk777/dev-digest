@@ -9,7 +9,7 @@
   "noHistory": "No prior PRs overlap these files.",
   "overlap": "{count} overlap",
   "unavailable": "Brief not available yet.",
-  "unavailableHint": "Run a review or open the PR to compute it.",
+  "unavailableHint": "Generate a brief to see the summary, risk areas and review focus.",
   "why": {
     "title": "git-why",
     "blame": "blame",
@@ -39,5 +39,47 @@
     "empty": "No intent derived yet for this PR.",
     "missingContext": "Missing context",
     "derivedWith": "Derived with {model} · {sha}"
+  },
+  "card": {
+    "title": "PR Brief",
+    "empty": {
+      "title": "No brief yet",
+      "body": "Generate a Why + Risk brief for this PR."
+    },
+    "generate": "Generate brief",
+    "refresh": "Refresh",
+    "refreshLabel": "Regenerate the brief for this PR",
+    "generating": "Generating… {seconds}s",
+    "stale": "PR changed since this brief",
+    "noReview": "No agent review yet",
+    "caption": "Generated with {model} · {sha} · {cost} · {tokens}",
+    "risks": {
+      "heading": "Risk areas",
+      "why": "Why this is a risk: {title}",
+      "severity": {
+        "high": "high severity",
+        "medium": "medium severity",
+        "low": "low severity"
+      }
+    },
+    "focus": {
+      "heading": "Review focus — read these first",
+      "count": "{count, plural, one {# item} other {# items}}",
+      "open": "Open {file}:{line} in Files changed",
+      "empty": "No review focus items."
+    },
+    "missing": {
+      "intent": "Intent not derived",
+      "blast": "Blast radius unavailable",
+      "description": "No PR description",
+      "issue": "Linked issue unavailable",
+      "derive": "Derive intent"
+    },
+    "toast": {
+      "inProgress": "A brief is already being generated for this PR",
+      "emptyDiff": "This PR has no changed files to brief",
+      "rateLimited": "Too many brief requests. Try again in a minute.",
+      "notInDiff": "File not in this PR's diff"
+    }
   }
 }

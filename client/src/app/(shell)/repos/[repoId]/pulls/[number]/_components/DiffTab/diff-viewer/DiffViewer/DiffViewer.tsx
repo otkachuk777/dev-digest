@@ -11,6 +11,7 @@ import { useTranslations } from "next-intl";
 import type { PrFile, SmartDiff } from "@devdigest/shared";
 import { type DiffCommentApi } from "../comments";
 import { type DiffFindingsApi } from "../findings";
+import { type DiffTarget } from "../helpers";
 import { s } from "../styles";
 import { FileCard } from "../FileCard";
 import { SmartDiffGroup } from "../SmartDiffGroup";
@@ -20,16 +21,20 @@ export function DiffViewer({
   commenting,
   findings,
   groups,
+  target,
 }: {
   files: PrFile[];
   commenting?: DiffCommentApi;
   findings?: DiffFindingsApi;
   groups?: SmartDiff["groups"];
+  target?: DiffTarget | null;
 }) {
   const t = useTranslations("shell");
   if (!files || files.length === 0) {
     return <div style={s.empty}>{t("diffViewer.noChangedFiles")}</div>;
   }
+
+  const targetFor = (path: string) => (target?.file === path ? target : undefined);
 
   if (groups) {
     const grouped = new Set(groups.flatMap((g) => g.files.map((f) => f.path)));
@@ -49,9 +54,16 @@ export function DiffViewer({
               role={group.role}
               fileCount={groupFiles.length}
               filesWithFindings={filesWithFindings}
+              forceOpen={groupFiles.some((f) => f.path === target?.file)}
             >
               {groupFiles.map((f) => (
-                <FileCard key={f.path} file={f} commenting={commenting} findings={findings} />
+                <FileCard
+                  key={f.path}
+                  file={f}
+                  commenting={commenting}
+                  findings={findings}
+                  target={targetFor(f.path)}
+                />
               ))}
             </SmartDiffGroup>
           );
@@ -59,7 +71,13 @@ export function DiffViewer({
         {files
           .filter((f) => !grouped.has(f.path))
           .map((f) => (
-            <FileCard key={f.path} file={f} commenting={commenting} findings={findings} />
+            <FileCard
+              key={f.path}
+              file={f}
+              commenting={commenting}
+              findings={findings}
+              target={targetFor(f.path)}
+            />
           ))}
       </div>
     );
@@ -68,7 +86,13 @@ export function DiffViewer({
   return (
     <div style={s.list}>
       {files.map((f) => (
-        <FileCard key={f.path} file={f} commenting={commenting} findings={findings} />
+        <FileCard
+          key={f.path}
+          file={f}
+          commenting={commenting}
+          findings={findings}
+          target={targetFor(f.path)}
+        />
       ))}
     </div>
   );

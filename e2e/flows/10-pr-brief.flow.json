@@ -1,0 +1,29 @@
+{
+  "name": "PR brief: seeded brief, review-focus link opens the diff, reload keeps it, empty state keyless",
+  "description": "AC-13/AC-6: opens seeded PR #483 (acme/payments-api) whose brief is stored by the seed, and sees the cached summary and 'Review focus — read these first' with no Generate click. AC-21/AC-22: clicking the focus item 'Open src/services/refund.ts:10 in Files changed' switches to the diff tab with file= in the URL and shows the file. EC-8: reload on that URL keeps the Files changed tab and the card expanded (text of line 10 visible). Then back to Overview (cached brief again). AC-1: PR #484 has no brief: 'No brief yet' + 'Generate brief'. AC-48: Generate runs keyless (empty temp HOME, no *_API_KEY) and surfaces the 'No API key for openrouter' toast. Assumes a freshly-seeded DB; use the hermetic runner. Line highlight is unit-tested (AC-23).",
+  "steps": [
+    { "cmd": ["set", "viewport", "1280", "2400"], "label": "tall viewport (clicks do not scroll)" },
+    { "cmd": ["open", "{BASE}/"], "label": "load the app root" },
+    { "cmd": ["wait", "--url", "/pulls"], "label": "land on the PR list" },
+    { "cmd": ["find", "text", "Add refundPayment service + tests", "click"], "label": "open PR #483" },
+    { "cmd": ["wait", "--url", "/pulls/483"], "label": "PR #483 detail route" },
+    { "cmd": ["wait", "--text", "Adds refundPayment with its guards and one happy-path test."], "label": "seeded summary shown without Generate (AC-13)" },
+    { "cmd": ["wait", "--text", "REVIEW FOCUS — READ THESE FIRST"], "label": "review focus heading renders; CSS uppercases it so innerText is upper-case (AC-6)" },
+    { "cmd": ["find", "role", "button", "click", "--name", "Open src/services/refund.ts:10 in Files changed"], "label": "open the focus item in the diff (AC-21)" },
+    { "cmd": ["wait", "--url", "tab=diff"], "label": "diff tab active (AC-21)" },
+    { "cmd": ["wait", "--url", "file="], "label": "file param in URL (AC-22)" },
+    { "cmd": ["wait", "--text", "src/services/refund.ts"], "label": "target file shown (AC-22)" },
+    { "cmd": ["reload"], "label": "reload the deep link (EC-8)" },
+    { "cmd": ["wait", "--url", "tab=diff"], "label": "diff tab survives reload (EC-8)" },
+    { "cmd": ["wait", "--text", "db.payments.byId"], "label": "line 10 code visible: card expanded after reload (EC-8)" },
+    { "cmd": ["find", "role", "button", "click", "--name", "Overview"], "label": "back to the Overview tab" },
+    { "cmd": ["wait", "--text", "Adds refundPayment with its guards and one happy-path test."], "label": "cached brief again, no Generate (AC-13)" },
+    { "cmd": ["open", "{BASE}/"], "label": "back to the PR list" },
+    { "cmd": ["wait", "--url", "/pulls"], "label": "PR list" },
+    { "cmd": ["find", "text", "Scope the payments list to a customer", "click"], "label": "open PR #484" },
+    { "cmd": ["wait", "--url", "/pulls/484"], "label": "PR #484 detail route" },
+    { "cmd": ["wait", "--text", "No brief yet"], "label": "empty state (AC-1)" },
+    { "cmd": ["find", "role", "button", "click", "--name", "Generate brief"], "label": "click Generate brief" },
+    { "cmd": ["wait", "--text", "No API key for openrouter"], "label": "keyless run toasts the missing key (AC-48)" }
+  ]
+}
