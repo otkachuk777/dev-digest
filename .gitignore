@@ -32,3 +32,5 @@ __pycache__/
 
 
 docs/designs/Dev_Digest/
+# onion-architecture skill eval run outputs (fixtures+evals.json are committed)
+.claude/skills/onion-architecture-workspace/
