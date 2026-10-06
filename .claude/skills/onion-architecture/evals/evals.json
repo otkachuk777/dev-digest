@@ -64,6 +64,22 @@
         "Виправлення: findById+NotFoundError у сервісі; Zod-схема з .parse (як NotifyPayload); container.reviewRepo.markFindingsExported(workspaceId, reviewId, at, tx)",
         "Немає хибних знахідок на коректному коді: notifications/service.ts, notifications/repository.ts, reviews/service.ts, ReviewsRepository.findById/markFindingsExported/setStatus"
       ]
+    },
+    {
+      "id": 5,
+      "name": "list-queries",
+      "prompt": "Зроби рев'ю бекенд-коду в каталозі <FIXTURE>/05-list-queries. Знайди проблеми проєктування та архітектури: для кожної вкажи файл і рядок, чому це проблема і як її виправити. Файли без проблем не згадуй. Нічого не змінюй.",
+      "expected_output": "3 порушення: findings/repository.ts listByReview без limit; findings/routes.ts limit без max (+ listRecent .limit(limit) без cap/default); reports/service.ts slice у JS після повного select.",
+      "files": [
+        "fixtures/05-list-queries"
+      ],
+      "assertions": [
+        "Знайдено: findings/repository.ts listByReview повертає всі рядки без limit (необмежений list-запит)",
+        "Знайдено: findings/routes.ts приймає limit без верхньої межі (.max), а listRecent робить .limit(limit) без default/cap",
+        "Знайдено: reports/service.ts вибирає всі рядки і робить .slice() у JS замість пагінації в SQL",
+        "Виправлення: DEFAULT_PAGE_SIZE/MAX_PAGE_SIZE у findings/constants.ts, Math.min у репозиторії, .max(MAX_PAGE_SIZE) у схемі route з тією ж константою, limit/offset у SQL",
+        "Немає хибних знахідок на коректному коді: pulls/repository.ts (listPage), pulls/routes.ts, pulls/service.ts, pulls/constants.ts, findings/constants.ts"
+      ]
     }
   ]
 }
