@@ -29,3 +29,6 @@ test-results/
 
 # Python bytecode (collect.py imported by its self-test)
 __pycache__/
+
+
+docs/designs/Dev_Digest/
