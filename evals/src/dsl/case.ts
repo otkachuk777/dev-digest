@@ -81,7 +81,9 @@ type Task = (prompt: string, artifact: string, opts?: RunOptions) => Promise<Res
 
 function runQualityCases(artifact: string, cases: QualityCase[], task: Task): void {
   for (const c of cases) {
-    test(c.name, async () => {
+    // `pnpm eval:scaffold` stubs start with "TODO" — skip them so unfilled stubs cost no tokens.
+    const run = c.prompt.startsWith("TODO") ? test.skip : test;
+    run(c.name, async () => {
       const threshold = c.threshold ?? DEFAULT_THRESHOLD;
       const result = await task(c.prompt, artifact, { maxTurns: c.maxTurns });
       logTrace(c.name, result);
