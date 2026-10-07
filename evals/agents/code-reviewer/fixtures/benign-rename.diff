@@ -1,0 +1,6 @@
+diff --git a/reviewer-core/src/budget.ts b/reviewer-core/src/budget.ts
+--- a/reviewer-core/src/budget.ts
++++ b/reviewer-core/src/budget.ts
+@@ -3,5 +3,5 @@
+-export function total(xs: number[]) { let t = 0; for (const x of xs) t += x; return t; }
++export function total(xs: number[]) { let sum = 0; for (const x of xs) sum += x; return sum; }
