@@ -18,12 +18,12 @@ export const cases: WorkflowCase[] = [
     kind: "trace",
     // Endpoint must NOT already exist, or the model reviews the existing code inline instead of
     // planning-then-dispatching. GET /reviews/:id/export is genuinely absent from routes.ts.
-    name: "API-route task reads api-contracts AND pulls the architecture-reviewer",
+    name: "API-route task reads server/docs/README.md AND pulls the architecture-reviewer",
     prompt:
       "Я планую додати НОВИЙ, ще не реалізований ендпоінт GET /reviews/:id/export (віддає ревʼю як " +
-      "markdown). Спершу звірся з конвенціями API цього репо. Потім ОБОВʼЯЗКОВО запусти сабагента " +
+      "markdown). Спершу, за CLAUDE.md модуля server, прочитай документ про routing pattern (docs усередині server). Потім ОБОВʼЯЗКОВО запусти сабагента " +
       "architecture-reviewer, щоб він оцінив мій план на відповідність onion-шарам — не рецензуй сам.",
-    expectFilesRead: ["server/docs/api-contracts.md"],
+    expectFilesRead: ["server/docs/README.md"],
     expectSubagents: ["architecture-reviewer"],
     maxTurns: 8,
   },
@@ -33,27 +33,28 @@ export const cases: WorkflowCase[] = [
     kind: "trace",
     // Tests the CLAUDE.md "Read When" routing, so the prompt must push toward CONSULTING the docs,
     // not exploring source. Earlier phrasing ("розберись, як усе влаштовано") sent the model straight
-    // into schema.ts / pipeline.run.ts and it never opened the routed doc. One anchor doc (pipeline.md)
+    // into schema.ts / pipeline.run.ts and it never opened the routed doc. One anchor doc (reviewer-core/docs/README.md)
     // keeps this a deterministic routing check — asserting two docs in one session is inherently flaky.
-    name: "pipeline task follows CLAUDE.md routing to pipeline.md",
+    name: "pipeline task follows CLAUDE.md routing to reviewer-core/docs/README.md",
     prompt:
-      "Я збираюся змінити review pipeline. Перш ніж торкатися коду — звірся з настановами цього репо " +
-      "(CLAUDE.md) щодо того, яку документацію треба прочитати для змін у pipeline, і прочитай саме ці документи.",
-    expectFilesRead: ["reviewer-core/docs/pipeline.md"],
-    maxTurns: 8,
+      "Я збираюся змінити логіку review-engine у reviewer-core (review pipeline). Нічого не змінюй. " +
+      "Відкрий CLAUDE.md цього модуля й прочитай УСІ документи цього модуля (всередині його папки), на які " +
+      "він посилається у розділі \"Read when\" для такої роботи (INSIGHTS і docs). Відповідай лише після того, як усе прочитано.",
+    expectFilesRead: ["reviewer-core/docs/README.md"],
+    maxTurns: 12,
   },
 
-  // --- trace (1 session): CLAUDE.md "Hit unexpected behavior" routing -> gotchas ----------------
+  // --- trace (1 session): CLAUDE.md "Hit unexpected behavior" routing -> INSIGHTS ----------------
   // Was a contrast case, but the control run (empty tmpdir) could still reach the real repo by
-  // absolute path and read gotchas.md, making the negative flaky. As a single-session trace it
-  // reliably checks the same routing rule: in the real repo, the discovery prompt reads gotchas.md.
+  // absolute path and read reviewer-core/INSIGHTS.md, making the negative flaky. As a single-session trace it
+  // reliably checks the same routing rule: in the real repo, the discovery prompt reads reviewer-core/INSIGHTS.md.
   {
     kind: "trace",
-    name: "CLAUDE.md routes a gotchas lookup to reviewer-core/insights",
+    name: "CLAUDE.md routes a gotchas lookup to reviewer-core/INSIGHTS.md",
     prompt:
       "У reviewer-core я стикнувся з несподіваною поведінкою — щось працює не так, як я очікував. " +
       "За настановами цього репо, де це вже могло бути задокументовано? Прочитай той файл.",
-    expectFilesRead: ["reviewer-core/insights/gotchas.md"],
+    expectFilesRead: ["reviewer-core/INSIGHTS.md"],
     maxTurns: 5,
   },
 

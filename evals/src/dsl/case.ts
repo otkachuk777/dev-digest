@@ -65,6 +65,8 @@ export type WorkflowCase =
       expectSubagents?: string[];
       expectSkills?: string[];
       expectFilesRead?: string[];
+      /** Patterns the final answer must match (e.g. a refusal / the right command). Runs to completion. */
+      expectTextMatches?: RegExp[];
       maxTurns?: number;
     };
 
@@ -134,7 +136,14 @@ export function runWorkflowCases(cases: WorkflowCase[]): void {
           record(c.name, { result });
         }
       } else if (c.kind === "activation") {
-        const result = await workflowTask(c.prompt, { maxTurns: c.maxTurns });
+        // Positive case: stop the moment the skill engages — the evidence is in, and letting the
+        // skill run on makes it write a real insight into the repo's INSIGHTS.md.
+        const result = await workflowTask(c.prompt, {
+          maxTurns: c.maxTurns,
+          stopWhen: c.shouldActivate
+            ? (p) => activated(p as Result, c.skill)
+            : undefined,
+        });
         logTrace(c.name, result);
         try {
           expect(
@@ -151,12 +160,15 @@ export function runWorkflowCases(cases: WorkflowCase[]): void {
         const subs = c.expectSubagents ?? [];
         const skls = c.expectSkills ?? [];
         const files = c.expectFilesRead ?? [];
+        const texts = c.expectTextMatches ?? [];
         const skillEngaged = (p: { skillsInvoked: string[]; filesRead: string[] }, skill: string) =>
           p.skillsInvoked.some((s) => s === skill || s.endsWith(`:${skill}`)) ||
           p.filesRead.some((f) => f.includes(`skills/${skill}/SKILL.md`));
         const result = await workflowTask(c.prompt, {
           maxTurns: c.maxTurns,
+          // Text expectations need the final answer, so never stop early when any are set.
           stopWhen: (p) =>
+            texts.length === 0 &&
             subs.every((s) => p.subagents.includes(s)) &&
             skls.every((s) => skillEngaged(p, s)) &&
             files.every((f) => p.filesRead.some((r) => r.includes(f))),
@@ -177,6 +189,9 @@ export function runWorkflowCases(cases: WorkflowCase[]): void {
               result.filesRead.some((f) => f.includes(file)),
               `${file} not read | reads: ${result.filesRead.join(", ")}`,
             ).toBe(true);
+          }
+          for (const re of texts) {
+            expect(re.test(result.text), `answer !~ ${re} | answer: ${result.text.slice(0, 400)}`).toBe(true);
           }
           expect(result.isError).toBe(false);
         } finally {
