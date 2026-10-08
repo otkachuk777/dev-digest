@@ -1,7 +1,7 @@
-diff --git a/reviewer-core/src/pipeline/run.ts b/reviewer-core/src/pipeline/run.ts
+diff --git a/reviewer-core/src/review/run.ts b/reviewer-core/src/review/run.ts
 index ccccccc..ddddddd 100644
---- a/reviewer-core/src/pipeline/run.ts
-+++ b/reviewer-core/src/pipeline/run.ts
+--- a/reviewer-core/src/review/run.ts
++++ b/reviewer-core/src/review/run.ts
 @@ -1,4 +1,5 @@
  import type { PipelineInput, Finding } from "./types.js";
 +import { readFileSync } from "node:fs";
