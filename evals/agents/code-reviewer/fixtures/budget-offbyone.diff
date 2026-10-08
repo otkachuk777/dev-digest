@@ -1,0 +1,11 @@
+diff --git a/reviewer-core/src/budget.ts b/reviewer-core/src/budget.ts
+--- a/reviewer-core/src/budget.ts
++++ b/reviewer-core/src/budget.ts
+@@ -10,9 +10,14 @@ export const MAX_FILES = 20;
++/** Keep at most MAX_FILES files; the AC says "20 files are allowed, 21 are rejected". */
++export function selectFiles(files: string[]): { kept: string[]; rejected: boolean } {
++  if (files.length >= MAX_FILES) {
++    return { kept: files.slice(0, MAX_FILES), rejected: true };
++  }
++  return { kept: files, rejected: false };
++}

@@ -2,8 +2,8 @@
 name: onion-architecture
 description: Use when writing or moving backend code in server/ or reviewer-core/ — adding a module, route, service, repository, adapter, job handler, domain rule, constant or Zod contract; refactoring a fat routes.ts; calling another module; adding an external SDK (LLM, GitHub, git, Slack…); wrapping several writes in a transaction; deciding what a file may import. Enforces Onion Architecture (dependencies point inward only) for Fastify + Drizzle + Zod, checked by `pnpm arch` (dependency-cruiser).
 metadata:
-  version: "1.0.0"
-  updated: "2026-09-19"
+  version: "1.1.0"
+  updated: "2026-10-06"
 ---
 
 # Onion Architecture (server + reviewer-core)
@@ -40,6 +40,7 @@ Classifying a piece of code:
 - **Before you write a new schema or enum**, grep `vendor/shared/contracts/` (`Severity`, `IdParams`, …) and reuse what's there. Before editing a `vendor/shared` file, `diff` the server and client copies, because some files have already drifted (see `server/INSIGHTS.md`).
 - **Every table has one owning module**, and only that module's repository **writes** it (`findings`/`reviews` belong to `reviews`, `agents`/`agent_runs` belong to `agents`). A new module that needs to change another module's rows **adds a method to the owner's repository** and calls it via `container.<x>Repo`. A **read-only join or select** for your own read model (e.g. `pulls` reading `repos.owner`/`repos.name`, or `findings` rows for counts) is fine inside your own `repository.ts`. `pnpm arch` can't see this rule, so check it yourself.
 - **A business rule that is naturally a `WHERE`** (accepted and not dismissed, stale > 7 days) lives in SQL, in a repository method **named after the rule** (`exportableFindings`, `listStale`). The threshold constant sits in the owning module's `constants.ts`, and the repo imports it. If the same rule is also needed in memory, add a pure predicate next to the constant, and let a test pin that the two agree.
+- **Every list query is bounded, in SQL.** A repository method that returns many rows takes a `limit` (plus `offset` or a cursor) and applies `.limit(Math.min(limit ?? DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE))`. `DEFAULT_PAGE_SIZE` and `MAX_PAGE_SIZE` live in the owning module's `constants.ts`, and the route's querystring schema caps the same value with `.max(MAX_PAGE_SIZE)`, so a client can't ask for 10 million rows and an internal caller can't forget the cap. Never fetch everything and `.slice()` in the service: the DB then reads and ships rows that are thrown away. The one exception is a reduce-on-read aggregation that truly needs every row of one scoped entity; name that method `…ForAggregate` so the intent is visible.
 - **Row → DTO mapping** is a pure function in `helpers.ts` (`toRepoDto` in `modules/repos/helpers.ts` is the reference for the *shape*). It takes row types via `import type { XRow } from './repository.js'`. Don't copy the `import * as t from '../../db/schema.js'` that `repos/helpers.ts` still does: that line is baseline debt. The repository returns rows, the service maps them, and the route returns the DTO.
 - **Domain rule used by 2+ modules** stays in the owning module and is exported from its **`index.ts`**. It moves to `_shared/` only when no module owns it.
 - **Another module's data or behavior:** use `container.<x>`, which exposes shared repos and facades (`agentsRepo`, `reviewRepo`, `repoIntel`), or the other module's `index.ts`. **Never** `../<other>/repository.js`, `../<other>/constants.js` or `../<other>/repository/*.repo.js`. A module's `index.ts` is its **public API**: domain types, constants, pure rules, and the facade/service. It doesn't re-export `repository.ts` or `routes.ts` (`repo-intel/index.ts` does today, which is debt). A module that has no `index.ts` yet gets one when it gains its first outside consumer.
@@ -94,4 +95,6 @@ composition root).
 | hand-write a wire type (`type PrMeta = {…}`) | Use `z.infer` of the contract in `vendor/shared/contracts`. |
 | add a new SDK/`fastify`/`drizzle-orm` dependency to reviewer-core, or import `server/…` from it | Define a port in reviewer-core and inject the implementation from the server. (`reviewer-core/src/llm/openrouter.ts` is the one existing SDK adapter there; it's the only exception.) |
 | write an interface for a repository with one implementation | Don't. Ports exist for external systems. Repos are concrete classes behind the service. |
+| write `select().from(t).where(…)` for a list with no `.limit(…)`, or take `limit` from the request without a max | Add `limit` with `DEFAULT_PAGE_SIZE` / `MAX_PAGE_SIZE` from the module's `constants.ts`, cap it in the route schema too. |
+| fetch all rows and `.slice(offset, offset + limit)` in the service | Page in SQL with `.limit()` / `.offset()` in the repository method. |
 | run `pnpm arch:baseline` so your change passes | Fix the import. The baseline only shrinks. |

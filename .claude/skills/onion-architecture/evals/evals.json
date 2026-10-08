@@ -1,0 +1,85 @@
+{
+  "skill_name": "onion-architecture",
+  "evals": [
+    {
+      "id": 1,
+      "name": "module-boundaries",
+      "prompt": "Зроби рев'ю бекенд-коду в каталозі <FIXTURE>/01-module-boundaries. Знайди проблеми проєктування та архітектури: для кожної вкажи файл і рядок, чому це проблема і як її виправити. Файли без проблем не згадуй. Нічого не змінюй.",
+      "expected_output": "Знайдено 3 порушення: drizzle у routes.ts; cross-module імпорт ReviewsRepository у pulls/service.ts; Octokit+secrets у pulls/service.ts.",
+      "files": [
+        "fixtures/01-module-boundaries"
+      ],
+      "assertions": [
+        "Знайдено: pulls/routes.ts імпортує drizzle-orm/db schema і виконує запит напряму (має йти через repository/service)",
+        "Знайдено: pulls/service.ts імпортує/створює ReviewsRepository з іншого модуля (має бути container.reviewRepo)",
+        "Знайдено: pulls/service.ts створює new Octokit і читає GITHUB_TOKEN (має бути container.github())",
+        "Виправлення посилаються на container.reviewRepo, container.github() та метод у pulls/repository.ts",
+        "Немає хибних знахідок на pulls/repository.ts, pulls/helpers.ts, reviews/service.ts, reviews/repository.ts"
+      ]
+    },
+    {
+      "id": 2,
+      "name": "transactions-io",
+      "prompt": "Зроби рев'ю бекенд-коду в каталозі <FIXTURE>/02-transactions-io. Знайди проблеми проєктування та архітектури: для кожної вкажи файл і рядок, чому це проблема і як її виправити. Файли без проблем не згадуй. Нічого не змінюй.",
+      "expected_output": "Знайдено 3 порушення: GitHub-виклик у tx (publishSummary); цикл постингу в одній tx (exportFindings); new AgentsRepository(tx) у runs/service.ts.",
+      "files": [
+        "fixtures/02-transactions-io"
+      ],
+      "assertions": [
+        "Знайдено: exports/service.ts publishSummary викликає GitHub (postComment) усередині db.transaction",
+        "Знайдено: exports/service.ts exportFindings постить N коментарів в одній транзакції (потрібен per-item запис і відбір exportableFindings/isNull(exportedAt))",
+        "Знайдено: runs/service.ts створює new AgentsRepository(tx) замість container.agentsRepo.completeRun(..., tx)",
+        "Виправлення: виклик поза tx / короткий tx після; idempotent цикл як у exportPending; container.agentsRepo з tx",
+        "Немає хибних знахідок на exports/service.ts exportPending та reviews/service.ts finish"
+      ]
+    },
+    {
+      "id": 3,
+      "name": "core-and-placement",
+      "prompt": "Зроби рев'ю бекенд-коду в каталозі <FIXTURE>/03-core-and-placement. Знайди проблеми проєктування та архітектури: для кожної вкажи файл і рядок, чому це проблема і як її виправити. Файли без проблем не згадуй. Нічого не змінюй.",
+      "expected_output": "Знайдено 3 порушення: reviewer-core/tokens/count.ts імпортує server/ та SDK; triage/service.ts фільтрує в JS і перевіряє workspaceId у сервісі; рукописний FindingDto + повторний zod parse.",
+      "files": [
+        "fixtures/03-core-and-placement"
+      ],
+      "assertions": [
+        "Знайдено: reviewer-core/src/tokens/count.ts залежить від server/ та tiktoken SDK (потрібен порт Tokenizer, інжектований із server)",
+        "Знайдено: triage/service.ts фільтрує рядки в JS і перевіряє workspaceId/dismissedAt у сервісі замість SQL where (listActive)",
+        "Знайдено: рукописний FindingDto у triage/helpers.ts і/або повторний FindingShape.parse у triage/service.ts замість z.infer контракту Finding",
+        "Виправлення посилаються на порт Tokenizer, triageRepo.listActive та z.infer із contracts/finding.ts",
+        "Немає хибних знахідок на коректному коді: scoring/severity.ts, scoring/budget.ts, triage/repository.ts (listActive, listActiveBySeverity), triage/index.ts (re-export toFindingDto), reports/service.ts"
+      ]
+    },
+    {
+      "id": 4,
+      "name": "project-conventions",
+      "prompt": "Зроби рев'ю бекенд-коду в каталозі <FIXTURE>/04-project-conventions. Знайди проблеми проєктування та архітектури: для кожної вкажи файл і рядок, чому це проблема і як її виправити. Файли без проблем не згадуй. Нічого не змінюй.",
+      "expected_output": "Знайдено 3 порушення: reviews/repository.ts getById кидає NotFoundError; exports/service.ts handleExportJob робить payload as ExportPayload без Zod parse; exports/repository.ts stampFindings пише в таблицю findings іншого модуля.",
+      "files": [
+        "fixtures/04-project-conventions"
+      ],
+      "assertions": [
+        "Знайдено: reviews/repository.ts getById кидає NotFoundError (репозиторій має повертати row|undefined, а сервіс вирішує, що робити)",
+        "Знайдено: exports/service.ts handleExportJob приводить payload через `as ExportPayload` без Zod-парсингу на вході job handler",
+        "Знайдено: exports/repository.ts stampFindings пише в таблицю findings, яку володіє інший модуль (має бути метод у репозиторії власника, container.reviewRepo)",
+        "Виправлення: findById+NotFoundError у сервісі; Zod-схема з .parse (як NotifyPayload); container.reviewRepo.markFindingsExported(workspaceId, reviewId, at, tx)",
+        "Немає хибних знахідок на коректному коді: notifications/service.ts, notifications/repository.ts, reviews/service.ts, ReviewsRepository.findById/markFindingsExported/setStatus"
+      ]
+    },
+    {
+      "id": 5,
+      "name": "list-queries",
+      "prompt": "Зроби рев'ю бекенд-коду в каталозі <FIXTURE>/05-list-queries. Знайди проблеми проєктування та архітектури: для кожної вкажи файл і рядок, чому це проблема і як її виправити. Файли без проблем не згадуй. Нічого не змінюй.",
+      "expected_output": "3 порушення: findings/repository.ts listByReview без limit; findings/routes.ts limit без max (+ listRecent .limit(limit) без cap/default); reports/service.ts slice у JS після повного select.",
+      "files": [
+        "fixtures/05-list-queries"
+      ],
+      "assertions": [
+        "Знайдено: findings/repository.ts listByReview повертає всі рядки без limit (необмежений list-запит)",
+        "Знайдено: findings/routes.ts приймає limit без верхньої межі (.max), а listRecent робить .limit(limit) без default/cap",
+        "Знайдено: reports/service.ts вибирає всі рядки і робить .slice() у JS замість пагінації в SQL",
+        "Виправлення: DEFAULT_PAGE_SIZE/MAX_PAGE_SIZE у findings/constants.ts, Math.min у репозиторії, .max(MAX_PAGE_SIZE) у схемі route з тією ж константою, limit/offset у SQL",
+        "Немає хибних знахідок на коректному коді: pulls/repository.ts (listPage), pulls/routes.ts, pulls/service.ts, pulls/constants.ts, findings/constants.ts"
+      ]
+    }
+  ]
+}

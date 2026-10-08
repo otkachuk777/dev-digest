@@ -20,6 +20,7 @@ Reusable AI skills that provide specialized knowledge and workflows. Canonical l
 | [engineering-insights](engineering-insights/SKILL.md) | Shared | Read a module's `INSIGHTS.md` before work; append non-obvious lessons at wrap-up |
 | [workflow-retro](workflow-retro/SKILL.md) | Shared | Retro of a multi-agent (SDD) run from transcripts: agents, order, tokens, duplication, rework; report in `docs/workflow-retros/` + proposed agent edits |
 | [pr-self-review](pr-self-review/SKILL.md) | Shared | Pre-PR self-review: maps the diff to the matching skills, runs guards, blocks `gh pr create` on critical findings |
+| [dependency-checker](dependency-checker/SKILL.md) | Shared | Audit of all packages' dependencies: Mermaid graphs, node_modules sizes, vulns/outdated/unused/drift, P0/P1/P2/Info priorities; report in `docs/dependency-reports/` + HTML artifact |
 
 ## What Are Skills?
 
