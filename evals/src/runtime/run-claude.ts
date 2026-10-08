@@ -4,7 +4,7 @@
  */
 
 import { query, type Options } from "@anthropic-ai/claude-agent-sdk";
-import { EVAL_MODEL, MAX_TURNS, SPAWN_TOOLS } from "../config.js";
+import { EVAL_MODEL, MAX_TURNS, MUTATING_TOOLS, SPAWN_TOOLS } from "../config.js";
 import { REPO_ROOT } from "../artifacts/paths.js";
 import { subscriptionEnv } from "./env.js";
 
@@ -62,9 +62,12 @@ export async function runClaude(prompt: string, opts: RunOptions = {}): Promise<
   const options: Options = {
     model: opts.model ?? EVAL_MODEL,
     maxTurns: opts.maxTurns ?? MAX_TURNS,
-    permissionMode: "bypassPermissions", // safe: evals only read/plan and tools are allow-listed
+    // bypassPermissions skips prompts; disallowedTools is what keeps the session read-only
+    // (allowedTools only auto-approves, it does not remove Write/Edit/Bash).
+    permissionMode: "bypassPermissions",
     systemPrompt,
     allowedTools,
+    disallowedTools: MUTATING_TOOLS,
     cwd: opts.cwd ?? REPO_ROOT,
     // Default: do NOT load on-disk config — isolates the injected artifact. workflowTask overrides.
     settingSources: opts.settingSources ?? [],

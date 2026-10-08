@@ -6,6 +6,7 @@
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { SKILLS_DIR, AGENTS_DIR } from "./paths.js";
+import { MUTATING_TOOLS } from "../config.js";
 
 function stripFrontmatter(md: string): string {
   if (md.startsWith("---")) {
@@ -37,10 +38,8 @@ export function agentContent(agentName: string): string {
   return stripFrontmatter(readFileSync(f, "utf8"));
 }
 
-// Tools the eval refuses to hand a subagent: evals run with bypassPermissions against the LIVE
-// repo, so a mutating tool could take real actions. An agent that declares these still runs — it
-// just runs read-only, which is all an eval ever needs.
-const MUTATING_TOOLS = new Set(["Write", "Edit", "NotebookEdit", "Bash"]);
+// An agent that declares mutating tools still runs — it just runs read-only, which is all an eval
+// ever needs (runClaude also blocks them via disallowedTools).
 const READONLY_FALLBACK = ["Read", "Grep", "Glob"];
 
 /**
@@ -63,5 +62,5 @@ export function agentTools(agentName: string): string[] {
   return raw
     .split(",")
     .map((t) => t.trim())
-    .filter((t) => t.length > 0 && !MUTATING_TOOLS.has(t));
+    .filter((t) => t.length > 0 && !MUTATING_TOOLS.includes(t));
 }
