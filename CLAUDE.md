@@ -11,6 +11,7 @@ No root package.json — 5 standalone packages, each own lockfile. Cross-package
 - touching `reviewer-core/*` → read `reviewer-core/CLAUDE.md` first
 - touching `e2e/*` → read `e2e/CLAUDE.md` first
 - touching `mcp/*` → read `mcp/CLAUDE.md` first
+- changed a skill (`.claude/skills/*`), an agent (`.claude/agents/*`) or any `CLAUDE.md` → run the matching eval from `evals/README.md` § "Which change → which run" (skill → `pnpm vitest run skills/<skill>`, agent → `agents/<agent>`, CLAUDE.md/routing → `pnpm eval:workflow`, structure → `pnpm eval:quality`); CI runs the same per PR (`.github/workflows/eval-*.yml`)
 - need cross-module architecture → `docs/architecture.md`
 - need agent-prompt tuning → `docs/agent-prompts/README.md`
 - writing/reading a feature spec (SDD, EARS) → `specs/README.md` (written by the `spec-creator` agent)

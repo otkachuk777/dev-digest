@@ -531,6 +531,9 @@ tokens > 125% of baseline), `missing_data` (a config has zero records for a test
 
 ## Which change → which run
 
+Latest committed results (Skill Creator benchmarks, strict vs lite agent A/B, workflow traces):
+[`docs/lab-results-2026-10-08.md`](docs/lab-results-2026-10-08.md).
+
 | Change | Run |
 |--------|-----|
 | A skill's `SKILL.md` (quick check) | `pnpm vitest run skills/<skill>` |
