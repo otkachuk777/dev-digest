@@ -1,84 +1,239 @@
 {
-  "dashboard": {
-    "defaultTitle": "Eval Dashboard",
-    "loading": "Loading eval metrics…",
-    "casesSummary": "{count, plural, one {# eval case} other {# eval cases}} · gold set · {runs, plural, one {# run} other {# runs}}",
-    "configure": "Configure eval cases →",
-    "runEval": "Run eval ({count})",
-    "running": "Running…",
-    "metricTrend": "Metric trend",
-    "recentRuns": "Recent runs",
-    "noRuns": "No runs yet. Create an eval case and run it.",
-    "metrics": {
-      "recall": "RECALL",
-      "precision": "PRECISION",
-      "citationAccuracy": "CITATION ACCURACY"
+  "common": {
+    "noValue": "—",
+    "pt": "{n}pt",
+    "neverRun": "never run",
+    "running": "Running…"
+  },
+  "finding": {
+    "turnIntoCase": "Turn into eval case",
+    "tipAccepted": "Create a 'must find' eval case from this finding",
+    "tipDismissed": "Create a 'must NOT comment' eval case from this dismissal",
+    "tipUndecided": "Accept or dismiss this finding first"
+  },
+  "toast": {
+    "caseCreated": "Eval case created",
+    "caseExists": "Eval case already exists",
+    "openEvalsTab": "Open in Evals tab"
+  },
+  "errors": {
+    "finding_not_in_diff": "This finding's lines are no longer in the PR's stored diff, so it cannot become an eval case.",
+    "agent_missing": "The agent that produced this finding no longer exists.",
+    "finding_undecided": "Accept or dismiss this finding first.",
+    "case_input_too_large": "This finding's file diff is larger than 200 KB.",
+    "case_limit_reached": "An agent can have at most 50 eval cases.",
+    "eval_run_in_progress": "An eval run is already in progress for this agent.",
+    "no_eval_cases": "Add an eval case first.",
+    "no_api_key": "No API key is configured for this agent's provider.",
+    "already_current": "This run's configuration is already the agent's current one.",
+    "run_not_done": "Only a finished run can be promoted."
+  },
+  "tab": {
+    "label": "Evals"
+  },
+  "evals": {
+    "metrics": "Eval metrics",
+    "viewDashboard": "View full dashboard →",
+    "recall": "Recall",
+    "precision": "Precision",
+    "citation": "Citation accuracy",
+    "traces": "Traces passed",
+    "noRuns": "No eval runs yet",
+    "scoringNote": "Scoring is mechanical — a finding counts when file matches and line ranges overlap. No model call in the scorer.",
+    "casesHeading": "Eval cases",
+    "passingBadge": "{passing} / {ran} passing",
+    "casesBadge": "{n, plural, one {# case} other {# cases}}",
+    "runAll": "Run all evals",
+    "runningProgress": "Running… {done}/{total} cases",
+    "addCaseFirst": "Add an eval case first",
+    "newCase": "New eval case",
+    "empty": "No eval cases yet. Turn an accepted or dismissed finding into a case from a PR, or create one here.",
+    "mustFind": "must find",
+    "mustNotFlag": "must not flag",
+    "assertEmpty": "assert empty",
+    "seededFrom": "Seeded from a {decision} finding",
+    "status": {
+      "pass": "Passed",
+      "fail": "Failed",
+      "error": "Errored",
+      "never": "Never run"
     },
+    "result": {
+      "mustFind": "expected {n, plural, one {# finding} other {# findings}}, got {m}",
+      "mustNotFlag": "expected 0 findings, got {m}",
+      "error": "error: {reason}",
+      "never": "never run"
+    },
+    "actions": {
+      "run": "Run {name}",
+      "edit": "Edit {name}",
+      "delete": "Delete {name}"
+    },
+    "delete": {
+      "title": "Delete eval case",
+      "confirm": "Delete eval case {name}? Past runs keep its results.",
+      "label": "Delete",
+      "cancel": "Cancel"
+    }
+  },
+  "modal": {
+    "newTitle": "New eval case",
+    "title": "Eval case · {name}",
+    "subtitleAgent": "{agent} · simulate a PR and assert the expected output",
+    "subtitleSeeded": "Seeded from a {decision} finding · assert the expected output",
+    "decision": {
+      "accepted": "accepted",
+      "dismissed": "dismissed"
+    },
+    "positive": "Positive case",
+    "negative": "Negative case",
+    "positiveText": "MUST find “{title}” at {file}:{lines}",
+    "negativeText": "MUST NOT comment on {file}:{lines} ({title})",
+    "name": "Name",
+    "type": "Type",
+    "mustFind": "Must find",
+    "mustNotFlag": "Must not flag",
+    "input": "Input",
+    "tabs": {
+      "diff": "Diff",
+      "files": "Files",
+      "meta": "PR meta"
+    },
+    "diffLabel": "Diff",
+    "diffPreview": "Diff preview",
+    "editDiff": "Edit diff",
+    "doneDiff": "Done",
+    "noFiles": "No files in the diff yet.",
+    "prTitle": "Title",
+    "prBody": "Body",
+    "expected": "Expected output",
+    "expectedNegative": "Expected: no finding here",
+    "validJson": "valid JSON",
+    "invalidJson": "invalid JSON",
+    "skeleton": "+ Finding skeleton",
+    "runOnSave": "Run on save",
+    "cancel": "Cancel",
+    "runCase": "Run case",
+    "save": "Save",
+    "saveFirst": "Save the case first",
+    "duplicateName": "A case named {name} already exists for this agent.",
+    "lastPassed": "Last run passed",
+    "lastFailed": "Last run failed",
+    "lastErrored": "Last run errored · {reason}",
+    "lastDetail": "expected {n, plural, one {# finding} other {# findings}}, got {m} · {seconds}s · {cost}",
+    "nameRequired": "Name is required (1–80 characters)."
+  },
+  "dashboard": {
+    "crumbLab": "Skills Lab",
+    "crumb": "Eval Dashboard",
+    "title": "Eval Dashboard",
+    "subtitle": "Regression harness across all reviewer agents · pick an agent to see its runs",
+    "runAll": "Run all agents",
+    "agents": "Agents",
+    "noRuns": "No eval runs yet",
+    "lastRun": "Last run v{version} · {date} · {passed}/{total} pass",
+    "recall": "Recall",
+    "prec": "Prec",
+    "cite": "Cite",
+    "recent": "Recent eval runs · all agents",
+    "emptyRecent": "No eval runs yet. Turn findings into eval cases from a PR, then run evals.",
+    "started": "Started {started, plural, one {# eval run} other {# eval runs}} · skipped {skipped}",
+    "loadErrorTitle": "Could not load the eval dashboard",
+    "loadErrorBody": "Try again in a moment.",
+    "cols": {
+      "agent": "Agent",
+      "ranAt": "Ran at",
+      "version": "Version",
+      "recall": "Recall",
+      "precision": "Precision",
+      "citation": "Citation",
+      "pass": "Pass"
+    }
+  },
+  "detail": {
+    "crumbLab": "Skills Lab",
+    "crumbDashboard": "Eval Dashboard",
+    "allAgents": "All agents",
+    "subtitle": "Regression harness · {runs, plural, one {# run} other {# runs}} in range on {cases, plural, one {# case} other {# cases}}",
+    "rangeLabel": "Time range",
+    "range": {
+      "7d": "7 days",
+      "30d": "30 days",
+      "90d": "90 days",
+      "all": "All"
+    },
+    "runEval": "Run eval",
+    "trend": "Metric trend",
+    "legendLabel": "Legend",
+    "passLabel": "{passed}/{total}{errored, plural, =0 {} other { · # errored}}",
     "legend": {
       "recall": "Recall",
       "precision": "Precision",
       "citation": "Citation"
     },
-    "table": {
+    "noRunsInRange": "No eval runs in this range.",
+    "history": "Recent runs",
+    "selectHint": "Select two runs to compare",
+    "selected": "{n} selected",
+    "compare": "Compare",
+    "cols": {
       "ranAt": "Ran at",
+      "version": "Version",
       "recall": "Recall",
       "precision": "Precision",
       "citation": "Citation",
       "pass": "Pass",
       "cost": "Cost"
     },
-    "pass": "pass",
-    "fail": "fail"
-  },
-  "caseEditor": {
-    "newCase": "New eval case",
-    "caseTitle": "Eval case · {name}",
-    "runCase": "Run case",
-    "running": "Running…",
-    "save": "Save",
-    "saving": "Saving…",
-    "nameLabel": "Name",
-    "namePlaceholder": "stripe-key-leak",
-    "inputLabel": "Input",
-    "tabs": {
-      "diff": "Diff",
-      "prMeta": "PR meta"
-    },
-    "diffPlaceholder": "--- a/src/config.ts\n+++ b/src/config.ts\n@@ -10,6 +10,7 @@\n+  stripeKey: \"sk_live_...\"",
-    "titleLabel": "Title",
-    "titlePlaceholder": "Add Stripe integration",
-    "bodyLabel": "Body",
-    "bodyPlaceholder": "Wire up payments via Stripe SDK.",
-    "preview": "Preview",
-    "expectedOutput": "Expected output",
-    "validJson": "valid JSON",
-    "invalidJson": "invalid JSON",
-    "lastRunPassed": "Last run passed",
-    "lastRunFailed": "Last run failed",
-    "resultSummary": "recall {recall}% · precision {precision}% · citation {citation}% · {duration}s"
-  },
-  "evalsTab": {
-    "metricsTitle": "Eval metrics",
-    "metricsSubtitle": "Recall / Precision / Citation for this agent's eval cases",
-    "casesHeading": "Eval cases",
-    "newCase": "New case",
-    "loadingCases": "Loading cases…",
-    "emptyCases": "No eval cases yet. Create one to assert this agent's expected findings on a sample diff.",
-    "neverRun": "never run",
-    "passed": "passed",
+    "selectRun": "Select run v{version} {date}",
     "failed": "failed",
-    "recallSuffix": " · recall {recall}%",
-    "run": "Run",
-    "running": "Running…",
-    "edit": "Edit",
-    "delete": "Delete"
+    "failedReason": "failed: {reason}",
+    "running": "Running… {done}/{total}",
+    "notFound": "Agent not found",
+    "backToDashboard": "Back to Eval Dashboard",
+    "loadErrorTitle": "Could not load this agent",
+    "loadErrorBody": "Try again in a moment.",
+    "banner": {
+      "dropped": "{metric} dropped {n}pt on v{to} vs v{from}.",
+      "up": "{metric} up {n}pt.",
+      "failing": "Started failing: {names}.",
+      "metric": {
+        "recall": "Recall",
+        "precision": "Precision",
+        "citation": "Citation"
+      }
+    }
   },
-  "page": {
-    "crumbSkillsLab": "Skills Lab",
-    "crumbEvalDashboard": "Eval Dashboard",
-    "crumbAgents": "Agents",
-    "crumbEvals": "Evals",
-    "crumbNewCase": "New case",
-    "crumbEvalCase": "Eval case"
+  "compare": {
+    "title": "Compare runs · v{a} → v{b}",
+    "subtitle": "Old prompt vs new — metric deltas and prompt diff on {n} common cases",
+    "loading": "Loading runs…",
+    "loadError": "Could not load these runs.",
+    "close": "Close",
+    "recall": "Recall",
+    "precision": "Precision",
+    "citation": "Citation",
+    "cost": "Cost",
+    "promptDiff": "System prompt diff",
+    "legendOld": "v{v} (old)",
+    "legendNew": "v{v} (new)",
+    "noPromptChange": "No system prompt change",
+    "configChanges": "Configuration changes",
+    "config": {
+      "model": "Model: {from} → {to}",
+      "provider": "Provider: {from} → {to}",
+      "strategy": "Strategy: {from} → {to}",
+      "skillAdded": "Skill added: {name}",
+      "skillRemoved": "Skill removed: {name}",
+      "skillChanged": "Skill changed: {name} v{from} → v{to}"
+    },
+    "caseSets": "Metrics cover different case sets: {a} case(s) only in v{va}, {b} only in v{vb}.",
+    "promote": "Promote v{v}",
+    "currentTip": "v{v} is the current config",
+    "confirmTitle": "Promote v{v}",
+    "confirmBody": "Promote v{v}? The agent's provider, model, system prompt and strategy will be set to v{v}'s. Linked skills are not changed. This creates a new version.",
+    "confirm": "Promote",
+    "cancel": "Cancel",
+    "promoted": "Promoted v{from} as v{to}"
   }
 }

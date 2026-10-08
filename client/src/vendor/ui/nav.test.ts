@@ -18,4 +18,11 @@ describe("NAV", () => {
     expect(item.key).toBe("onboarding-tour");
     expect(resolveHref(item.href, "r1")).toBe("/repos/r1/onboarding");
   });
+
+  it("SPEC-04 AC-71: Eval Dashboard sits in SKILLS LAB and links to /eval", () => {
+    const group = NAV.find((g) => g.section === "SKILLS LAB")!;
+    const item = group.items.find((i) => i.label === "Eval Dashboard")!;
+    expect(item.key).toBe("eval");
+    expect(resolveHref(item.href, "r1")).toBe("/eval");
+  });
 });

@@ -11,6 +11,12 @@ _No entries yet._
 
 ## What Doesn't Work
 
+### The rtk hook silently truncates `grep` over INSIGHTS.md, so agents miss entries (2026-10-08)
+
+During SPEC-04 review the architecture-reviewer said it saw only part of `server/INSIGHTS.md` (204 lines) and `client/INSIGHTS.md` (142 lines). The global PreToolUse hook (`~/.claude/hooks/rtk-rewrite.sh`) rewrites `grep` to `rtk grep`, which keeps at most 25 matches per file (`[limits] grep_max_per_file`), cuts lines at ~80 chars, and ends with `+179 more … [hidden: rtk recall <hash>]`. A `grep -n "" file` or `grep -A3 "^###"` read of an INSIGHTS file therefore returns a fragment that looks complete. `cat` is not the culprit: it becomes `rtk read`, whose default `--level none` returns the whole file.
+
+**Rule:** read INSIGHTS.md / CLAUDE.md / specs / plans with the Read tool or `cat`, not `grep`. As a guard, `~/Library/Application Support/rtk/config.toml` now has `[hooks] exclude_commands = ['^(grep|egrep|rg)\b.*\.md\b']` (a `^` entry is a regex matched against the whole command), so grep/rg over `.md` passes through unfiltered and other grep calls keep their savings. Check with `rtk rewrite 'grep -n x server/INSIGHTS.md'` → exit 1 (no rewrite). The config is per-machine, so on a new machine read in full instead of trusting grep output.
+
 ### A hook's `"once": true` did not suppress repeat firing in the Claude Desktop app harness (2026-09-18)
 
 Added a `Stop` hook to `.claude/settings.json` with `"once": true` (per the documented schema: "hook runs once and is removed after execution") to nudge `/engineering-insights` at session wrap-up without nagging every turn. It still fired its `additionalContext` after every single assistant turn — across a session restart too, not just within one live process — so `once` bought nothing observable here. Root cause unconfirmed (no access to the harness's hook-execution internals from inside the session); could be host-specific (Claude Desktop's Code tab) rather than a general Claude Code bug.
