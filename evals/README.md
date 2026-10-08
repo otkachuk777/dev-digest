@@ -186,62 +186,36 @@ workflow cases:
 > checkout is disposable); locally, prefer the Anthropic path or a throwaway clone for the workflow
 > tier.
 
-### Wiring it into GitHub Actions (per-PR)
+### GitHub Actions (per-PR)
 
-The engine is CI-ready: bring the proxy up as a step, wait for it, run the tier, tear it down. Put
-the OpenRouter key in the repo's **Actions secrets** as `OPENROUTER_API_KEY` (Settings → Secrets and
-variables → Actions). Create `.github/workflows/<name>.yml` in your repo:
+Three report-only workflows (`continue-on-error` — a red eval never blocks the merge):
 
-```yaml
-name: evals
-on:
-  pull_request:
-    paths: ['evals/**', '.claude/**', 'CLAUDE.md']   # only when the harness/artifacts change
+| Workflow | Fires on | Runs | Default model |
+|----------|----------|------|---------------|
+| `.github/workflows/eval-skills.yml` | `.claude/skills/**`, `evals/skills/**`, `evals/src/**` | `evals/skills/<name>` per touched skill (matrix, one at a time) | `anthropic/claude-haiku-5.5` |
+| `.github/workflows/eval-agents.yml` | `.claude/agents/**`, `evals/agents/**`, `evals/src/**` | `evals/agents/<name>` per touched agent (matrix, one at a time) | `anthropic/claude-haiku-5.5` |
+| `.github/workflows/eval-workflow.yml` | any `CLAUDE.md` / `INSIGHTS.md`, `.claude/**`, `docs/agent-prompts/**`, `evals/workflow/**`, `evals/src/**` | `pnpm eval:workflow` | `anthropic/claude-haiku-5.5` |
 
-permissions:
-  contents: read
+The judge defaults to `anthropic/claude-haiku-5.5` everywhere. `anthropic/*` models go straight to
+OpenRouter's Anthropic endpoint; any other model under test makes the agents/workflow jobs start
+the LiteLLM proxy first. `deepseek/deepseek-v4-flash` was tried as the default and dropped: some
+OpenRouter providers took up to ~6 min per call and answered the system prompt instead of the task
+(0/2 on `onion-architecture`, vs 2/2 in 24s on Haiku 5.5). `scripts/ci-detect.mjs` maps the PR
+diff to what runs; an artifact with no `*.eval.ts`, or only `pnpm eval:scaffold` TODO stubs, is
+printed as `SKIP <name> (no evals / only TODO stubs)` in the log and the job summary instead of
+running. Self-check: `node scripts/ci-detect.test.mjs` (also run by each workflow's `quality` job,
+together with `typecheck` and `eval:quality` — no model calls).
 
-jobs:
-  workflow-evals:
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: evals
-    env:
-      EVAL_BACKEND: openrouter
-      OPENROUTER_BASE_URL: http://localhost:4000
-      OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}   # repo Actions secret
-      EVAL_MODEL: google/gemini-2.5-flash
-      EVAL_JUDGE_MODEL: google/gemini-2.5-flash
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-        with: { version: 10 }
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-          cache-dependency-path: evals/pnpm-lock.yaml
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm typecheck
+Setup: add the repo **Actions secret** `OPENROUTER_API_KEY`. Without it, model jobs print SKIP.
 
-      # --- the engine ---
-      - run: docker compose -f proxy/docker-compose.yml up -d   # OPENROUTER_API_KEY from job env
-      - run: pnpm proxy:wait                                     # block until the proxy answers
-      - run: pnpm eval:workflow                                  # or eval:agents / eval:skills / eval
-      - if: failure()
-        run: docker compose -f proxy/docker-compose.yml logs --tail 100
-      - if: always()
-        run: docker compose -f proxy/docker-compose.yml down
-```
+Switching the model:
+- **one run** — Actions → `eval-*` → *Run workflow*: `model`, `judge_model`, and (skills/agents)
+  `benchmark` to also run the no-artifact baseline and report the lift (~2x cost). A manual run
+  evaluates every artifact that has real evals, not just changed ones.
+- **every run** — repo variables `EVAL_SKILLS_MODEL`, `EVAL_AGENTS_MODEL`, `EVAL_WORKFLOW_MODEL`,
+  `EVAL_JUDGE_MODEL` (Settings → Secrets and variables → Actions → Variables).
 
-Notes:
-- ubuntu runners ship Docker + `docker compose`, so no extra setup is needed.
-- The proxy container reads `OPENROUTER_API_KEY` straight from the job `env` (which is fed by the
-  secret) — you don't pass it to `docker compose` explicitly.
-- Because tool tiers cost real tokens, gate on `paths:` (only when the harness/artifacts change) and
-  keep the case count small. For a stricter gate, split into a required `eval:agents`/`eval:skills`
-  job and a non-blocking `eval:workflow` job (activation flakiness, above).
+Precedence: dispatch input → repo variable → default in the workflow file.
 
 ## Module layout — `src/` (the engine)
 

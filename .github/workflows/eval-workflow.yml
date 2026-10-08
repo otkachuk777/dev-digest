@@ -1,0 +1,151 @@
+# Workflow evals: the LIVE harness (CLAUDE.md routing, subagent dispatch, skill activation) on
+# OpenRouter. Runs when anything the harness reads changes — any CLAUDE.md /
+# INSIGHTS.md, .claude/**, agent prompts, the eval engine. Report-only: never blocks the merge.
+#
+# Model switch: Actions → eval-workflow → Run workflow (inputs), or repo variables
+# EVAL_WORKFLOW_MODEL / EVAL_JUDGE_MODEL. Needs the OPENROUTER_API_KEY repo secret.
+name: eval-workflow
+
+on:
+  pull_request:
+    paths:
+      - '**/CLAUDE.md'
+      - '**/INSIGHTS.md'
+      - '.claude/**'
+      - 'docs/agent-prompts/**'
+      - 'evals/workflow/**'
+      - 'evals/src/**'
+      - 'evals/scripts/ci-detect*'
+      - '.github/workflows/eval-workflow.yml'
+  workflow_dispatch:
+    inputs:
+      model:
+        description: 'Model under test (OpenRouter slug); empty = anthropic/claude-haiku-5.5'
+        default: ''
+      judge_model:
+        description: 'LLM judge (OpenRouter slug); empty = anthropic/claude-haiku-5.5'
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: eval-workflow-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  # OPENROUTER_API_KEY is set per step (key check, proxy, model runs) — never on pnpm install.
+  EVAL_BACKEND: openrouter
+  # Dispatch cases need a model that actually calls Agent — cheap DeepSeek does the work inline.
+  EVAL_MODEL: ${{ inputs.model || vars.EVAL_WORKFLOW_MODEL || 'anthropic/claude-haiku-5.5' }}
+  EVAL_JUDGE_MODEL: ${{ inputs.judge_model || vars.EVAL_JUDGE_MODEL || 'anthropic/claude-haiku-5.5' }}
+
+jobs:
+  detect:
+    name: Detect harness changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      run_workflow: ${{ steps.detect.outputs.run_workflow }}
+      has_key: ${{ steps.key.outputs.has_key }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - id: detect
+        env:
+          EVAL_ALL: ${{ github.event_name == 'workflow_dispatch' && '1' || '' }}
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            CHANGED_FILES="$(git diff --name-only "${{ github.event.pull_request.base.sha }}" "${{ github.sha }}")"
+            export CHANGED_FILES
+          fi
+          node evals/scripts/ci-detect.mjs
+
+      - id: key
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: |
+          if [ -n "$OPENROUTER_API_KEY" ]; then echo "has_key=true" >> "$GITHUB_OUTPUT"
+          else echo "has_key=false" >> "$GITHUB_OUTPUT"; echo "SKIP workflow evals (no OPENROUTER_API_KEY secret)"; fi
+
+      - name: Summary
+        env:
+          RUN: ${{ steps.detect.outputs.run_workflow }}
+        run: |
+          {
+            echo "## eval-workflow"
+            echo "- model: \`$EVAL_MODEL\` · judge: \`$EVAL_JUDGE_MODEL\`"
+            if [ "$RUN" = "true" ]; then echo "- run: workflow tier"; else echo "- SKIP workflow tier (no harness change)"; fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  quality:
+    name: Eval quality (no model)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: evals
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: evals/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm eval:quality
+      - run: node scripts/ci-detect.test.mjs
+
+  workflow:
+    name: Workflow evals
+    needs: [detect, quality]
+    if: needs.detect.outputs.run_workflow == 'true' && needs.detect.outputs.has_key == 'true'
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    timeout-minutes: 90 # ~16 sequential cases, up to 420s each
+    defaults:
+      run:
+        working-directory: evals
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: evals/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      # The Agent SDK speaks only Anthropic /v1/messages. OpenRouter serves that natively for
+      # anthropic/* models; any other model needs the local LiteLLM translating proxy
+      # (evals/proxy/litellm.config.yaml), which every tier — judge included — then goes through.
+      - name: Start LiteLLM proxy (non-Anthropic model only)
+        if: ${{ !startsWith(env.EVAL_MODEL, 'anthropic/') }}
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: |
+          pnpm proxy:up
+          echo "OPENROUTER_BASE_URL=http://localhost:4000" >> "$GITHUB_ENV"
+
+      - run: pnpm eval:workflow
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-workflow
+          path: evals/results
+          if-no-files-found: ignore
+      - if: failure() && !startsWith(env.EVAL_MODEL, 'anthropic/')
+        # compose interpolates OPENROUTER_API_KEY even for logs; the value is unused here.
+        run: OPENROUTER_API_KEY=unused docker compose -f proxy/docker-compose.yml logs --tail 100
+      - if: always() && !startsWith(env.EVAL_MODEL, 'anthropic/')
+        run: pnpm proxy:down

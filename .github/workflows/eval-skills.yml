@@ -1,0 +1,152 @@
+# Skill evals (content tier) on OpenRouter. Runs only the skills a PR touched that have real
+# (non-TODO) evals; everything else is printed as SKIP. Report-only: never blocks the merge.
+#
+# Model switch: Actions → eval-skills → Run workflow (inputs), or repo variables
+# EVAL_SKILLS_MODEL / EVAL_JUDGE_MODEL. Needs the OPENROUTER_API_KEY repo secret.
+name: eval-skills
+
+on:
+  pull_request:
+    paths:
+      - '.claude/skills/**'
+      - 'evals/skills/**'
+      - 'evals/src/**'
+      - 'evals/scripts/ci-detect*'
+      - '.github/workflows/eval-skills.yml'
+  workflow_dispatch:
+    inputs:
+      model:
+        description: 'Model under test (OpenRouter slug); empty = anthropic/claude-haiku-5.5'
+        default: ''
+      judge_model:
+        description: 'LLM judge (OpenRouter slug); empty = anthropic/claude-haiku-5.5'
+        default: ''
+      benchmark:
+        description: 'Also run a no-skill baseline and report the lift (~2x cost)'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: eval-skills-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  # OPENROUTER_API_KEY is set per step (key check, proxy, model runs) — never on pnpm install.
+  EVAL_BACKEND: openrouter
+  # Content tier calls OpenRouter's OpenAI endpoint directly — no proxy needed.
+  EVAL_MODEL: ${{ inputs.model || vars.EVAL_SKILLS_MODEL || 'anthropic/claude-haiku-5.5' }}
+  EVAL_JUDGE_MODEL: ${{ inputs.judge_model || vars.EVAL_JUDGE_MODEL || 'anthropic/claude-haiku-5.5' }}
+  EVAL_MAX_TURNS: 6
+
+jobs:
+  detect:
+    name: Detect changed skills
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      skills: ${{ steps.detect.outputs.skills }}
+      has_key: ${{ steps.key.outputs.has_key }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - id: detect
+        env:
+          EVAL_ALL: ${{ github.event_name == 'workflow_dispatch' && '1' || '' }}
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            CHANGED_FILES="$(git diff --name-only "${{ github.event.pull_request.base.sha }}" "${{ github.sha }}")"
+            export CHANGED_FILES
+          fi
+          node evals/scripts/ci-detect.mjs
+
+      - id: key
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: |
+          if [ -n "$OPENROUTER_API_KEY" ]; then echo "has_key=true" >> "$GITHUB_OUTPUT"
+          else echo "has_key=false" >> "$GITHUB_OUTPUT"; echo "SKIP all skill evals (no OPENROUTER_API_KEY secret)"; fi
+
+      - name: Summary
+        env:
+          RUN: ${{ steps.detect.outputs.skills }}
+          SKIPPED: ${{ steps.detect.outputs.skipped_skills }}
+        run: |
+          {
+            echo "## eval-skills"
+            echo "- model: \`$EVAL_MODEL\` · judge: \`$EVAL_JUDGE_MODEL\`"
+            echo "- run: \`$RUN\`"
+            for n in $SKIPPED; do echo "- SKIP \`$n\` (no evals / only TODO stubs)"; done
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  quality:
+    name: Eval quality (no model)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: evals
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: evals/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm eval:quality
+      - run: node scripts/ci-detect.test.mjs
+
+  skill:
+    name: Skill eval (${{ matrix.skill }})
+    needs: [detect, quality]
+    if: needs.detect.outputs.skills != '[]' && needs.detect.outputs.has_key == 'true'
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      max-parallel: 1 # OpenRouter rate-limits parallel sessions into flaky 1-turn runs
+      matrix:
+        skill: ${{ fromJson(needs.detect.outputs.skills) }}
+    defaults:
+      run:
+        working-directory: evals
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: evals/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+
+      # Trailing slash: a bare vitest filter would also match sibling folders sharing the prefix.
+      - if: ${{ !inputs.benchmark }}
+        env:
+          SKILL: "${{ matrix.skill }}"
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: pnpm exec vitest run "skills/$SKILL/"
+      - if: ${{ inputs.benchmark }}
+        env:
+          SKILL: "${{ matrix.skill }}"
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: pnpm eval:benchmark "skills/$SKILL/" -n 1
+
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-skill-${{ matrix.skill }}
+          path: evals/results
+          if-no-files-found: ignore

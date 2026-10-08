@@ -14,9 +14,12 @@ services:
     image: ghcr.io/berriai/litellm:main-stable
     container_name: devdigest-eval-litellm
     ports:
-      - "4000:4000"
+      - "127.0.0.1:4000:4000" # loopback only — never reachable from the LAN
     environment:
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:?set OPENROUTER_API_KEY in the environment}
+      # Recent LiteLLM refuses to boot without a master key. Reuse the OpenRouter key: every client
+      # already sends it as the bearer (SDK via ANTHROPIC_AUTH_TOKEN, judge via apiKey).
+      LITELLM_MASTER_KEY: ${OPENROUTER_API_KEY}
     volumes:
       - ./litellm.config.yaml:/app/config.yaml:ro
     command: ["--config", "/app/config.yaml", "--port", "4000", "--num_workers", "1"]
