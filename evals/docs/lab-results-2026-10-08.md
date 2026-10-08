@@ -68,6 +68,19 @@ Practices that differ between the versions (judge verdicts per run):
 | reviewer-core / flags that `runPipeline` returns `deduped` directly, skipping `groundFindings()` | 1/2 | 2/2 |
 | reviewer-core / cites a specific documented source for the fs-import finding | 2/2 | 1/2 |
 
+**Cross-check in CI** ([eval-agents run 37812310595](https://github.com/otkachuk777/dev-digest/actions/runs/37812310595),
+sha `0a4e069`, OpenRouter `anthropic/claude-haiku-5.5`, n=1 per version; this is a different model, so it is not pooled with the series above):
+
+| case | strict | lite |
+|---|---|---|
+| flags both violations in the checkout diff | ✓ (judge 6/6) | ✓ (6/6) |
+| out-of-scope security-shaped change | ✓ (2/2) | × (0/2) |
+| DevDigest-specific rule identifier (reviewer-core) | ✓ (6/6) | × (3/6) |
+| benign rename | × (2/3) | × (2/3) |
+| **total** | **3/4** | **1/4** |
+
+The direction matches the n=2 series: lite loses on scope and on rule citation.
+
 Reading: removing the hard rule shows up exactly where it should. Lite stops citing a rule per
 finding (checkout 0/2 vs 2/2) and drifts out of scope (0/2 vs 1/1). It is not worse at *finding*
 the reviewer-core bug (2/2 vs 1/2). It is cheaper only on the trivial rename case. Strict stays the
@@ -82,11 +95,11 @@ Source: `evals/results/records.jsonl`. Counts below use the trace criterion:
 - positive activation: `engineering-insights` appears in `skills`;
 - negative control: no skill is invoked and nothing is written.
 
-| signal | case | sha `0d254dc` (Claude Code backend) | sha `2b13c5c` (OpenRouter, `anthropic/claude-haiku-5.5`) |
-|---|---|---|---|
-| dispatch | API-route task reads `server/docs/README.md` AND pulls the architecture-reviewer | 4/6 | 1/1 |
-| positive activation | engineering-insights activates on a genuine discovery | 10/12 | 0/1 |
-| negative control | near-miss — explaining the same topic must NOT record an insight | 7/7 no activation (vitest outcome 6/7: run `092248` failed on another assertion; no skill was invoked, cause not recorded) | 0/1 (hit the 4-turn limit before the assertion) |
+| signal | case | sha `0d254dc` (Claude Code backend) | sha `2b13c5c` (OpenRouter, `anthropic/claude-haiku-5.5`, local) | sha `0a4e069` (CI, OpenRouter Haiku 5.5) |
+|---|---|---|---|---|
+| dispatch | API-route task reads `server/docs/README.md` AND pulls the architecture-reviewer | 4/6 | 1/1 | ✅ |
+| positive activation | engineering-insights activates on a genuine discovery | 10/12 | 0/1 | ✅ |
+| negative control | near-miss — explaining the same topic must NOT record an insight | 7/7 no activation (vitest outcome 6/7: run `092248` failed on another assertion; no skill was invoked, cause not recorded) | 0/1 (hit the 4-turn limit before the assertion) | ✅ |
 
 One run where all three signals hold together, `run_id 20261008T091117` (outputs in
 `evals/results/outputs/20261008T091117/`):
@@ -97,9 +110,14 @@ One run where all three signals hold together, `run_id 20261008T091117` (outputs
 {"case": "near-miss negative …",             "subagents": [],                        "skills": [],                      "tools": [],                      "reads": []}
 ```
 
-Known gap: on OpenRouter Haiku 5.5 the positive activation case does not invoke the Skill tool (it
-reads `server/INSIGHTS.md` directly), and the negative case needs more than 4 turns. Not fixed here.
-`evals/README.md` already treats `activation` as indicative on non-default backends.
+**CI run on PR #22** ([eval-workflow run 37812310586](https://github.com/otkachuk777/dev-digest/actions/runs/37812310586),
+sha `0a4e069`, OpenRouter `anthropic/claude-haiku-5.5`) passed **15/15**: all three signals above, the
+other review-workflow cases, and the 10 `claude-md-routing` cases.
+
+The local OpenRouter run at `2b13c5c` failed positive activation (Haiku read `server/INSIGHTS.md`
+directly instead of invoking the Skill tool) and the negative control (4-turn limit). `0a4e069`
+blocks Write/Edit/Bash in eval sessions, which may be why the skill path is now taken, but that
+is not proven. With n=1 per environment, `activation` stays indicative, as `evals/README.md` says.
 
 ## 4. Structural quality gate
 
