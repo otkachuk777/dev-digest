@@ -92,6 +92,8 @@ The PR brief (SPEC-03) must make exactly one model call, so `completeStructured`
 
 **Rule:** a feature that must not retry needs a model that is valid on the first try — measure it through `POST /pulls/:id/brief` on a large real PR, not through mocks. `risk_brief` defaults to flash-lite; if a user's Settings picks deepseek for it, expect 502s (`server/src/vendor/shared/contracts/platform.ts`, `specs/SPEC-03-pr-brief.md` OQ-1, commit `cf0fbbf`)
 
+> **2026-10-09 correction:** flash-lite fits the brief and intent schemas, but not the **review** schema. The SPEC-04 eval runs gave each model its own result. On `google/gemini-2.5-flash-lite`, every review call got a 400 from Google, before any tokens were spent: `Invalid response_json_schema: reference to undefined schema at properties.findings.items.properties.evidence.anyOf.0.items.properties.component`. The strict `json_schema` that `toJsonSchema(Review)` builds contains a `$ref` Google can't resolve. `deepseek-v4-flash` timed out on 2 of 8 eval cases (120 s each). `anthropic/claude-haiku-5.5` passed 8/8 in 37 s for $0.007. **Rule:** don't put a review or eval agent on Gemini until the `Review` schema is inlined (no `$ref`). Check a candidate model with one `POST /agents/:id/eval-runs` (`reviewer-core/src/llm/openrouter.ts:75-76`, `reviewer-core/src/llm/structured.ts`, `server/docs/eval-pipeline.md` Known limitations).
+
 ## Codebase Patterns
 
 ### A rate-limited route needs `nodeEnv: 'development'` in its test, and it-tests that PUT `/settings` must restore it (2026-10)

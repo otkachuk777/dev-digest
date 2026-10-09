@@ -4,8 +4,9 @@
  * Exports (Zod schemas + inferred TS types):
  *  - contracts/findings   Review, Finding, Severity, Verdict, FindingAction, trifecta
  *  - contracts/brief      Intent, BlastRadius, Risks, ReviewFocusItem, PrHistory, SmartDiff, PrBrief
- *  - contracts/knowledge  Conformance, Onboarding, EvalRun/EvalCase, MemoryItem,
+ *  - contracts/knowledge  Conformance, Onboarding, MemoryItem,
  *                         Skill/CommunitySkill, ConventionCandidate, Agent
+ *  - contracts/eval       EvalCase/EvalCaseResult/EvalRunRecord/EvalRunDetail/EvalDashboard (SPEC-04)
  *  - contracts/trace      RunTrace, RunEvent, RunLogLine (single-document trace)
  *  - contracts/platform   Settings, ConnTestResult, Repo, PrMeta/PrDetail, ContextListing/AgentContext, …
  *  - adapters             adapter interfaces + ModelInfo
@@ -22,6 +23,7 @@ export * from './contracts/trace.js';
 export * from './contracts/platform.js';
 export * from './contracts/why.js';
 export * from './contracts/eval-ci.js';
+export * from './contracts/eval.js';
 export * from './contracts/observability.js';
 export * from './contracts/productionize.js';
 export * from './adapters.js';

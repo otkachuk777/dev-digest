@@ -41,7 +41,7 @@ import {
   agentContextDocs,
   skillContextDocs,
 } from './schema/context';
-import { evalCases, evalRuns, conformanceChecks, composedReviews } from './schema/eval';
+import { evalCases, evalRuns, evalCaseResults, conformanceChecks, composedReviews } from './schema/eval';
 import { ciInstallations, ciRuns } from './schema/ci';
 import { agentRuns, runTraces, multiAgentRuns } from './schema/runs';
 import { jobs, installedPlugins, digests } from './schema/ops';
@@ -82,6 +82,7 @@ export const schema = {
   skillContextDocs,
   evalCases,
   evalRuns,
+  evalCaseResults,
   conformanceChecks,
   composedReviews,
   ciInstallations,

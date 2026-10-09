@@ -7,6 +7,8 @@ import prReview from "../../../../../../../../../../../messages/en/prReview.json
 import { FileCard } from "./FileCard";
 import type { DiffFindingsApi } from "../findings";
 
+vi.mock("@/lib/api/eval", () => ({ useCaseFromFinding: () => ({ mutate: vi.fn(), isPending: false }) }));
+
 afterEach(cleanup);
 
 // A one-hunk patch that adds line 11.

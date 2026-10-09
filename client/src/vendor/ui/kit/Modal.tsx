@@ -16,6 +16,36 @@ export function Modal({
   children?: React.ReactNode;
   footer?: React.ReactNode;
 }) {
+  const titleId = React.useId();
+  const dialogRef = React.useRef<HTMLDivElement>(null);
+  // Move focus into the dialog on open, give it back to the opener on close.
+  React.useEffect(() => {
+    const active = document.activeElement as HTMLElement | null;
+    // Children's autoFocus runs first; don't steal it (and it is no opener to restore).
+    const inside = !!dialogRef.current?.contains(active);
+    const opener = inside ? null : active;
+    if (!inside) dialogRef.current?.focus();
+    return () => opener?.focus?.();
+  }, []);
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Escape") return onClose?.();
+    if (e.key !== "Tab") return;
+    const items = Array.from(
+      dialogRef.current?.querySelectorAll<HTMLElement>(
+        'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])',
+      ) ?? [],
+    );
+    if (!items.length) return e.preventDefault();
+    const first = items[0]!, last = items[items.length - 1]!;
+    const active = document.activeElement;
+    if (e.shiftKey && (active === first || active === dialogRef.current)) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && active === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  };
   return (
     <div style={{ position: "fixed", inset: 0, display: "grid", placeItems: "center", zIndex: 50, padding: 28 }}>
       <div
@@ -23,9 +53,14 @@ export function Modal({
         style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.5)", animation: "ddfadein .15s ease" }}
       />
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
+        onKeyDown={onKeyDown}
         style={{
+          outline: "none",
           position: "relative",
           width,
           maxWidth: "100%",
@@ -50,7 +85,7 @@ export function Modal({
           }}
         >
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 16, fontWeight: 700 }}>{title}</div>
+            <div id={titleId} style={{ fontSize: 16, fontWeight: 700 }}>{title}</div>
             {subtitle && (
               <div style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 2 }}>{subtitle}</div>
             )}
