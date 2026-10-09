@@ -144,6 +144,12 @@ Adding spare-port entries to a worktree's `.claude/launch.json` did nothing ("No
 
 **Rule:** to preview a worktree, add temporary entries to the main checkout's `.claude/launch.json` with `runtimeExecutable: "bash"`, `runtimeArgs: ["-c", "cd <abs worktree>/server && DEVDIGEST_CLONE_DIR=<abs main>/server/clones API_PORT=3121 WEB_PORT=3120 pnpm dev"]` (client: `NEXT_PUBLIC_API_BASE=http://localhost:3121 pnpm exec next dev -p 3120`), copy `server/.env` into the worktree, and `git checkout -- .claude/launch.json` afterwards.
 
+### Demo video without the Browser pane: Playwright MCP `recordVideo`, and its state lives in browser contexts, not `globalThis` (2026-10)
+
+The L06 screencast had to be recorded in a session without `mcp__Claude_Browser__*`, which the `browser-demo-screencast` skill needs. Playwright MCP `browser_run_code_unsafe` can open a recording context, `page.context().browser().newContext({ recordVideo: { dir, size } })`, but it failed first with "Executable doesn't exist at ~/Library/Caches/ms-playwright/ffmpeg-1011/ffmpeg-mac". Splitting the demo across several calls also broke, because `globalThis` is not kept between calls (`Cannot destructure property 'p' of 'globalThis.__demo'`). The opened contexts are kept, though. A context left from an aborted take kept recording until it was closed.
+
+**Rule:** symlink Homebrew ffmpeg in (`mkdir -p ~/Library/Caches/ms-playwright/ffmpeg-1011 && ln -sf /opt/homebrew/bin/ffmpeg …/ffmpeg-mac`; it needs `libvpx`). In each later call, find the recording context with `browser().contexts().find(c => c !== page.context() && c.pages().length)`, and close stale ones by checking `page.video().path()`. Add captions as an injected fixed `div` after every navigation. Before an action that writes data (Accept, Turn into eval case), assert the target card first. Then cut idle gaps out of the webm with ffmpeg `trim`/`setpts` (`freezedetect` finds them).
+
 ## Recurring Errors & Fixes
 
 _No entries yet._
