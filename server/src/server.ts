@@ -1,6 +1,7 @@
 import { buildApp } from './app.js';
 import { loadConfig } from './platform/config.js';
 import { ReviewService } from './modules/reviews/service.js';
+import { EvalService } from './modules/eval/service.js';
 
 /** Production/dev entrypoint. `pnpm dev` runs `tsx watch src/server.ts`. */
 async function main() {
@@ -18,6 +19,14 @@ async function main() {
     if (reaped > 0) app.log.info({ reaped }, 'reaped stale running agent_runs on boot');
   } catch (err) {
     app.log.warn({ err: (err as Error).message }, 'stale-run reaping failed (non-fatal)');
+  }
+
+  // Same for eval suite runs (AC-46): a dead process leaves them `running`, which blocks new runs.
+  try {
+    const reaped = await new EvalService(app.container).reapInterrupted();
+    if (reaped > 0) app.log.info({ reaped }, 'reaped interrupted eval runs on boot');
+  } catch (err) {
+    app.log.warn({ err: (err as Error).message }, 'eval run reaping failed (non-fatal)');
   }
 
   // Graceful shutdown: on SIGTERM/SIGINT close the server, which runs the

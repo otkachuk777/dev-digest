@@ -16,6 +16,7 @@ import {
   API_BREAKING_CHANGES_SKILL,
   API_VERSIONING_SKILL,
 } from './seed-skills.js';
+import { seedEvalCases } from './seed-evals.js';
 
 /** Default provider/model for the built-in reviewer agents. */
 const DEFAULT_PROVIDER = 'openrouter' as const;
@@ -595,6 +596,13 @@ export async function seed(db: Db): Promise<{ workspaceId: string; userId: strin
         .onConflictDoNothing();
     }
   }
+
+  // ---- eval cases for the Security Reviewer (SPEC-04) ----
+  const [secAgent] = await db
+    .select({ id: t.agents.id })
+    .from(t.agents)
+    .where(and(eq(t.agents.workspaceId, workspaceId), eq(t.agents.name, 'Security Reviewer')));
+  if (secAgent) await seedEvalCases(db, workspaceId, secAgent.id);
 
   return { workspaceId, userId };
 }

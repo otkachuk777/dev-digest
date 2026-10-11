@@ -18,7 +18,7 @@ You (the main session) are the orchestrator: subagents cannot ask the user or co
 
 ## Where are we? (resume)
 
-`S=.claude/skills/impl/scripts`; `$S/impl-status.sh <arg>` → `phase=… spec=… status=… plan=… last=… review_round=…`. State lives only in artifacts: SPEC `Status`, the plan (`- Source:` line), commits `SDD(SPEC-NN): <phase>` and the plan's `## Review log`. `/impl SPEC-NN` in a fresh session continues where the last one stopped — suggest it after Build when this session's context is large.
+`S=.claude/skills/impl/scripts`; `$S/impl-status.sh <arg>` → `phase=… spec=… status=… plan=… last=… review_round=…`. State lives only in artifacts: SPEC `Status`, the plan (`- Source:` line), commits `SDD(SPEC-NN): <phase>` and the plan's `## Review log`. `/impl SPEC-NN` in a fresh session continues where the last one stopped. After Build, and again after Review, check this session's context. If it is past ~250K, stop and tell the user to run `/impl SPEC-NN` in a fresh session; do not go on to the next phase here.
 
 | phase | Do |
 |---|---|
@@ -57,6 +57,8 @@ Every phase ends with `git commit -m "SDD(SPEC-NN): <phase>" -- <explicit paths>
 ## Phase 2 — Gate
 
 0. Change touches `client/` → the main session runs the app from the worktree on spare ports (`preview_start` with a launch entry for API/web ports not used by the user's dev server; never `pnpm build` over a running `next dev`) and clicks through every new screen and state at 1024 px (`read_page` / `javascript_tool` for overflow: `scrollWidth > clientWidth`), and screenshots each screen next to the design reference the spec names (`docs/designs/extracted/<screen>`, the design file screen or the user's image). List visual gaps — layout, component kinds (cards, rows, badges), colours, header actions, navigation chrome — not just behaviour. Layout, design or behavior gaps → implementer fix mode (with the design reference path) before plan-verifier; commit `chunk-<k>-fix`.
+
+0b. Feature makes LLM calls → trigger one real run through the app on the agent's configured model; every test mocks the provider, so timeouts, schema rejections and invalid output only show up here. Record model, pass rate, duration and cost in the plan's `## Review log`. A provider error or timeout is a gate finding: report it to the user, with the cheapest model that passes as an option.
 
 plan-verifier `pass: 1` with plan, SPEC, reports (and `red_sha` in test-first). `Not met` / `Partially met` → implementer for those items (SendMessage to the chunk's implementer if its context is small, else fresh). At most 2 attempts, then escalate to the user. Done → commit `gate`.
 

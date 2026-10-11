@@ -13,7 +13,7 @@ import { useAgents, useAgent, useUpdateAgent } from "@/lib/api/agents";
 import { ApiError } from "@/lib/api/client";
 import { s } from "./styles";
 
-const VALID_TABS = ["config", "skills", "context"];
+const VALID_TABS = ["config", "skills", "context", "evals"];
 
 export function AgentEditorView() {
   const params = useParams<{ id: string }>();

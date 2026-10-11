@@ -3,6 +3,7 @@ import { render, screen, cleanup } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import type { Agent } from "@devdigest/shared";
 import messages from "../../../../../../../messages/en/agents.json";
+import evalMessages from "../../../../../../../messages/en/eval.json";
 import { ToastProvider } from "@/lib/toast";
 
 // Mock the data hooks so the editor renders without a network/query client.
@@ -20,6 +21,15 @@ vi.mock("@/components/context/ContextTab", () => ({
       ctx:{p.owner.kind}:{p.owner.id}:{p.repoId}:{p.repoName}
     </div>
   ),
+}));
+
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
+vi.mock("@/lib/api/eval", () => ({
+  useEvalCases: () => ({ data: [], isLoading: false }),
+  useEvalRuns: () => ({ data: [] }),
+  useStartEvalRun: () => ({ mutate: vi.fn(), isPending: false }),
+  useRunEvalCase: () => ({ mutate: vi.fn(), isPending: false, variables: undefined }),
+  useDeleteEvalCase: () => ({ mutate: vi.fn(), isPending: false }),
 }));
 
 import { AgentEditor } from "./AgentEditor";
@@ -44,7 +54,7 @@ const AGENT: Agent = {
 
 function renderWithIntl(ui: React.ReactElement) {
   return render(
-    <NextIntlClientProvider locale="en" messages={{ agents: messages }}>
+    <NextIntlClientProvider locale="en" messages={{ agents: messages, eval: evalMessages }}>
       <ToastProvider>{ui}</ToastProvider>
     </NextIntlClientProvider>,
   );
@@ -62,5 +72,12 @@ describe("A2 Agent Editor (smoke)", () => {
     renderWithIntl(<AgentEditor agent={AGENT} tab="context" onTab={() => {}} />);
     expect(screen.getByText("Context")).toBeInTheDocument();
     expect(screen.getByText("ctx:agent:ag1:r1:acme/api")).toBeInTheDocument();
+  });
+
+  it("AC-15: has an Evals tab after Context that renders the Evals tab body", () => {
+    renderWithIntl(<AgentEditor agent={AGENT} tab="evals" onTab={() => {}} />);
+    const labels = screen.getAllByRole("button").map((b) => b.textContent);
+    expect(labels.indexOf("Evals")).toBe(labels.indexOf("Context") + 1);
+    expect(screen.getByRole("button", { name: "Run all evals" })).toBeInTheDocument();
   });
 });

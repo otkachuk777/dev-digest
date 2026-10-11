@@ -47,6 +47,12 @@ SPEC-01 added a `context` tab to `AgentEditor`'s and `SkillEditor`'s `TABS`. The
 
 **Rule:** a new editor tab goes into both the editor's `TABS` constant and the route view's `VALID_TABS`. Test the view with `?tab=<new>`, not only the editor with a `tab` prop (`app/(shell)/agents/[id]/_components/AgentEditorView/AgentEditorView.tsx:16`, `app/(shell)/skills/_components/SkillsView/SkillsView.tsx`, regression tests `AgentEditorView.test.tsx`, `SkillsView.test.tsx`).
 
+### A data hook inside `FindingCard` breaks every test that renders it indirectly (2026-10)
+
+SPEC-04 added `EvalCaseButton` (it uses `useQueryClient` and mutations from `@/lib/api/eval`) to `FindingCard`. `FindingCard`'s own tests were updated and passed. Then 5 tests in other folders failed with "No QueryClient set". `FindingsPanel.test.tsx` and `DiffTab/diff-viewer/FileCard/FileCard.test.tsx` render `FindingCard` through their own trees, with no provider and no mock for the new module.
+
+**Rule:** when a shared leaf such as `FindingCard` gains a hook that needs a provider, grep for every test that renders it (`grep -rl "FindingCard\|FindingsPanel\|FileCard" src --include=*.test.tsx`). Add the module mock there too (`vi.mock("@/lib/api/eval", …)`), or wrap those tests in a `QueryClientProvider`. Run the full `pnpm test`, not just the component's own file (`…/_components/FindingCard/EvalCaseButton.tsx`, `FindingsPanel.test.tsx`, `FileCard.test.tsx`, commit `4ef1078`).
+
 ## Tool & Library Notes
 
 ### `@testing-library/user-event` is not installed — use `fireEvent` (2026-09-18)

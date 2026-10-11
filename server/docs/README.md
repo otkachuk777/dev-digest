@@ -22,6 +22,7 @@ The server is organized into four layers, each with distinct responsibilities:
 - `pulls/`: PR import, sync, list, detail (see [routes.ts:14–22](../src/modules/pulls/routes.ts)); exports three reduce-on-read helpers: `deriveReviewStatus`, `totalCostByPr`, `findingsCountsByPr`
 - `reviews/`: review trigger, SSE run events, trace read, finding actions, PR Intent derive/re-derive (see [routes.ts:10–19](../src/modules/reviews/routes.ts)) — the Intent Layer that runs before each review is documented separately in [`intent-layer.md`](intent-layer.md)
 - `agents/`: agent CRUD (create/list/update/delete)
+- `eval/`: eval cases, suite runs, scoring, dashboard (see [`eval-pipeline.md`](eval-pipeline.md))
 - `settings/`, `workspace/`, `repoIntel/`: platform settings and workspace config
 
 **`src/db`** — Drizzle ORM schema and migrations:

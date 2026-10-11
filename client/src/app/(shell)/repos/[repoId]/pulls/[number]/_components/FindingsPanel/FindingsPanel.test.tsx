@@ -4,6 +4,7 @@ import { NextIntlClientProvider } from "next-intl";
 import type { FindingRecord } from "@devdigest/shared";
 import messages from "../../../../../../../../../messages/en/prReview.json";
 
+vi.mock("@/lib/api/eval", () => ({ useCaseFromFinding: () => ({ mutate: vi.fn(), isPending: false }) }));
 vi.mock("@/lib/api/reviews", () => ({
   useFindingAction: () => ({ mutate: vi.fn(), isPending: false }),
 }));

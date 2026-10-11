@@ -99,6 +99,10 @@ consumer.
    the run trace. See
    [`server/docs/project-context.md`](../server/docs/project-context.md) and
    [ADR 0001](adr/0001-project-context-storage-glob-budget.md).
+7. **Eval** — saved diffs ("eval cases") are replayed through the same
+   `reviewPullRequest` pipeline by a background suite run per agent; recall,
+   precision and citation accuracy are stored per run and shown at `/eval`. See
+   [`server/docs/eval-pipeline.md`](../server/docs/eval-pipeline.md).
 
 Each package has its own README with deeper diagrams:
 [`client`](../client/README.md) (UI route map) ·

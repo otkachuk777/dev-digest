@@ -3,7 +3,10 @@ import { render, screen, fireEvent, cleanup } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import type { FindingRecord } from "@devdigest/shared";
 import messages from "../../../../../../../../../messages/en/prReview.json";
+import evalMessages from "../../../../../../../../../messages/en/eval.json";
 import { FindingCard } from "./FindingCard";
+
+vi.mock("@/lib/api/eval", () => ({ useCaseFromFinding: () => ({ mutate: vi.fn(), isPending: false }) }));
 
 afterEach(cleanup);
 
@@ -28,7 +31,7 @@ const FINDING: FindingRecord = {
 
 function renderWithIntl(ui: React.ReactElement) {
   return render(
-    <NextIntlClientProvider locale="en" messages={{ prReview: messages }}>
+    <NextIntlClientProvider locale="en" messages={{ prReview: messages, eval: evalMessages }}>
       {ui}
     </NextIntlClientProvider>,
   );
@@ -56,5 +59,10 @@ describe("FindingCard (smoke, both themes)", () => {
     expect(onAction).toHaveBeenCalledWith("accept");
     fireEvent.click(screen.getByText("Dismiss"));
     expect(onAction).toHaveBeenCalledWith("dismiss");
+  });
+
+  it("SPEC-04 AC-1: renders the Turn into eval case button next to accept/dismiss", () => {
+    renderWithIntl(<FindingCard f={FINDING} defaultExpanded onAction={() => {}} />);
+    expect(screen.getByRole("button", { name: "Turn into eval case" })).toBeInTheDocument();
   });
 });

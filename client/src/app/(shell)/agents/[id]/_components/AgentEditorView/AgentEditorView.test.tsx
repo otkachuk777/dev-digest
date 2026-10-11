@@ -42,6 +42,12 @@ describe("AgentEditorView tab routing", () => {
     expect(screen.getByText("active-tab:context")).toBeInTheDocument();
   });
 
+  it("?tab=evals selects the Evals tab", () => {
+    tabParam = "evals";
+    renderView();
+    expect(screen.getByText("active-tab:evals")).toBeInTheDocument();
+  });
+
   it("an unknown tab falls back to config", () => {
     tabParam = "nope";
     renderView();

@@ -59,6 +59,8 @@ All data fetching is lazy and cached via TanStack Query hooks in `src/lib/hooks/
 
 **Global error handling** (`src/lib/providers.tsx` line 21–55): Mutation errors toast immediately. Query errors only toast on network/5xx (4xx stay silent for inline empty states).
 
+The eval screens (`/eval`, `/eval/[agentId]`, the agent editor's Evals tab) and their query hooks (`src/lib/api/eval.ts`) are described in [`../../server/docs/eval-pipeline.md`](../../server/docs/eval-pipeline.md#client).
+
 ## Styling Convention
 
 **No CSS modules, no Tailwind classes in JSX.** All inline styles are `CSSProperties` objects in colocated `styles.ts` files.

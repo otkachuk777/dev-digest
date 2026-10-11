@@ -11,6 +11,12 @@ _No entries yet._
 
 ## What Doesn't Work
 
+### The rtk hook silently truncates `grep` over INSIGHTS.md, so agents miss entries (2026-10-08)
+
+During SPEC-04 review the architecture-reviewer said it saw only part of `server/INSIGHTS.md` (204 lines) and `client/INSIGHTS.md` (142 lines). The global PreToolUse hook (`~/.claude/hooks/rtk-rewrite.sh`) rewrites `grep` to `rtk grep`, which keeps at most 25 matches per file (`[limits] grep_max_per_file`), cuts lines at ~80 chars, and ends with `+179 more … [hidden: rtk recall <hash>]`. A `grep -n "" file` or `grep -A3 "^###"` read of an INSIGHTS file therefore returns a fragment that looks complete. `cat` is not the culprit: it becomes `rtk read`, whose default `--level none` returns the whole file.
+
+**Rule:** read INSIGHTS.md / CLAUDE.md / specs / plans with the Read tool or `cat`, not `grep`. As a guard, `~/Library/Application Support/rtk/config.toml` now has `[hooks] exclude_commands = ['^(grep|egrep|rg)\b.*\.md\b']` (a `^` entry is a regex matched against the whole command), so grep/rg over `.md` passes through unfiltered and other grep calls keep their savings. Check with `rtk rewrite 'grep -n x server/INSIGHTS.md'` → exit 1 (no rewrite). The config is per-machine, so on a new machine read in full instead of trusting grep output.
+
 ### A hook's `"once": true` did not suppress repeat firing in the Claude Desktop app harness (2026-09-18)
 
 Added a `Stop` hook to `.claude/settings.json` with `"once": true` (per the documented schema: "hook runs once and is removed after execution") to nudge `/engineering-insights` at session wrap-up without nagging every turn. It still fired its `additionalContext` after every single assistant turn — across a session restart too, not just within one live process — so `once` bought nothing observable here. Root cause unconfirmed (no access to the harness's hook-execution internals from inside the session); could be host-specific (Claude Desktop's Code tab) rather than a general Claude Code bug.
@@ -137,6 +143,12 @@ The plan's parallel layout, one worktree per group, also failed. Implementers sp
 Adding spare-port entries to a worktree's `.claude/launch.json` did nothing ("No server named … found"); the Browser pane only reads the launch file of the session's original project. A worktree server started with `pnpm --dir server dev` also resolved `DEVDIGEST_CLONE_DIR=./clones` relative to the worktree, so every repo showed `no_clone`.
 
 **Rule:** to preview a worktree, add temporary entries to the main checkout's `.claude/launch.json` with `runtimeExecutable: "bash"`, `runtimeArgs: ["-c", "cd <abs worktree>/server && DEVDIGEST_CLONE_DIR=<abs main>/server/clones API_PORT=3121 WEB_PORT=3120 pnpm dev"]` (client: `NEXT_PUBLIC_API_BASE=http://localhost:3121 pnpm exec next dev -p 3120`), copy `server/.env` into the worktree, and `git checkout -- .claude/launch.json` afterwards.
+
+### Demo video without the Browser pane: Playwright MCP `recordVideo`, and its state lives in browser contexts, not `globalThis` (2026-10)
+
+The L06 screencast had to be recorded in a session without `mcp__Claude_Browser__*`, which the `browser-demo-screencast` skill needs. Playwright MCP `browser_run_code_unsafe` can open a recording context, `page.context().browser().newContext({ recordVideo: { dir, size } })`, but it failed first with "Executable doesn't exist at ~/Library/Caches/ms-playwright/ffmpeg-1011/ffmpeg-mac". Splitting the demo across several calls also broke, because `globalThis` is not kept between calls (`Cannot destructure property 'p' of 'globalThis.__demo'`). The opened contexts are kept, though. A context left from an aborted take kept recording until it was closed.
+
+**Rule:** symlink Homebrew ffmpeg in (`mkdir -p ~/Library/Caches/ms-playwright/ffmpeg-1011 && ln -sf /opt/homebrew/bin/ffmpeg …/ffmpeg-mac`; it needs `libvpx`). In each later call, find the recording context with `browser().contexts().find(c => c !== page.context() && c.pages().length)`, and close stale ones by checking `page.video().path()`. Add captions as an injected fixed `div` after every navigation. Before an action that writes data (Accept, Turn into eval case), assert the target card first. Then cut idle gaps out of the webm with ffmpeg `trim`/`setpts` (`freezedetect` finds them).
 
 ## Recurring Errors & Fixes
 

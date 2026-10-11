@@ -48,6 +48,7 @@ Settle a suspicion by reading callers or running one targeted test; drop it if r
 The caller (the `/impl` review loop) may pass `Re-review mode`, a delta `<from>..<to>` and the prior findings (`<id> | severity | file:line | problem`). Then:
 - Scope is the delta only (`git diff <from>..<to>`).
 - Give every prior finding a status with evidence: **resolved**, **open**, **regressed**. Report them in `## Prior findings`.
+- If the fix makes the client branch on a value from the API (a status, a flag, a field), open the server code that builds that field and confirm it can really emit that value. Tracing only the client side does not prove **resolved**.
 - New findings only on lines the delta changed or added.
 
 ## Severity
