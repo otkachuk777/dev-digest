@@ -11,7 +11,7 @@ import type { PrStatus } from '@devdigest/shared';
  */
 
 /** Open PRs whose current head was reviewed but untouched this long read "stale". */
-export const STALE_DAYS = 7;
+export const STALE_DAYS = 10;
 
 export interface SeverityCounts {
   critical: number;
